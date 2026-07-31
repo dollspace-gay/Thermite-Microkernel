@@ -133,6 +133,13 @@ exhaustive gate scan; and eight semantic, completeness, proof-escape, and proof-
 dependency negatives fail. This proves the data images, not `LGDT`, `LIDT`,
 `LTR`, segment reload, exception stubs, or hardware entry.
 
+The following M1 descriptor-install checkpoint registers and post-links the
+exact 38-byte `LGDT`/segment-reload/`LTR`/`LIDT` capsule. Its direct Verus model
+proves 19 obligations, including same-privilege far-return stack behavior and
+the TSS busy-bit write. Three model, runtime, and linked artifacts reproduce,
+and eight byte, section, semantic, and proof-escape cases fail. The capsule has
+not yet executed in the boot VM; its real caller and exception stubs remain open.
+
 The standalone probe's toolchain-binding gate is locally closed by pinned
 Thermite `v0.0.2` commit `845d684f00e829491ee4c537818fba2689bcaefc`. Forge records both
 ambient Rust 1.96 and the authoritative Verus-selected Rust 1.95 codegen closure;

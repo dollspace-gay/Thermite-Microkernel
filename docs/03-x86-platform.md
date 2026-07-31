@@ -288,6 +288,36 @@ The selected stack tops still require placement in guarded mapped pages. No
 instruction has executed on hardware. Those effects are the next capsule and
 BSP-entry checkpoints.
 
+### 6.2 Implemented descriptor-install capsule checkpoint
+
+The exact 38-byte descriptor-install sequence is registered at
+`0xffffffff80001010`. It executes `LGDT [RDI]`, loads the kernel-data selector
+into DS/ES/SS, uses a same-privilege `RETFQ` to reload CS, executes `LTR` with the
+TSS selector, executes `LIDT [RSI]`, and returns. The PC-relative far target is
+inside the registered byte range, and the linked capsule has no relocations.
+
+The direct Verus machine model requires CPL 0, disabled maskable interrupts, an
+explicit asynchronous-event-free interval, canonical readable GDTR/IDTR
+operands and table ranges, registered GDT/IDT content, a writable available TSS
+descriptor, writable far-return stack space, and a readable final return slot.
+It proves exact GDTR/IDTR limits and bases, CS/DS/ES/SS/TR values, the net
+eight-byte call/return stack effect, RDI/RSI/RFLAGS preservation, RAX clobber to
+`0x28`, and the architectural available-to-busy TSS-descriptor transition.
+
+`cargo run -p xtask -- m1-descriptor-install` performs three reproducible model
+builds, three runtime decoder/emitter executions, and three high-half post-links;
+requires one 38-byte executable section with no relocations and the complete
+expected disassembly; and rejects eight byte, extra-section, semantic, and
+proof-escape mutations. See
+[M1 descriptor-install capsule](../evidence/m1/descriptor-install-capsule.md).
+
+This closes exact-byte refinement and link identity, not the live call site.
+FS/GS and their bases are deferred to the per-CPU setup capsule. No exception
+stub exists yet, and this capsule has not run under OVMF/QEMU. The BSP must still
+prove concrete operand/table/stack ownership, enforce the asynchronous
+quiescence requirement, call these exact linked bytes, and read back the
+installed register state before the hardware-execution claim closes.
+
 ## 7. System-call and exception entry
 
 `IA32_LSTAR` points to a proved entry capsule. The capsule:

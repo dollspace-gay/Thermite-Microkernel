@@ -151,13 +151,21 @@ three model artifacts and three executable consumers reproduce byte-for-byte;
 each consumer exhaustively scans every gate; and eight negative gates fail. See
 [M1 descriptor-table images](../evidence/m1/descriptor-tables.md).
 
+The exact-byte descriptor-install capsule is a seventh accepted M1
+subcomponent. Its direct Verus model proves 19 obligations for the 38-byte
+`LGDT`, DS/ES/SS reload, same-privilege CS far return, `LTR`, `LIDT`, and final
+return sequence, including the TSS busy-bit write. Three models, runtime
+executions, and high-half links reproduce byte-for-byte; eight semantic and
+post-link mutations fail. See
+[M1 descriptor-install capsule](../evidence/m1/descriptor-install-capsule.md).
+
 This status does not close M1. The raw `BootInfo` decoder remains fail-closed
 pending Thermite [#108](https://github.com/dollspace-gay/Thermite/issues/108), and
 the UEFI call gateway, raw map decoding and real `ExitBootServices` execution,
 general page-table construction/physical placement, the verified CR3 call site
 and hardware execution, descriptor-register loading and entry stubs, BSP entry
-state, interrupt/timer path, QEMU boots, and the final signed `M1_OK` gate remain
-to be implemented.
+state, live descriptor-install execution, interrupt/timer path, QEMU boots, and
+the final signed `M1_OK` gate remain to be implemented.
 
 Deliver:
 
