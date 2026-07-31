@@ -50,13 +50,17 @@ here.
 | G-011 | closed locally | combined exact-source verification/codegen, runtime consumers, exact selected primitive, canonical final-link allowlist, independent manifest replay/audit, and signed binding pass | preserve the receipts, final-object allowlist, and seventeen-case manifest regression |
 | G-012 | closed locally and upstream; #103 closed by merged PR #105 | L3 receipt previously recorded ambient rustc 1.96 although Verus emits an rlib with rustc 1.95 metadata | receipt binds rustc/sysroot/LLVM closure; selected consumer links and incompatible host rustc is rejected |
 | G-013 | closed upstream and locally | the exact-source rich-state composition build reproduces and replays; the local build/validate/replay/runtime/link/11-negative matrix passes | preserve as a pinned shakedown regression |
+| G-014 | open upstream; Thermite #108 | `--target kernel --no-vstd` compositions cannot state a content-preserving contract for executable `&[u8]` indexing because the slice `View`/`spec_index` model is absent | add a no-stdlib verified byte-slice view or equivalent Forge-owned wrapper; prove endian readers, bounds rejection, runtime behavior, replay, and freestanding link without an unverified conversion seam |
 
-No toolchain-closure ledger item blocks M1. G-005 is a verified input to the
-accepted and manifest-bound G-011 final-link receipt. G-006's M0 acceptance instance
-is closed, including the exact-byte UEFI entry/return probe and real OVMF
-TCG/KVM boot; additional privileged operations are M1 proof work. Closed-upstream
-rows remain pinned TMK regression tests; an upstream capability is not treated
-as locally demonstrated until the M0 replay and negative-test matrix pass.
+No toolchain-closure ledger item blocks the completed M0 evidence. G-014 blocks
+the content-preserving raw-byte `BootInfo` composition but not independent M1
+scalar policy and capsule work; TMK will not bypass it with an unverified adapter.
+G-005 is a verified input to the accepted and manifest-bound G-011 final-link
+receipt. G-006's M0 acceptance instance is closed, including the exact-byte UEFI
+entry/return probe and real OVMF TCG/KVM boot; additional privileged operations
+are M1 proof work. Closed-upstream rows remain pinned TMK regression tests; an
+upstream capability is not treated as locally demonstrated until its local replay
+and negative-test matrix pass.
 
 G-005 was closed without an executable escape hatch. A direct Verus model
 registers and decodes the exact allocation, seal, `memcpy`, and `memset`

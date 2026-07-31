@@ -321,7 +321,7 @@ production release. See
 
 The independently reproduced M0 UEFI probe image is now implemented and boots
 under OVMF with TCG and KVM; see `evidence/m0/uefi-image.md`. Its loader and image
-digests are in the signed development manifest described above. That binding does
+digests are in the signed development manifest described above. That binding
 does not make the image a release artifact; M0's signed development binding is
 complete, while production requires an external key and later release inputs.
 

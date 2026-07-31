@@ -1,0 +1,345 @@
+struct BootPolicyState {
+  phase: u32,
+  expected_ranges: u64,
+  accepted_ranges: u64,
+  last_end: u64,
+} inv phase <= 2 && accepted_ranges <= expected_ranges &&
+      (accepted_ranges != 0 || last_end == 0)
+
+enum BootPolicyEvent {
+  Header {
+    magic: u64,
+    abi_major: u32,
+    abi_minor: u32,
+    header_length: u64,
+    total_length: u64,
+    flags: u64,
+    map_offset: u64,
+    map_entry_size: u64,
+    map_count: u64,
+    command_offset: u64,
+    command_length: u64,
+    seed_offset: u64,
+    seed_length: u64,
+    kernel_phys_start: u64,
+    kernel_phys_end: u64,
+    kernel_virt_start: u64,
+    kernel_virt_end: u64,
+    service_start: u64,
+    service_length: u64,
+    config_start: u64,
+    config_length: u64,
+    rsdp: u64,
+    checksum_valid: bool,
+    service_digest_present: bool,
+    config_digest_present: bool,
+    framebuffer_valid: bool,
+  },
+  Range {
+    start: u64,
+    end: u64,
+    kind: u32,
+    reserved_zero: bool,
+  },
+  Finish,
+}
+
+enum BootPolicyAction {
+  HeaderAccepted,
+  RangeAccepted,
+  Complete,
+  Reject { code: u32 },
+}
+
+fn boot_policy_step(state: BootPolicyState, event: BootPolicyEvent)
+  -> (BootPolicyState, BootPolicyAction)
+  req true
+  ens result.0.phase >= state.phase
+  ens result.0.phase <= 2
+  ens result.0.accepted_ranges <= result.0.expected_ranges
+  ens match result.1 {
+    BootPolicyAction::HeaderAccepted =>
+      state.phase == 0 &&
+      result.0.phase == 1 &&
+      result.0.accepted_ranges == 0 &&
+      result.0.last_end == 0,
+    BootPolicyAction::RangeAccepted =>
+      state.phase == 1 &&
+      result.0.phase == 1 &&
+      result.0.expected_ranges == state.expected_ranges &&
+      result.0.accepted_ranges == state.accepted_ranges + 1 &&
+      result.0.last_end >= state.last_end,
+    BootPolicyAction::Complete =>
+      state.phase == 1 &&
+      state.accepted_ranges == state.expected_ranges &&
+      result.0.phase == 2 &&
+      result.0.expected_ranges == state.expected_ranges &&
+      result.0.accepted_ranges == state.accepted_ranges &&
+      result.0.last_end == state.last_end,
+    BootPolicyAction::Reject { code } =>
+      code != 0 && result.0.phase == state.phase &&
+      result.0.expected_ranges == state.expected_ranges &&
+      result.0.accepted_ranges == state.accepted_ranges &&
+      result.0.last_end == state.last_end,
+  }
+  ens match event {
+    BootPolicyEvent::Header {
+      magic,
+      abi_major,
+      abi_minor,
+      header_length,
+      total_length,
+      flags,
+      map_offset,
+      map_entry_size,
+      map_count,
+      command_offset,
+      command_length,
+      seed_offset,
+      seed_length,
+      kernel_phys_start,
+      kernel_phys_end,
+      kernel_virt_start,
+      kernel_virt_end,
+      service_start,
+      service_length,
+      config_start,
+      config_length,
+      rsdp,
+      checksum_valid,
+      service_digest_present,
+      config_digest_present,
+      framebuffer_valid
+    } => match result.1 {
+      BootPolicyAction::HeaderAccepted =>
+        state.phase == 0 &&
+        magic == 0x3154_4f4f_424b_4d54 &&
+        abi_major == 1 && abi_minor == 0 &&
+        header_length == 256 && map_offset == 256 &&
+        map_entry_size == 32 && map_count <= 256 &&
+        command_length <= 4096 && seed_length <= 64 &&
+        total_length <= 12608 && flags <= 7 &&
+        kernel_phys_start < kernel_phys_end &&
+        (kernel_phys_start & 4095) == 0 &&
+        (kernel_phys_end & 4095) == 0 &&
+        kernel_phys_end - kernel_phys_start <= 1073741824 &&
+        service_length != 0 && service_length <= 67108864 &&
+        config_length != 0 && config_length <= 1048576 &&
+        command_offset == 256 + map_count * 32 &&
+        seed_offset == command_offset + command_length &&
+        total_length == seed_offset + seed_length &&
+        kernel_virt_start == 0xffff_ffff_8000_0000 &&
+        kernel_virt_end == kernel_virt_start +
+                           (kernel_phys_end - kernel_phys_start) &&
+        (service_start & 4095) == 0 &&
+        service_start <= 0xffff_ffff_ffff_ffff - service_length &&
+        (config_start & 4095) == 0 &&
+        config_start <= 0xffff_ffff_ffff_ffff - config_length &&
+        !(((flags & 2) == 2) && seed_length != 32) &&
+        !(((flags & 2) == 0) && seed_length != 0) &&
+        framebuffer_valid && service_digest_present &&
+        config_digest_present && rsdp != 0 && (rsdp & 15) == 0 &&
+        checksum_valid,
+      BootPolicyAction::RangeAccepted => false,
+      BootPolicyAction::Complete => false,
+      BootPolicyAction::Reject { code } =>
+        code == if state.phase != 0 {
+          1 as u32
+        } else {
+          if magic != 0x3154_4f4f_424b_4d54 ||
+             abi_major != 1 || abi_minor != 0 ||
+             header_length != 256 || map_offset != 256 ||
+             map_entry_size != 32 || map_count > 256 ||
+             command_length > 4096 || seed_length > 64 ||
+             total_length > 12608 || flags > 7 ||
+             kernel_phys_start >= kernel_phys_end ||
+             (kernel_phys_start & 4095) != 0 ||
+             (kernel_phys_end & 4095) != 0 ||
+             kernel_phys_end - kernel_phys_start > 1073741824 ||
+             service_length == 0 || service_length > 67108864 ||
+             config_length == 0 || config_length > 1048576 {
+            2 as u32
+          } else {
+            if command_offset != 256 + map_count * 32 ||
+               seed_offset != command_offset + command_length ||
+               total_length != seed_offset + seed_length ||
+               kernel_virt_start != 0xffff_ffff_8000_0000 ||
+               kernel_virt_end != kernel_virt_start +
+                                  (kernel_phys_end - kernel_phys_start) ||
+               (service_start & 4095) != 0 ||
+               service_start > 0xffff_ffff_ffff_ffff - service_length ||
+               (config_start & 4095) != 0 ||
+               config_start > 0xffff_ffff_ffff_ffff - config_length {
+              3 as u32
+            } else {
+              if (((flags & 2) == 2) && seed_length != 32) ||
+                 (((flags & 2) == 0) && seed_length != 0) ||
+                 !framebuffer_valid || !service_digest_present ||
+                 !config_digest_present || rsdp == 0 ||
+                 (rsdp & 15) != 0 || !checksum_valid {
+                4 as u32
+              } else {
+                0 as u32
+              }
+            }
+          }
+        },
+    },
+    BootPolicyEvent::Range { start, end, kind, reserved_zero } =>
+      match result.1 {
+        BootPolicyAction::HeaderAccepted => false,
+        BootPolicyAction::RangeAccepted =>
+          state.phase == 1 &&
+          state.accepted_ranges < state.expected_ranges &&
+          start < end && (start & 4095) == 0 && (end & 4095) == 0 &&
+          end <= 0x0010_0000_0000_0000 &&
+          (state.accepted_ranges == 0 || start >= state.last_end) &&
+          kind != 0 && kind <= 9 && reserved_zero,
+        BootPolicyAction::Complete => false,
+        BootPolicyAction::Reject { code } =>
+          code == if state.phase != 1 {
+            12 as u32
+          } else {
+            if state.accepted_ranges >= state.expected_ranges ||
+               start >= end || (start & 4095) != 0 ||
+               (end & 4095) != 0 || end > 0x0010_0000_0000_0000 ||
+               (state.accepted_ranges != 0 && start < state.last_end) ||
+               kind == 0 || kind > 9 || !reserved_zero {
+              13 as u32
+            } else {
+              0 as u32
+            }
+          },
+      },
+    BootPolicyEvent::Finish => match result.1 {
+      BootPolicyAction::HeaderAccepted => false,
+      BootPolicyAction::RangeAccepted => false,
+      BootPolicyAction::Complete =>
+        state.phase == 1 && state.accepted_ranges == state.expected_ranges,
+      BootPolicyAction::Reject { code } =>
+        code == if state.phase == 1 &&
+                   state.accepted_ranges == state.expected_ranges {
+          0 as u32
+        } else {
+          17 as u32
+        },
+    },
+  }
+  fx pure
+{
+  match event {
+    BootPolicyEvent::Header {
+      magic,
+      abi_major,
+      abi_minor,
+      header_length,
+      total_length,
+      flags,
+      map_offset,
+      map_entry_size,
+      map_count,
+      command_offset,
+      command_length,
+      seed_offset,
+      seed_length,
+      kernel_phys_start,
+      kernel_phys_end,
+      kernel_virt_start,
+      kernel_virt_end,
+      service_start,
+      service_length,
+      config_start,
+      config_length,
+      rsdp,
+      checksum_valid,
+      service_digest_present,
+      config_digest_present,
+      framebuffer_valid
+    } =>
+      if state.phase != 0 {
+        (state, BootPolicyAction::Reject { code: 1 })
+      } else {
+        if magic != 0x3154_4f4f_424b_4d54 ||
+           abi_major != 1 || abi_minor != 0 ||
+           header_length != 256 || map_offset != 256 ||
+           map_entry_size != 32 || map_count > 256 ||
+           command_length > 4096 || seed_length > 64 ||
+           total_length > 12608 || flags > 7 ||
+           kernel_phys_start >= kernel_phys_end ||
+           (kernel_phys_start & 4095) != 0 ||
+           (kernel_phys_end & 4095) != 0 ||
+           kernel_phys_end - kernel_phys_start > 1073741824 ||
+           service_length == 0 || service_length > 67108864 ||
+           config_length == 0 || config_length > 1048576 {
+          (state, BootPolicyAction::Reject { code: 2 })
+        } else {
+          if command_offset != 256 + map_count * 32 ||
+             seed_offset != command_offset + command_length ||
+             total_length != seed_offset + seed_length ||
+             kernel_virt_start != 0xffff_ffff_8000_0000 ||
+             kernel_virt_end != kernel_virt_start +
+                                (kernel_phys_end - kernel_phys_start) ||
+             (service_start & 4095) != 0 ||
+             service_start > 0xffff_ffff_ffff_ffff - service_length ||
+             (config_start & 4095) != 0 ||
+             config_start > 0xffff_ffff_ffff_ffff - config_length {
+            (state, BootPolicyAction::Reject { code: 3 })
+          } else {
+            if (((flags & 2) == 2) && seed_length != 32) ||
+               (((flags & 2) == 0) && seed_length != 0) ||
+               !framebuffer_valid || !service_digest_present ||
+               !config_digest_present || rsdp == 0 ||
+               (rsdp & 15) != 0 || !checksum_valid {
+              (state, BootPolicyAction::Reject { code: 4 })
+            } else {
+              (
+                BootPolicyState {
+                  phase: 1,
+                  expected_ranges: map_count,
+                  accepted_ranges: 0,
+                  last_end: 0,
+                },
+                BootPolicyAction::HeaderAccepted,
+              )
+            }
+          }
+        }
+      },
+    BootPolicyEvent::Range { start, end, kind, reserved_zero } =>
+      if state.phase != 1 {
+        (state, BootPolicyAction::Reject { code: 12 })
+      } else {
+        if state.accepted_ranges >= state.expected_ranges ||
+           start >= end || (start & 4095) != 0 || (end & 4095) != 0 ||
+           end > 0x0010_0000_0000_0000 ||
+           (state.accepted_ranges != 0 && start < state.last_end) ||
+           kind == 0 || kind > 9 || !reserved_zero {
+          (state, BootPolicyAction::Reject { code: 13 })
+        } else {
+          (
+            BootPolicyState {
+              phase: 1,
+              expected_ranges: state.expected_ranges,
+              accepted_ranges: state.accepted_ranges + 1,
+              last_end: end,
+            },
+            BootPolicyAction::RangeAccepted,
+          )
+        }
+      },
+    BootPolicyEvent::Finish =>
+      if state.phase == 1 && state.accepted_ranges == state.expected_ranges {
+        (
+          BootPolicyState {
+            phase: 2,
+            expected_ranges: state.expected_ranges,
+            accepted_ranges: state.accepted_ranges,
+            last_end: state.last_end,
+          },
+          BootPolicyAction::Complete,
+        )
+      } else {
+        (state, BootPolicyAction::Reject { code: 17 })
+      },
+  }
+}

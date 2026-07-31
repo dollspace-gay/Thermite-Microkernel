@@ -5,7 +5,8 @@ microkernel written primarily in Thermite and verified through Forge and Verus.
 M0 toolchain and proof-artifact closure is complete. A freestanding verified
 composition final-links at the higher-half address, and a reproducible M0 UEFI
 probe image boots under OVMF with both TCG and KVM. M1 kernel/BSP implementation
-has not started.
+is in progress; its first accepted component is the verified static-kernel ELF
+and load-plan policy.
 
 The first platform is x86_64 QEMU/KVM on the `q35` machine, booted as a UEFI
 application through OVMF. The first useful release is single-core but is designed
@@ -69,7 +70,19 @@ M0 toolchain closure is complete. The public repository, pinned Cargo workspace,
 replayable standalone and rich-state Forge paths, verified platform layer,
 receipted higher-half link, reproducible UEFI probe, and signed development
 manifest have all passed their acceptance gates. M1 verified UEFI/BSP bring-up is
-next; the kernel proper has not started.
+in progress. The ELF/load-plan policy is accepted as an M1 subcomponent; this
+does not yet constitute an M1 loader or kernel.
+
+The M1 ELF policy is a same-crate Thermite/direct-Verus kernel composition. It
+accepts only the pinned static ELF64/x86-64 profile, checks the digest and bounded
+program-header table, enforces file containment, sorted non-overlapping loads,
+W^X, constrained GNU stack/RELRO metadata, and executable entry coverage. Three
+builds reproduce the receipt, combined source, and rlib; validation and replay
+pass; a separately compiled consumer executes the verified observation; and ten
+adversarial/proof/receipt cases fail as intended. The raw `BootInfo` byte decoder
+remains fail-closed on Thermite
+[#108](https://github.com/dollspace-gay/Thermite/issues/108), which tracks a
+verified no-`vstd` byte-slice view for kernel compositions.
 
 The standalone probe's toolchain-binding gate is locally closed by pinned
 Thermite `v0.0.2` commit `845d684f00e829491ee4c537818fba2689bcaefc`. Forge records both
@@ -159,6 +172,7 @@ cargo run -p xtask -- m0-verus-byte-allocator
 cargo run -p xtask -- m0-verus-capsule
 cargo run -p xtask -- m0-platform-primitives
 cargo run -p xtask -- m0-host-link
+cargo run -p xtask -- m1-elf
 ```
 
 The `m0-forge-probe` command is the strict standalone release gate. It accepts no

@@ -81,6 +81,23 @@ subsequent validation; the firmware’s internal state transition remains the na
 OVMF environmental assumption. No Verus `external_body` is used to imply that the
 firmware implementation was proved.
 
+### 3.1 Implemented ELF policy checkpoint
+
+The M1 static-kernel ELF/load-plan policy is implemented and accepted as a
+same-crate Thermite/direct-Verus kernel composition. It deliberately accepts a
+narrow ELF64 little-endian x86-64 `ET_EXEC` profile: a bounded program-header
+table, fixed high-half entry range, digest approval, file-contained segments,
+sorted non-overlapping `PT_LOAD` virtual ranges, page congruence, readable loads,
+W^X, executable entry coverage, non-executable GNU stack metadata, and bounded
+GNU RELRO metadata. Dynamic/interpreter segments and unknown metadata are
+rejected.
+
+`cargo run -p xtask -- m1-elf` performs three reproducible L3 builds, receipt
+validation and replay, a separate runtime consumer, and positive/negative proof
+and receipt tests. See [M1 ELF validation](../evidence/m1/elf-validation.md).
+This closes the policy transition, not byte decoding, UEFI loading, relocation,
+page installation, or the M1 exit gate.
+
 ## 4. Boot information
 
 `BootInfoV1` is a versioned, length-delimited, read-only structure containing:
@@ -98,6 +115,14 @@ firmware implementation was proved.
 
 The kernel reparses and validates `BootInfo`; it does not trust the loader’s Rust
 types across the binary boundary.
+
+The authored `BootInfoV1` policy is L3 with all generated mutants killed. Its
+same-source raw-byte shell is currently an intentional failing integration test:
+Forge kernel compositions use `--no-vstd`, but have no verified slice element
+view with which to connect an executable byte read to its postcondition. Thermite
+[#108](https://github.com/dollspace-gay/Thermite/issues/108) records the minimized
+failure and required no-stdlib acceptance gates. No unverified decoder adapter is
+introduced while that issue is open.
 
 ## 5. Virtual-address layout
 

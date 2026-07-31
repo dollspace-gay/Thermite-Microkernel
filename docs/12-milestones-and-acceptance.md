@@ -106,6 +106,19 @@ demonstrate honest composition. Kernel implementation begins with M1.
 
 ## 3. M1 — verified UEFI and BSP bring-up
 
+Status: **in progress**. The static-kernel ELF/load-plan policy is an accepted
+M1 subcomponent: its Thermite transition is L3/end-to-end with 64/64 mutants
+killed, the exact Thermite/direct-Verus composition reproduces in three builds,
+receipt validation and replay pass, and a separate consumer executes the verified
+positive and rejection observations. Ten adversarial/proof/receipt cases pass.
+See [M1 ELF validation](../evidence/m1/elf-validation.md).
+
+This status does not close M1. The raw `BootInfo` decoder remains fail-closed
+pending Thermite [#108](https://github.com/dollspace-gay/Thermite/issues/108), and
+the UEFI call gateway, memory-map/`ExitBootServices` sequence, page installation,
+BSP entry state, interrupt/timer path, QEMU boots, and final signed `M1_OK` gate
+remain to be implemented.
+
 Deliver:
 
 - UEFI loader and `BootInfo`;
