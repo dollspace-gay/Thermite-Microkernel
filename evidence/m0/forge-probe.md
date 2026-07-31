@@ -8,11 +8,12 @@ issue [#103](https://github.com/dollspace-gay/Thermite/issues/103).**
 The probe at `thermite/core/probe.th` was processed through:
 
 1. generated-skill freshness checking;
-2. `forge build --level l3 --target kernel`;
-3. `forge verify-build`;
-4. `forge verify-build --replay`;
-5. a Rust host consumer linked to the emitted kernel rlib and executed; and
-6. a separate `#![no_std]`, `#![no_main]` final link.
+2. a Forge L3 source check, audit, and mutation battery (4/4 killed);
+3. `forge build --level l3 --target kernel`;
+4. `forge verify-build`;
+5. `forge verify-build --replay`;
+6. a Rust host consumer linked to the emitted kernel rlib and executed; and
+7. a separate `#![no_std]`, `#![no_main]` final link.
 
 The executed function emitted:
 
@@ -41,4 +42,3 @@ same consumer compiled with the receipt-recorded host Rust 1.96 fails with
 bind and select the actual Verus codegen compiler. After that fix, the strict
 command without `TMK_UNBOUND_CODEGEN_RUSTC` must pass and produce
 `release_eligible=true` before the M0 standalone probe is accepted.
-

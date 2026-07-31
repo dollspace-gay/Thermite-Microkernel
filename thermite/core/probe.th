@@ -5,4 +5,3 @@ fn transition_probe(state: u64, event: u64) -> u64
 {
   state ^ event
 }
-

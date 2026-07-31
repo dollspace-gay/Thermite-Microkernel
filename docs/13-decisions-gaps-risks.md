@@ -45,8 +45,9 @@ here.
 | G-010 | closed upstream | L3 verification and kernel codegen used different lowerings | compile the same canonical Verus body with `--no-cheating --compile` |
 | G-011 | open | standalone Forge receipt does not by itself prove a direct-Verus consumer's calls or final-image selection | combined exact-source verification/codegen receipt and receipted final-link allowlist |
 | G-012 | open upstream (#103) | L3 receipt records ambient rustc 1.96 although Verus emits an rlib with rustc 1.95 metadata | bind the actual Verus codegen rustc/sysroot/LLVM and make receipt-following consumers link |
+| G-013 | open upstream (#104) | Forge has no exact-source rich-state Thermite/direct-Verus composition build or receipt | implement and replay the M0 rich-state composition probe without a post-verification adapter |
 
-G-005, G-006, G-008, G-011, and G-012 block M1. Closed-upstream rows remain pinned TMK
+G-005, G-006, G-008, G-011, G-012, and G-013 block M1. Closed-upstream rows remain pinned TMK
 regression tests; an upstream capability is not treated as locally demonstrated
 until the M0 replay and negative-test matrix pass.
 

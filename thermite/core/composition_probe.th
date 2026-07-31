@@ -1,0 +1,59 @@
+struct ProbeState {
+  owner: u64,
+  generation: u64,
+  used_slots: u64,
+} inv used_slots <= 4
+
+struct ProbeEvent {
+  actor: u64,
+  generation: u64,
+  value: u64,
+}
+
+enum ProbeAction {
+  Store { owner: u64, generation: u64, slot: u64, value: u64 },
+  Reject,
+}
+
+fn composition_step(state: ProbeState, event: ProbeEvent) -> (ProbeState, ProbeAction)
+  req true
+  ens result.0.owner == state.owner
+  ens result.0.generation == state.generation
+  ens match result.1 {
+    ProbeAction::Store { owner, generation, slot, value } =>
+      event.actor == state.owner &&
+      event.generation == state.generation &&
+      state.used_slots < 4 &&
+      owner == state.owner &&
+      generation == state.generation &&
+      slot == state.used_slots &&
+      value == event.value &&
+      result.0.used_slots == state.used_slots + 1,
+    ProbeAction::Reject =>
+      result.0.used_slots == state.used_slots &&
+      (event.actor != state.owner ||
+       event.generation != state.generation ||
+       state.used_slots == 4),
+  }
+  fx pure
+{
+  if event.actor == state.owner &&
+     event.generation == state.generation &&
+     state.used_slots < 4 {
+    (
+      ProbeState {
+        owner: state.owner,
+        generation: state.generation,
+        used_slots: state.used_slots + 1,
+      },
+      ProbeAction::Store {
+        owner: state.owner,
+        generation: state.generation,
+        slot: state.used_slots,
+        value: event.value,
+      },
+    )
+  } else {
+    (state, ProbeAction::Reject)
+  }
+}

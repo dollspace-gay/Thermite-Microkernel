@@ -69,11 +69,24 @@ That probe is development-only pending Thermite
 records host Rust 1.96 in the receipt although Verus emits Rust 1.95 rlib metadata.
 The mismatch is fail-closed and M0 is not marked complete.
 
+The rich-state acceptance transition is also implemented and passes Forge L3,
+audit, and mutation-battery checks. Its honest same-crate Thermite/direct-Verus
+composition build remains blocked on Thermite
+[#104](https://github.com/dollspace-gay/Thermite/issues/104).
+
+The first direct-Verus platform component is a total bounded bump-allocation
+policy over fixed-size units. Its proof/codegen, three-path reproducibility,
+separate runtime consumer, symbol audit, and two negative proof tests pass. The
+`GlobalAlloc`/panic-host integration remains an M0 task.
+
 Useful implementation commands:
 
 ```text
 cargo run -p xtask -- toolchain-check
 cargo run -p xtask -- m0-forge-probe
+cargo run -p xtask -- m0-forge-tamper
+cargo run -p xtask -- m0-composition-source-check
+cargo run -p xtask -- m0-verus-allocator
 ```
 
 The second command is the strict release gate. A temporary

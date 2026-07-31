@@ -8,4 +8,3 @@ fn main() {
     assert_eq!(actual, expected);
     println!("M0_FORGE_PROBE_OK:{actual:016x}");
 }
-

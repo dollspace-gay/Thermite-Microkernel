@@ -337,10 +337,10 @@ test.
 |---|---|---|
 | Standalone exact-source L3 artifact | shipped upstream | TMK-pinned build, validation, replay, and link test |
 | Primitive explicit exports and ABI fingerprint | shipped upstream | independent consumer and tamper tests |
-| Strict rejection of non-L3/TV non-pass cases | shipped upstream | fault-injection matrix |
+| Strict rejection of non-L3/TV non-pass cases | nine local bundle-tamper cases pass | certificate/TV verdict and source-mutation fault-injection remainder |
 | Actual codegen-rustc receipt binding | upstream issue #103 open | receipt-selected consumer links; mismatched compiler rejected |
-| Rich-state same-crate composition | not implemented | M0 composition probe and receipt |
-| Verified bounded allocator and panic host | not implemented | direct-Verus proofs and final link |
+| Rich-state same-crate composition | source probe L3-checks; Thermite issue #104 open | same-crate shell proof, rlib, receipt validation, and replay |
+| Verified bounded allocator and panic host | allocation policy proved, compiled, reproduced, and executed | `GlobalAlloc`/panic-host integration and final link |
 | Exact-byte instruction capsules | not implemented | model, emitter, relocation proof, post-link equality |
 | Final receipted link/image | not implemented | allowlist audit and reproducible UEFI image |
 
