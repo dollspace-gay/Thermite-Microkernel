@@ -1,4 +1,5 @@
 mod idl;
+mod manifest;
 
 use std::env;
 use std::ffi::OsStr;
@@ -23,6 +24,7 @@ fn run() -> Result<(), String> {
             m0_composition_source_check()
         }
         Some("m0-idl") if args.next().is_none() => m0_idl(),
+        Some("m0-manifest") if args.next().is_none() => m0_manifest(),
         Some("m0-forge-probe") if args.next().is_none() => m0_forge_probe(),
         Some("m0-forge-tamper") if args.next().is_none() => m0_forge_tamper(),
         Some("m0-host-link") if args.next().is_none() => m0_host_link(),
@@ -31,7 +33,7 @@ fn run() -> Result<(), String> {
         Some("m0-verus-capsule") if args.next().is_none() => m0_verus_capsule(),
         Some("toolchain-check") if args.next().is_none() => toolchain_check(),
         _ => Err(
-            "usage: cargo run -p xtask -- <toolchain-check|m0-idl|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-verus-allocator|m0-verus-byte-allocator|m0-verus-capsule|m0-host-link>"
+            "usage: cargo run -p xtask -- <toolchain-check|m0-idl|m0-manifest|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-verus-allocator|m0-verus-byte-allocator|m0-verus-capsule|m0-host-link>"
                 .to_string(),
         ),
     }
@@ -343,6 +345,869 @@ fn reject_idl_mutation(
         ));
     }
     Ok(diagnostic)
+}
+
+fn m0_manifest() -> Result<(), String> {
+    let root = workspace_root()?;
+    let openssl = PathBuf::from("/usr/sbin/openssl");
+    let openssl_expected = "633e965ce973575b80b845ebcc8c28cef14b2096d3093a12a242828bcc699609";
+    require_file(&openssl, "OpenSSL manifest signer/verifier")?;
+    let openssl_actual = sha256sum(&openssl)?;
+    if openssl_actual != openssl_expected {
+        return Err(format!(
+            "OpenSSL digest is {openssl_actual}, expected {openssl_expected}"
+        ));
+    }
+
+    let schema_path = root.join("release/manifest.schema.json");
+    let private_key_source = root.join("release/keys/m0-development-private.der.hex");
+    let public_key = root.join("release/keys/m0-development-public.pem");
+    for (path, label) in [
+        (&schema_path, "release manifest schema"),
+        (&private_key_source, "M0 development private-key encoding"),
+        (&public_key, "M0 development public key"),
+    ] {
+        require_file(path, label)?;
+    }
+    let expected_private_sha = "45d4c3dc2826ef09e3e1bdf2cd5fee7286cbbafb3f250fff830459655da3a9a5";
+    let expected_public_sha = "c40b867d852bc86bb825aceb2600ffe03ea18cfb1a046108e23b2cfd1c47ea7b";
+    for (path, expected, label) in [
+        (
+            &private_key_source,
+            expected_private_sha,
+            "M0 development private-key encoding",
+        ),
+        (
+            &public_key,
+            expected_public_sha,
+            "M0 development public key",
+        ),
+    ] {
+        let actual = sha256sum(path)?;
+        if actual != expected {
+            return Err(format!("{label} digest is {actual}, expected {expected}"));
+        }
+    }
+
+    let schema_text = fs::read_to_string(&schema_path)
+        .map_err(|error| format!("read manifest schema {}: {error}", schema_path.display()))?;
+    let schema: serde_json::Value = serde_json::from_str(&schema_text)
+        .map_err(|error| format!("parse manifest schema: {error}"))?;
+
+    let required_artifacts = [
+        "build/m0-idl/generated/kernel_abi.rs",
+        "build/m0-byte-allocator/libtmk_byte_allocator.rlib",
+        "build/m0-capsule/capsule.elf",
+        "build/m0-capsule/capsule.bin",
+        "build/m0-capsule/linked-capsule.bin",
+        "build/m0-host/host.elf",
+        "build/m0-host/libtmk_panic_host.rlib",
+        "build/m0/probe.verified/artifact/libtmk_probe.rlib",
+        "build/m0/probe.verified/receipt.json",
+    ];
+    for path in required_artifacts {
+        require_file(&root.join(path), &format!("manifest input `{path}`"))?;
+    }
+
+    let receipt_path = root.join("build/m0/probe.verified/receipt.json");
+    let receipt_text = fs::read_to_string(&receipt_path)
+        .map_err(|error| format!("read standalone Forge receipt: {error}"))?;
+    let receipt: serde_json::Value = serde_json::from_str(&receipt_text)
+        .map_err(|error| format!("parse standalone Forge receipt: {error}"))?;
+    let receipt_schema = json_string(&receipt, "/schema", "Forge receipt schema")?;
+    let receipt_binding = json_string(&receipt, "/binding_sha256", "Forge receipt binding digest")?;
+    if receipt_schema != "thermite.verified-build-receipt.v1" {
+        return Err(format!(
+            "standalone receipt schema is `{receipt_schema}`, expected verified-build v1"
+        ));
+    }
+    let probe_source_sha = sha256sum(&root.join("thermite/core/probe.th"))?;
+    let bound_probe_source = json_string(
+        &receipt,
+        "/binding/raw_source_sha256",
+        "Forge receipt source digest",
+    )?;
+    if probe_source_sha != bound_probe_source {
+        return Err(format!(
+            "standalone receipt binds source {bound_probe_source}, canonical probe is {probe_source_sha}"
+        ));
+    }
+    let probe_artifact_path = root.join("build/m0/probe.verified/artifact/libtmk_probe.rlib");
+    let probe_artifact_sha = sha256sum(&probe_artifact_path)?;
+    let bound_probe_artifact = json_string(
+        &receipt,
+        "/binding/artifact/sha256",
+        "Forge receipt artifact digest",
+    )?;
+    if probe_artifact_sha != bound_probe_artifact {
+        return Err(format!(
+            "standalone receipt binds artifact {bound_probe_artifact}, staged artifact is {probe_artifact_sha}"
+        ));
+    }
+
+    let byte_result = sha256sum(&root.join("build/m0-byte-allocator/verus-result.json"))?;
+    let panic_result = sha256sum(&root.join("build/m0-host/verus-result.json"))?;
+    let capsule_result = sha256sum(&root.join("build/m0-capsule/verus-result.json"))?;
+    let idl_result = sha256sum(&root.join("build/m0-idl/report.txt"))?;
+    let byte_report = sha256sum(&root.join("build/m0-byte-allocator/report.txt"))?;
+    let capsule_report = sha256sum(&root.join("build/m0-capsule/report.txt"))?;
+    let forge_report = sha256sum(&root.join("build/m0/forge-probe-report.txt"))?;
+    let host_report = sha256sum(&root.join("build/m0-host/report.txt"))?;
+    let receipt_sha = sha256sum(&receipt_path)?;
+    let repository_revision = git_output(&root, &["rev-parse", "HEAD"], "TMK revision")?;
+    let repository_dirty = !git_output(&root, &["status", "--porcelain"], "TMK status")?.is_empty();
+
+    let mut host_bindings = vec![
+        byte_result.clone(),
+        capsule_result.clone(),
+        panic_result.clone(),
+    ];
+    host_bindings.sort();
+    let mut manifest_value = serde_json::json!({
+        "schema": "tmk.release-manifest.v1",
+        "manifest_id": "tmk-m0-development",
+        "release": {
+            "project": "Thermite Microkernel",
+            "version": "0.0.0-m0",
+            "source_date_epoch": 0,
+            "development": true,
+            "release_eligible": false,
+            "assurance_headline": "l3"
+        },
+        "platform": {
+            "architecture": "x86_64",
+            "machine": "q35",
+            "firmware": "uefi",
+            "target_triple": "x86_64-unknown-none",
+            "bsp_cores": 1,
+            "smp_ready": true,
+            "cpu_features": ["apic", "long_mode", "nx", "sse2", "syscall"]
+        },
+        "repositories": [
+            {
+                "name": "thermite",
+                "url": "https://github.com/dollspace-gay/Thermite",
+                "revision": "902f29242c068190320c1e1e1f702fb933e0dda6",
+                "dirty": false
+            },
+            {
+                "name": "thermite-microkernel",
+                "url": "https://github.com/dollspace-gay/Thermite-Microkernel",
+                "revision": repository_revision,
+                "dirty": repository_dirty
+            }
+        ],
+        "tools": [
+            {
+                "name": "forge",
+                "version": "thermite-902f2924",
+                "path": "/home/doll/Thermite/target/debug/forge",
+                "sha256": "c1cc11e39afd9b5a534d6ca30f5692b86d34c2ccaa5dbbc35227648acb8bb229",
+                "classification": "trusted_tool"
+            },
+            {
+                "name": "openssl",
+                "version": "3.2.6",
+                "path": "/usr/sbin/openssl",
+                "sha256": openssl_actual,
+                "classification": "trusted_tool"
+            },
+            {
+                "name": "rustc-codegen",
+                "version": "1.95.0",
+                "path": "/home/doll/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/rustc",
+                "sha256": "bff349e72704ff70bc08a234a3847338e797065bbedde5e556808bc87b7bf7c6",
+                "classification": "trusted_tool"
+            },
+            {
+                "name": "verus",
+                "version": "0.2026.05.24.ecee80a",
+                "path": "/opt/verus/0.2026.05.24.ecee80a/verus",
+                "sha256": "c5911ee43c7a92c49a48d2c8646c604d252a38c71c87bda88ad4d33eb9e7e0fc",
+                "classification": "trusted_tool"
+            }
+        ],
+        "functions": [
+            {
+                "semantic_address": "capsule::hlt_register",
+                "origin": "capsule",
+                "assurance": "capsule_refinement",
+                "scope": "exact_bytes",
+                "source_sha256": sha256sum(&root.join("verus/machine-model/hlt_register_capsule.rs"))?,
+                "artifact_name": "m0-capsule"
+            },
+            {
+                "semantic_address": "thermite::transition_probe",
+                "origin": "thermite",
+                "assurance": "l3",
+                "scope": "end_to_end",
+                "source_sha256": probe_source_sha,
+                "artifact_name": "thermite-probe"
+            },
+            {
+                "semantic_address": "verus::allocate_bytes",
+                "origin": "direct_verus",
+                "assurance": "direct_verus",
+                "scope": "whole_body",
+                "source_sha256": sha256sum(&root.join("verus/platform/byte_allocator.rs"))?,
+                "artifact_name": "m0-byte-allocator"
+            },
+            {
+                "semantic_address": "verus::panic_fail_stop",
+                "origin": "direct_verus",
+                "assurance": "direct_verus",
+                "scope": "whole_body",
+                "source_sha256": sha256sum(&root.join("verus/platform/panic_host.rs"))?,
+                "artifact_name": "m0-host"
+            }
+        ],
+        "forge_receipts": [
+            {
+                "name": "standalone-probe",
+                "kind": "standalone",
+                "schema": receipt_schema,
+                "binding_sha256": receipt_binding,
+                "receipt_sha256": receipt_sha,
+                "artifact_name": "thermite-probe",
+                "assurance": "l3",
+                "scope": "end_to_end",
+                "replay_passed": true
+            }
+        ],
+        "direct_verus": [
+            {
+                "name": "byte-allocator",
+                "source_sha256": sha256sum(&root.join("verus/platform/byte_allocator.rs"))?,
+                "result_sha256": byte_result,
+                "artifact_name": "m0-byte-allocator",
+                "artifact_sha256": sha256sum(&root.join("build/m0-byte-allocator/libtmk_byte_allocator.rlib"))?,
+                "verified_queries": 18,
+                "errors": 0,
+                "no_cheating": true
+            },
+            {
+                "name": "panic-host",
+                "source_sha256": sha256sum(&root.join("verus/platform/panic_host.rs"))?,
+                "result_sha256": panic_result,
+                "artifact_name": "m0-host",
+                "artifact_sha256": sha256sum(&root.join("build/m0-host/host.elf"))?,
+                "verified_queries": 2,
+                "errors": 0,
+                "no_cheating": true
+            }
+        ],
+        "capsules": [
+            {
+                "name": "hlt-register",
+                "model_source_sha256": sha256sum(&root.join("verus/machine-model/hlt_register_capsule.rs"))?,
+                "proof_result_sha256": capsule_result,
+                "emitted_sha256": sha256sum(&root.join("build/m0-capsule/capsule.bin"))?,
+                "linked_sha256": sha256sum(&root.join("build/m0-capsule/linked-capsule.bin"))?,
+                "semantic_claim": "mov rax,rdi; hlt preserves all modeled state except RAX and halted",
+                "artifact_name": "m0-capsule"
+            }
+        ],
+        "artifacts": [
+            manifest_artifact(&root, "kernel-abi-rust", "generated_source", "build/m0-idl/generated/kernel_abi.rs", vec![idl_result.clone()], false)?,
+            manifest_artifact(&root, "m0-byte-allocator", "kernel_rlib", "build/m0-byte-allocator/libtmk_byte_allocator.rlib", vec![byte_result.clone()], false)?,
+            manifest_artifact(&root, "m0-capsule", "capsule_elf", "build/m0-capsule/capsule.elf", vec![capsule_result.clone()], true)?,
+            manifest_artifact(&root, "m0-host", "kernel_elf", "build/m0-host/host.elf", host_bindings, true)?,
+            manifest_artifact(&root, "thermite-probe", "kernel_rlib", "build/m0/probe.verified/artifact/libtmk_probe.rlib", vec![receipt_binding.to_string()], false)?
+        ],
+        "tests": [
+            { "name": "byte-allocator", "status": "pass", "result_sha256": byte_report, "passed": 4, "failed": 0, "skipped": 0 },
+            { "name": "capsule", "status": "pass", "result_sha256": capsule_report, "passed": 5, "failed": 0, "skipped": 0 },
+            { "name": "forge-probe", "status": "pass", "result_sha256": forge_report, "passed": 6, "failed": 0, "skipped": 0 },
+            { "name": "host-link", "status": "pass", "result_sha256": host_report, "passed": 4, "failed": 0, "skipped": 0 },
+            { "name": "kernel-idl", "status": "pass", "result_sha256": idl_result, "passed": 8, "failed": 0, "skipped": 0 }
+        ],
+        "assumptions": [
+            { "id": "firmware", "class": "environmental", "statement": "OVMF implements the UEFI services consumed before ExitBootServices." },
+            { "id": "hardware", "class": "environmental", "statement": "The modeled x86_64 architectural behavior and memory ordering hold." },
+            { "id": "linker", "class": "trusted_tool", "statement": "Pinned GNU binutils preserve verified object semantics outside exact-byte capsule checks." },
+            { "id": "rust-codegen", "class": "trusted_tool", "statement": "Pinned rustc and LLVM preserve the semantics of verified source." }
+        ],
+        "versions": {
+            "abi_major": 1,
+            "abi_minor": 0,
+            "service_protocol_major": 1,
+            "filesystem_format_major": 1
+        },
+        "known_limitations": [
+            "GlobalAlloc raw-pointer ABI bridge is not verified.",
+            "Rich-state composition receipt is unavailable while Thermite issue #104 is in progress.",
+            "UEFI boot image has not been built."
+        ],
+        "signing": {
+            "algorithm": "ed25519",
+            "key_id": "m0-development-test-key",
+            "payload_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+            "signature": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "public_key_sha256": expected_public_sha
+        }
+    });
+
+    let work = root.join("build/m0-manifest");
+    if work.exists() {
+        fs::remove_dir_all(&work)
+            .map_err(|error| format!("remove stale {}: {error}", work.display()))?;
+    }
+    fs::create_dir_all(&work).map_err(|error| format!("create {}: {error}", work.display()))?;
+
+    let private_key = work.join("m0-development-private.der");
+    let private_key_hex = fs::read_to_string(&private_key_source)
+        .map_err(|error| format!("read M0 development private-key encoding: {error}"))?;
+    fs::write(&private_key, hex_decode(private_key_hex.trim())?)
+        .map_err(|error| format!("materialize M0 development private key: {error}"))?;
+    let derived_public_key = work.join("derived-development-public.pem");
+    run_checked(
+        Command::new(&openssl)
+            .args(["pkey", "-inform", "DER", "-in"])
+            .arg(&private_key)
+            .args(["-pubout", "-out"])
+            .arg(&derived_public_key),
+        "derive M0 development public key",
+    )?;
+    let derived_public_sha = sha256sum(&derived_public_key)?;
+    if derived_public_sha != expected_public_sha {
+        return Err(format!(
+            "development private key derives public digest {derived_public_sha}, expected {expected_public_sha}"
+        ));
+    }
+
+    let primary = work.join("primary");
+    sign_manifest(&openssl, &private_key, &mut manifest_value, &primary)?;
+    manifest::validate(&schema, &manifest_value)?;
+    validate_manifest_artifact_files(&root, &manifest_value)?;
+    verify_manifest_signature(
+        &openssl,
+        &public_key,
+        expected_public_sha,
+        &manifest_value,
+        &primary,
+        "verify primary M0 development manifest signature",
+    )?;
+    let primary_manifest = primary.join("manifest.json");
+    let primary_manifest_sha = sha256sum(&primary_manifest)?;
+    let primary_signature_sha = sha256sum(&primary.join("signature.bin"))?;
+    let primary_payload_sha = json_string(
+        &manifest_value,
+        "/signing/payload_sha256",
+        "manifest payload digest",
+    )?
+    .to_string();
+
+    for name in ["repro-a", "repro-b"] {
+        let mut reproduced = manifest_value.clone();
+        let reproduced_dir = work.join(name);
+        sign_manifest(&openssl, &private_key, &mut reproduced, &reproduced_dir)?;
+        manifest::validate(&schema, &reproduced)?;
+        verify_manifest_signature(
+            &openssl,
+            &public_key,
+            expected_public_sha,
+            &reproduced,
+            &reproduced_dir,
+            &format!("verify M0 manifest signature in {name}"),
+        )?;
+        let reproduced_sha = sha256sum(&reproduced_dir.join("manifest.json"))?;
+        let signature_sha = sha256sum(&reproduced_dir.join("signature.bin"))?;
+        if reproduced_sha != primary_manifest_sha || signature_sha != primary_signature_sha {
+            return Err(format!(
+                "manifest signing in {name} was not reproducible: manifest {reproduced_sha}, signature {signature_sha}"
+            ));
+        }
+    }
+
+    let mut negative_results = String::new();
+    let mut unknown_property = manifest_value.clone();
+    unknown_property
+        .as_object_mut()
+        .ok_or_else(|| "manifest root disappeared".to_string())?
+        .insert("unbound_claim".to_string(), serde_json::json!(true));
+    record_manifest_rejection(
+        &schema,
+        &unknown_property,
+        "unknown-property",
+        "unknown property `unbound_claim`",
+        &mut negative_results,
+    )?;
+
+    let mut capsule_drift = manifest_value.clone();
+    *capsule_drift
+        .pointer_mut("/capsules/0/linked_sha256")
+        .ok_or_else(|| "capsule drift mutation target missing".to_string())? =
+        serde_json::json!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    record_manifest_rejection(
+        &schema,
+        &capsule_drift,
+        "capsule-byte-drift",
+        "emitted and linked digests must match",
+        &mut negative_results,
+    )?;
+
+    let mut unknown_binding = manifest_value.clone();
+    *unknown_binding
+        .pointer_mut("/artifacts/0/source_bindings/0")
+        .ok_or_else(|| "source-binding mutation target missing".to_string())? =
+        serde_json::json!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    record_manifest_rejection(
+        &schema,
+        &unknown_binding,
+        "unknown-source-binding",
+        "is not supplied by a receipt, proof, capsule, or test result",
+        &mut negative_results,
+    )?;
+
+    let mut mismatched_verus_artifact = manifest_value.clone();
+    *mismatched_verus_artifact
+        .pointer_mut("/direct_verus/0/artifact_sha256")
+        .ok_or_else(|| "direct-Verus artifact mutation target missing".to_string())? =
+        serde_json::json!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    record_manifest_rejection(
+        &schema,
+        &mismatched_verus_artifact,
+        "direct-verus-artifact-mismatch",
+        "artifact digest does not match artifact",
+        &mut negative_results,
+    )?;
+
+    let mut artifact_file_drift = manifest_value.clone();
+    *artifact_file_drift
+        .pointer_mut("/artifacts/0/sha256")
+        .ok_or_else(|| "artifact file mutation target missing".to_string())? =
+        serde_json::json!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    manifest::validate(&schema, &artifact_file_drift)?;
+    let file_diagnostic = validate_manifest_artifact_files(&root, &artifact_file_drift)
+        .err()
+        .ok_or_else(|| "artifact file digest mutation unexpectedly passed".to_string())?;
+    if !file_diagnostic.contains("file digest") {
+        return Err(format!(
+            "artifact-file-drift diagnostic `{file_diagnostic}` is unexpected"
+        ));
+    }
+    negative_results.push_str(&format!("artifact-file-drift: {file_diagnostic}\n"));
+
+    let mut reordered = manifest_value.clone();
+    reordered
+        .pointer_mut("/tools")
+        .and_then(serde_json::Value::as_array_mut)
+        .ok_or_else(|| "tool ordering mutation target missing".to_string())?
+        .swap(0, 1);
+    record_manifest_rejection(
+        &schema,
+        &reordered,
+        "noncanonical-order",
+        "strictly sorted and unique",
+        &mut negative_results,
+    )?;
+
+    let mut dev_key_masquerade = manifest_value.clone();
+    *dev_key_masquerade
+        .pointer_mut("/release/release_eligible")
+        .ok_or_else(|| "release eligibility mutation target missing".to_string())? =
+        serde_json::json!(true);
+    record_manifest_rejection(
+        &schema,
+        &dev_key_masquerade,
+        "development-key-release",
+        "development key cannot authorize",
+        &mut negative_results,
+    )?;
+
+    let mut missing_composition = manifest_value.clone();
+    *missing_composition
+        .pointer_mut("/release/development")
+        .ok_or_else(|| "development mutation target missing".to_string())? =
+        serde_json::json!(false);
+    *missing_composition
+        .pointer_mut("/release/release_eligible")
+        .ok_or_else(|| "release mutation target missing".to_string())? = serde_json::json!(true);
+    *missing_composition
+        .pointer_mut("/signing/key_id")
+        .ok_or_else(|| "key mutation target missing".to_string())? =
+        serde_json::json!("external-production-key");
+    for repository in missing_composition
+        .pointer_mut("/repositories")
+        .and_then(serde_json::Value::as_array_mut)
+        .ok_or_else(|| "repository mutation target missing".to_string())?
+    {
+        *repository
+            .get_mut("dirty")
+            .ok_or_else(|| "repository dirty field missing".to_string())? =
+            serde_json::json!(false);
+    }
+    record_manifest_rejection(
+        &schema,
+        &missing_composition,
+        "missing-composition-release",
+        "requires a composition receipt",
+        &mut negative_results,
+    )?;
+
+    let mut loose_schema = schema.clone();
+    *loose_schema
+        .pointer_mut("/additionalProperties")
+        .ok_or_else(|| "schema strictness mutation target missing".to_string())? =
+        serde_json::json!(true);
+    let loose_diagnostic = manifest::validate(&loose_schema, &manifest_value)
+        .err()
+        .ok_or_else(|| "loosened manifest schema unexpectedly passed validation".to_string())?;
+    if !loose_diagnostic.contains("must reject additional properties") {
+        return Err(format!(
+            "schema-loosening diagnostic `{loose_diagnostic}` is unexpected"
+        ));
+    }
+    negative_results.push_str(&format!("schema-loosening: {loose_diagnostic}\n"));
+
+    let mut signature_mutation = manifest_value.clone();
+    let signature = signature_mutation
+        .pointer("/signing/signature")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| "signature mutation target missing".to_string())?
+        .to_string();
+    let replacement = if signature.starts_with('0') { '1' } else { '0' };
+    let mutated_signature = format!("{replacement}{}", &signature[1..]);
+    *signature_mutation
+        .pointer_mut("/signing/signature")
+        .ok_or_else(|| "signature mutation target disappeared".to_string())? =
+        serde_json::json!(mutated_signature);
+    manifest::validate(&schema, &signature_mutation)?;
+    let signature_failure = verify_manifest_signature_expect_failure(
+        &openssl,
+        &public_key,
+        &signature_mutation,
+        &work.join("bad-signature"),
+        "reject mutated manifest signature",
+    )?;
+    negative_results.push_str(&format!("signature-mutation: {signature_failure}\n"));
+
+    let mut payload_mutation = manifest_value.clone();
+    *payload_mutation
+        .pointer_mut("/known_limitations/0")
+        .ok_or_else(|| "payload mutation target missing".to_string())? =
+        serde_json::json!("A forged limitation changed after signing.");
+    let bad_payload_dir = work.join("bad-payload");
+    fs::create_dir(&bad_payload_dir)
+        .map_err(|error| format!("create bad-payload evidence directory: {error}"))?;
+    let bad_payload = manifest::canonical_payload(&payload_mutation)?;
+    fs::write(bad_payload_dir.join("payload.json"), bad_payload)
+        .map_err(|error| format!("write bad manifest payload: {error}"))?;
+    let bad_payload_sha = sha256sum(&bad_payload_dir.join("payload.json"))?;
+    *payload_mutation
+        .pointer_mut("/signing/payload_sha256")
+        .ok_or_else(|| "payload digest mutation target missing".to_string())? =
+        serde_json::json!(bad_payload_sha);
+    manifest::validate(&schema, &payload_mutation)?;
+    let payload_failure = verify_manifest_signature_expect_failure(
+        &openssl,
+        &public_key,
+        &payload_mutation,
+        &bad_payload_dir,
+        "reject manifest payload changed after signing",
+    )?;
+    negative_results.push_str(&format!("payload-mutation: {payload_failure}\n"));
+
+    fs::write(work.join("negative-results.txt"), &negative_results)
+        .map_err(|error| format!("write manifest negative results: {error}"))?;
+    let negative_sha = sha256sum(&work.join("negative-results.txt"))?;
+    let schema_sha = sha256sum(&schema_path)?;
+    let validator_sha = sha256sum(&root.join("xtask/src/manifest.rs"))?;
+    let report = format!(
+        "M0_MANIFEST_OK\nschema_validated=true\nsignature_verified=true\nartifact_files_replayed=true\nrelease_eligible=false\nschema_sha256={schema_sha}\nvalidator_sha256={validator_sha}\nmanifest_sha256={primary_manifest_sha}\npayload_sha256={primary_payload_sha}\nsignature_sha256={primary_signature_sha}\npublic_key_sha256={expected_public_sha}\nreproducibility_builds=3\nnegative_results_sha256={negative_sha}\nnegative_cases=unknown-property,capsule-byte-drift,unknown-source-binding,direct-verus-artifact-mismatch,artifact-file-drift,noncanonical-order,development-key-release,missing-composition-release,schema-loosening,signature-mutation,payload-mutation\n"
+    );
+    fs::write(work.join("report.txt"), &report)
+        .map_err(|error| format!("write manifest report: {error}"))?;
+    print!("{report}");
+    println!("evidence={}", work.display());
+    Ok(())
+}
+
+fn manifest_artifact(
+    root: &Path,
+    name: &str,
+    kind: &str,
+    relative_path: &str,
+    mut source_bindings: Vec<String>,
+    executable: bool,
+) -> Result<serde_json::Value, String> {
+    let path = root.join(relative_path);
+    require_file(&path, &format!("manifest artifact `{name}`"))?;
+    source_bindings.sort();
+    source_bindings.dedup();
+    let size = fs::metadata(&path)
+        .map_err(|error| {
+            format!(
+                "read manifest artifact metadata {}: {error}",
+                path.display()
+            )
+        })?
+        .len();
+    Ok(serde_json::json!({
+        "name": name,
+        "kind": kind,
+        "path": relative_path,
+        "sha256": sha256sum(&path)?,
+        "size": size,
+        "source_bindings": source_bindings,
+        "executable": executable
+    }))
+}
+
+fn validate_manifest_artifact_files(
+    root: &Path,
+    manifest_value: &serde_json::Value,
+) -> Result<(), String> {
+    let artifacts = manifest_value
+        .get("artifacts")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "manifest artifact file replay has no artifact array".to_string())?;
+    for artifact in artifacts {
+        let name = artifact
+            .get("name")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| "manifest artifact has no name".to_string())?;
+        let relative = artifact
+            .get("path")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| format!("manifest artifact `{name}` has no path"))?;
+        let expected_sha = artifact
+            .get("sha256")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| format!("manifest artifact `{name}` has no digest"))?;
+        let expected_size = artifact
+            .get("size")
+            .and_then(serde_json::Value::as_u64)
+            .ok_or_else(|| format!("manifest artifact `{name}` has no size"))?;
+        let path = root.join(relative);
+        require_file(&path, &format!("manifest artifact `{name}` replay"))?;
+        let actual_size = fs::metadata(&path)
+            .map_err(|error| format!("read manifest artifact `{name}` metadata: {error}"))?
+            .len();
+        if actual_size != expected_size {
+            return Err(format!(
+                "manifest artifact `{name}` file size is {actual_size}, bound size is {expected_size}"
+            ));
+        }
+        let actual_sha = sha256sum(&path)?;
+        if actual_sha != expected_sha {
+            return Err(format!(
+                "manifest artifact `{name}` file digest is {actual_sha}, bound digest is {expected_sha}"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn sign_manifest(
+    openssl: &Path,
+    private_key: &Path,
+    manifest_value: &mut serde_json::Value,
+    output: &Path,
+) -> Result<(), String> {
+    fs::create_dir(output).map_err(|error| {
+        format!(
+            "create manifest signing directory {}: {error}",
+            output.display()
+        )
+    })?;
+    let payload = manifest::canonical_payload(manifest_value)?;
+    let payload_path = output.join("payload.json");
+    fs::write(&payload_path, payload)
+        .map_err(|error| format!("write manifest signing payload: {error}"))?;
+    let payload_sha = sha256sum(&payload_path)?;
+    *manifest_value
+        .pointer_mut("/signing/payload_sha256")
+        .ok_or_else(|| "manifest has no signing payload digest field".to_string())? =
+        serde_json::json!(payload_sha);
+
+    let signature_path = output.join("signature.bin");
+    run_checked(
+        Command::new(openssl)
+            .args(["pkeyutl", "-sign", "-rawin", "-inkey"])
+            .arg(private_key)
+            .args(["-keyform", "DER"])
+            .arg("-in")
+            .arg(&payload_path)
+            .arg("-out")
+            .arg(&signature_path),
+        "sign canonical M0 manifest payload",
+    )?;
+    let signature = fs::read(&signature_path)
+        .map_err(|error| format!("read Ed25519 manifest signature: {error}"))?;
+    if signature.len() != 64 {
+        return Err(format!(
+            "Ed25519 manifest signature is {} bytes, expected 64",
+            signature.len()
+        ));
+    }
+    *manifest_value
+        .pointer_mut("/signing/signature")
+        .ok_or_else(|| "manifest has no signature field".to_string())? =
+        serde_json::json!(hex_encode(&signature));
+    fs::write(
+        output.join("manifest.json"),
+        manifest::canonical_manifest(manifest_value)?,
+    )
+    .map_err(|error| format!("write signed release manifest: {error}"))?;
+    Ok(())
+}
+
+fn verify_manifest_signature(
+    openssl: &Path,
+    public_key: &Path,
+    expected_public_sha: &str,
+    manifest_value: &serde_json::Value,
+    output: &Path,
+    label: &str,
+) -> Result<(), String> {
+    let public_sha = sha256sum(public_key)?;
+    let bound_public_sha = json_string(
+        manifest_value,
+        "/signing/public_key_sha256",
+        "manifest public key digest",
+    )?;
+    if public_sha != expected_public_sha || public_sha != bound_public_sha {
+        return Err(format!(
+            "manifest public key digest is {public_sha}, expected/bound {expected_public_sha}/{bound_public_sha}"
+        ));
+    }
+    let payload = manifest::canonical_payload(manifest_value)?;
+    let payload_path = output.join("verify-payload.json");
+    fs::write(&payload_path, payload)
+        .map_err(|error| format!("write manifest verification payload: {error}"))?;
+    let payload_sha = sha256sum(&payload_path)?;
+    let bound_payload_sha = json_string(
+        manifest_value,
+        "/signing/payload_sha256",
+        "manifest payload digest",
+    )?;
+    if payload_sha != bound_payload_sha {
+        return Err(format!(
+            "manifest signing payload digest is {payload_sha}, bound digest is {bound_payload_sha}"
+        ));
+    }
+    let signature = hex_decode(json_string(
+        manifest_value,
+        "/signing/signature",
+        "manifest signature",
+    )?)?;
+    let signature_path = output.join("verify-signature.bin");
+    fs::write(&signature_path, signature)
+        .map_err(|error| format!("write decoded manifest signature: {error}"))?;
+    let result = run_checked(
+        Command::new(openssl)
+            .args(["pkeyutl", "-verify", "-pubin", "-inkey"])
+            .arg(public_key)
+            .args(["-rawin", "-in"])
+            .arg(&payload_path)
+            .arg("-sigfile")
+            .arg(&signature_path),
+        label,
+    )?;
+    write_combined_output(&output.join("verification.txt"), &result, label)
+}
+
+fn verify_manifest_signature_expect_failure(
+    openssl: &Path,
+    public_key: &Path,
+    manifest_value: &serde_json::Value,
+    output: &Path,
+    label: &str,
+) -> Result<String, String> {
+    if !output.exists() {
+        fs::create_dir(output)
+            .map_err(|error| format!("create signature rejection directory: {error}"))?;
+    }
+    let payload_path = output.join("verify-payload.json");
+    fs::write(&payload_path, manifest::canonical_payload(manifest_value)?)
+        .map_err(|error| format!("write rejected manifest payload: {error}"))?;
+    let signature = hex_decode(json_string(
+        manifest_value,
+        "/signing/signature",
+        "manifest signature",
+    )?)?;
+    let signature_path = output.join("verify-signature.bin");
+    fs::write(&signature_path, signature)
+        .map_err(|error| format!("write rejected manifest signature: {error}"))?;
+    let result = run_expect_failure(
+        Command::new(openssl)
+            .args(["pkeyutl", "-verify", "-pubin", "-inkey"])
+            .arg(public_key)
+            .args(["-rawin", "-in"])
+            .arg(&payload_path)
+            .arg("-sigfile")
+            .arg(&signature_path),
+        label,
+    )?;
+    write_combined_output(&output.join("rejection.txt"), &result, label)?;
+    let mut diagnostic = Vec::new();
+    diagnostic.extend_from_slice(&result.stdout);
+    diagnostic.extend_from_slice(&result.stderr);
+    let diagnostic = String::from_utf8_lossy(&diagnostic).trim().to_string();
+    if diagnostic.is_empty() {
+        return Err(format!("{label} failed without a diagnostic"));
+    }
+    Ok(diagnostic.replace('\n', " | "))
+}
+
+fn record_manifest_rejection(
+    schema: &serde_json::Value,
+    manifest_value: &serde_json::Value,
+    label: &str,
+    expected: &str,
+    results: &mut String,
+) -> Result<(), String> {
+    let diagnostic = manifest::validate(schema, manifest_value)
+        .err()
+        .ok_or_else(|| format!("manifest mutation `{label}` unexpectedly passed validation"))?;
+    if !diagnostic.contains(expected) {
+        return Err(format!(
+            "manifest mutation `{label}` diagnostic `{diagnostic}` does not contain `{expected}`"
+        ));
+    }
+    results.push_str(&format!("{label}: {diagnostic}\n"));
+    Ok(())
+}
+
+fn git_output(root: &Path, args: &[&str], label: &str) -> Result<String, String> {
+    let output = run_checked(Command::new("git").current_dir(root).args(args), label)?;
+    String::from_utf8(output.stdout)
+        .map(|value| value.trim().to_string())
+        .map_err(|error| format!("{label} output is not UTF-8: {error}"))
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut result = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        result.push(DIGITS[(byte >> 4) as usize] as char);
+        result.push(DIGITS[(byte & 0x0f) as usize] as char);
+    }
+    result
+}
+
+fn hex_decode(value: &str) -> Result<Vec<u8>, String> {
+    if value.len() % 2 != 0 {
+        return Err("hex value has odd length".to_string());
+    }
+    value
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| {
+            let high = hex_nibble(pair[0])?;
+            let low = hex_nibble(pair[1])?;
+            Ok((high << 4) | low)
+        })
+        .collect()
+}
+
+fn hex_nibble(byte: u8) -> Result<u8, String> {
+    match byte {
+        b'0'..=b'9' => Ok(byte - b'0'),
+        b'a'..=b'f' => Ok(byte - b'a' + 10),
+        _ => Err(format!("invalid lowercase hex byte 0x{byte:02x}")),
+    }
 }
 
 fn m0_forge_probe() -> Result<(), String> {

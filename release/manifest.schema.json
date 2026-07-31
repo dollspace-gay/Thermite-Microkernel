@@ -1,0 +1,360 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dollspace-gay/Thermite-Microkernel/release/manifest.schema.json",
+  "title": "Thermite Microkernel release manifest v1",
+  "description": "Proof, tool, artifact, test, assumption, and signature binding for one TMK image.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "manifest_id",
+    "release",
+    "platform",
+    "repositories",
+    "tools",
+    "functions",
+    "forge_receipts",
+    "direct_verus",
+    "capsules",
+    "artifacts",
+    "tests",
+    "assumptions",
+    "versions",
+    "known_limitations",
+    "signing"
+  ],
+  "properties": {
+    "schema": { "const": "tmk.release-manifest.v1" },
+    "manifest_id": { "type": "string", "format": "tmk-identifier", "minLength": 1 },
+    "release": { "$ref": "#/$defs/release" },
+    "platform": { "$ref": "#/$defs/platform" },
+    "repositories": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/repository" }
+    },
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/tool" }
+    },
+    "functions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/function" }
+    },
+    "forge_receipts": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/forge_receipt" }
+    },
+    "direct_verus": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/direct_verus" }
+    },
+    "capsules": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/capsule" }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/artifact" }
+    },
+    "tests": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/test_result" }
+    },
+    "assumptions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/assumption" }
+    },
+    "versions": { "$ref": "#/$defs/versions" },
+    "known_limitations": {
+      "type": "array",
+      "minItems": 0,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "signing": { "$ref": "#/$defs/signing" }
+  },
+  "$defs": {
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "version",
+        "source_date_epoch",
+        "development",
+        "release_eligible",
+        "assurance_headline"
+      ],
+      "properties": {
+        "project": { "const": "Thermite Microkernel" },
+        "version": { "type": "string", "format": "tmk-version", "minLength": 1 },
+        "source_date_epoch": { "type": "integer", "minimum": 0 },
+        "development": { "type": "boolean" },
+        "release_eligible": { "type": "boolean" },
+        "assurance_headline": { "enum": ["l3"] }
+      }
+    },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "architecture",
+        "machine",
+        "firmware",
+        "target_triple",
+        "bsp_cores",
+        "smp_ready",
+        "cpu_features"
+      ],
+      "properties": {
+        "architecture": { "const": "x86_64" },
+        "machine": { "const": "q35" },
+        "firmware": { "const": "uefi" },
+        "target_triple": { "type": "string", "minLength": 1 },
+        "bsp_cores": { "type": "integer", "minimum": 1, "maximum": 256 },
+        "smp_ready": { "type": "boolean" },
+        "cpu_features": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "format": "tmk-identifier", "minLength": 1 }
+        }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "url", "revision", "dirty"],
+      "properties": {
+        "name": { "type": "string", "format": "tmk-identifier", "minLength": 1 },
+        "url": { "type": "string", "minLength": 1 },
+        "revision": { "type": "string", "format": "tmk-git-revision" },
+        "dirty": { "type": "boolean" }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "path", "sha256", "classification"],
+      "properties": {
+        "name": { "type": "string", "format": "tmk-identifier", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/digest" },
+        "classification": { "enum": ["trusted_tool"] }
+      }
+    },
+    "function": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "semantic_address",
+        "origin",
+        "assurance",
+        "scope",
+        "source_sha256",
+        "artifact_name"
+      ],
+      "properties": {
+        "semantic_address": { "type": "string", "minLength": 1 },
+        "origin": { "enum": ["thermite", "direct_verus", "capsule"] },
+        "assurance": { "enum": ["l3", "l4", "direct_verus", "capsule_refinement"] },
+        "scope": { "enum": ["end_to_end", "whole_body", "exact_bytes"] },
+        "source_sha256": { "$ref": "#/$defs/digest" },
+        "artifact_name": { "type": "string", "format": "tmk-identifier", "minLength": 1 }
+      }
+    },
+    "forge_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "kind",
+        "schema",
+        "binding_sha256",
+        "receipt_sha256",
+        "artifact_name",
+        "assurance",
+        "scope",
+        "replay_passed"
+      ],
+      "properties": {
+        "name": { "type": "string", "format": "tmk-identifier", "minLength": 1 },
+        "kind": { "enum": ["standalone", "composition"] },
+        "schema": {
+          "enum": [
+            "thermite.verified-build-receipt.v1",
+            "thermite.verified-composition-receipt.v1"
+          ]
+        },
+        "binding_sha256": { "$ref": "#/$defs/digest" },
+        "receipt_sha256": { "$ref": "#/$defs/digest" },
+        "artifact_name": { "type": "string", "format": "tmk-identifier", "minLength": 1 },
+        "assurance": { "const": "l3" },
+        "scope": { "const": "end_to_end" },
+        "replay_passed": { "type": "boolean" }
+      }
+    },
+    "direct_verus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "source_sha256",
+        "result_sha256",
+        "artifact_name",
+        "artifact_sha256",
+        "verified_queries",
+        "errors",
+        "no_cheating"
+      ],
+      "properties": {
+        "name": { "type": "string", "format": "tmk-identifier", "minLength": 1 },
+        "source_sha256": { "$ref": "#/$defs/digest" },
+        "result_sha256": { "$ref": "#/$defs/digest" },
+        "artifact_name": { "type": "string", "format": "tmk-identifier", "minLength": 1 },
+        "artifact_sha256": { "$ref": "#/$defs/digest" },
+        "verified_queries": { "type": "integer", "minimum": 1 },
+        "errors": { "type": "integer", "minimum": 0 },
+        "no_cheating": { "type": "boolean" }
+      }
+    },
+    "capsule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "model_source_sha256",
+        "proof_result_sha256",
+        "emitted_sha256",
+        "linked_sha256",
+        "semantic_claim",
+        "artifact_name"
+      ],
+      "properties": {
+        "name": { "type": "string", "format": "tmk-identifier", "minLength": 1 },
+        "model_source_sha256": { "$ref": "#/$defs/digest" },
+        "proof_result_sha256": { "$ref": "#/$defs/digest" },
+        "emitted_sha256": { "$ref": "#/$defs/digest" },
+        "linked_sha256": { "$ref": "#/$defs/digest" },
+        "semantic_claim": { "type": "string", "minLength": 1 },
+        "artifact_name": { "type": "string", "format": "tmk-identifier", "minLength": 1 }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "kind",
+        "path",
+        "sha256",
+        "size",
+        "source_bindings",
+        "executable"
+      ],
+      "properties": {
+        "name": { "type": "string", "format": "tmk-identifier", "minLength": 1 },
+        "kind": {
+          "enum": [
+            "generated_source",
+            "kernel_rlib",
+            "kernel_elf",
+            "capsule_elf",
+            "uefi_loader",
+            "boot_image",
+            "service_bundle",
+            "filesystem_image",
+            "manifest"
+          ]
+        },
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/digest" },
+        "size": { "type": "integer", "minimum": 1 },
+        "source_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/digest" }
+        },
+        "executable": { "type": "boolean" }
+      }
+    },
+    "test_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "status", "result_sha256", "passed", "failed", "skipped"],
+      "properties": {
+        "name": { "type": "string", "format": "tmk-identifier", "minLength": 1 },
+        "status": { "enum": ["pass", "fail", "incomplete"] },
+        "result_sha256": { "$ref": "#/$defs/digest" },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "assumption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "class", "statement"],
+      "properties": {
+        "id": { "type": "string", "format": "tmk-identifier", "minLength": 1 },
+        "class": { "enum": ["trusted_tool", "environmental"] },
+        "statement": { "type": "string", "minLength": 1 }
+      }
+    },
+    "versions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "abi_major",
+        "abi_minor",
+        "service_protocol_major",
+        "filesystem_format_major"
+      ],
+      "properties": {
+        "abi_major": { "type": "integer", "minimum": 1 },
+        "abi_minor": { "type": "integer", "minimum": 0 },
+        "service_protocol_major": { "type": "integer", "minimum": 1 },
+        "filesystem_format_major": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "signing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "key_id",
+        "payload_sha256",
+        "signature",
+        "public_key_sha256"
+      ],
+      "properties": {
+        "algorithm": { "const": "ed25519" },
+        "key_id": { "type": "string", "format": "tmk-identifier", "minLength": 1 },
+        "payload_sha256": { "$ref": "#/$defs/digest" },
+        "signature": { "type": "string", "format": "tmk-ed25519-signature" },
+        "public_key_sha256": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "digest": { "type": "string", "format": "tmk-sha256" }
+  }
+}
