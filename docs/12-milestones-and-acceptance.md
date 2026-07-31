@@ -42,6 +42,14 @@ negative cases pass. See `evidence/m0/kernel-idl.md`. This does not close M0 whi
 the composition, final manifest/link, raw-pointer allocator bridge, and UEFI
 image gates remain open.
 
+The release manifest schema deliverable is also locally demonstrated. A clean
+development run binds and replays current M0 artifacts, signs the canonical
+payload reproducibly with Ed25519, verifies it, and rejects eleven structural,
+provenance, release-policy, schema, and cryptographic mutations. The committed
+test key is forbidden for release eligibility. See
+`evidence/m0/release-manifest.md`. Final manifest closure still requires the
+composition receipt and reproducible UEFI boot image.
+
 Exit:
 
 - a primitive Thermite probe is L3-built, receipt-validated, replayed, and linked

@@ -188,6 +188,15 @@ another revision. `forge verify-build` MUST accept every consumed bundle, and a
 release build MUST additionally pass `forge verify-build --replay` with the
 receipt-pinned Forge, Verus, rustc/LLVM, Z3, target, and dependency identities.
 
+The implemented M0 manifest validator additionally requires canonical ordering,
+cross-reference consistency, exact on-disk artifact size/digest replay, capsule
+pre/post-link digest equality, and release-only conditions. A release-eligible
+manifest requires a clean source set, a rich-state composition receipt, exactly
+one boot image, and test suites with neither failures nor skips. Canonical
+Ed25519 signing includes the algorithm, key identity, and public-key digest. The
+committed development test key is rejected for every production or
+release-eligible claim.
+
 ## 9. Trusted and assumed components
 
 | Component | Classification | Reason |

@@ -293,6 +293,16 @@ The signed manifest contains:
 - development/production mode; and
 - final image digest and signature.
 
+The M0 schema and validator are implemented by
+`release/manifest.schema.json`, `xtask/src/manifest.rs`, and
+`cargo run -p xtask -- m0-manifest`. The validator interprets only an explicit,
+fail-closed JSON Schema subset, enforces cross-record release semantics, replays
+artifact files, and verifies a canonical Ed25519 signature. Three clean-path
+signatures reproduce byte-for-byte and eleven negative cases fail as intended.
+The reviewed development manifest binds current M0 evidence but correctly states
+`release_eligible=false`; composition and the final boot-image digest are absent.
+See `evidence/m0/release-manifest.md`.
+
 ## 11. CI failure policy
 
 No flaky proof, timeout, skipped reachable TV, or intermittent QEMU test is

@@ -100,6 +100,13 @@ and UTCB layout checks. Five malformed-schema/generated-output mutations are
 rejected. This closes the M0 generator deliverable, not the later decoder-proof,
 fuzzing, or failure-atomicity gates.
 
+The M0 release-manifest schema is also executable. A clean run binds the actual
+Forge receipt, direct-Verus results, capsule bytes, generated ABI, component ELF,
+tool identities, assumptions, and test reports; replays each artifact digest;
+then produces and verifies three byte-identical Ed25519-signed development
+manifests. Eleven negative cases pass. The public M0 test key is policy-locked to
+non-release development manifests and cannot authorize production.
+
 The M0 x86 capsule is also live: Verus proves the exact encoding and machine-state
 transition for `mov rax,rdi; hlt`; the emitted bytes survive object conversion and
 static linking unchanged, with relocation, executable-section, symbol, and
@@ -110,6 +117,7 @@ Useful implementation commands:
 ```text
 cargo run -p xtask -- toolchain-check
 cargo run -p xtask -- m0-idl
+cargo run -p xtask -- m0-manifest
 cargo run -p xtask -- m0-forge-probe
 cargo run -p xtask -- m0-forge-tamper
 cargo run -p xtask -- m0-composition-source-check
@@ -119,9 +127,9 @@ cargo run -p xtask -- m0-verus-capsule
 cargo run -p xtask -- m0-host-link
 ```
 
-The second command is the strict standalone release gate. It accepts no compiler
-override: the Rust consumer compiler is selected from the receipt-bound Forge
-toolchain evidence and a passing report states `release_eligible=true`.
+The `m0-forge-probe` command is the strict standalone release gate. It accepts no
+compiler override: the Rust consumer compiler is selected from the receipt-bound
+Forge toolchain evidence and a passing report states `release_eligible=true`.
 
 Cargo build directories are cleaned after evidence is captured at each milestone
 boundary. Proof bundles and runtime reports live under ignored `build/` paths;
