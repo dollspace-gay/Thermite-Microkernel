@@ -259,6 +259,35 @@ Vector allocation:
 Unexpected vectors are acknowledged when required, counted, and quarantined.
 They never index an unchecked handler table.
 
+### 6.1 Implemented descriptor-table image checkpoint
+
+The initial per-CPU descriptor images are implemented in executable `no_std`
+Verus. The GDT has exactly seven entries: null, kernel code/data, user data/code,
+and the two-slot available 64-bit TSS descriptor. Its selector order supports
+the later `SYSCALL`/`SYSRET` STAR relationship while the initial return path
+remains `IRETQ`. The packed 104-byte TSS installs RSP0, separate IST1/IST2/IST3
+tops for double fault/NMI/machine check, and disables the I/O bitmap at byte 104.
+
+The 4-KiB IDT contains 256 initialized 16-byte interrupt gates. Every gate uses
+the kernel-code selector and a registered 16-byte handler slot; vector 3 alone
+has DPL 3; vectors 8, 2, and 18 select IST1, IST2, and IST3 respectively; and all
+reserved bits are zero. The executable decoders are proved to recover the
+registered offsets, selectors, attributes, IST indices, and TSS base.
+
+`cargo run -p xtask -- m1-descriptors` performs three reproducible proof/codegen
+runs and three separately linked runtime executions, exhaustively scans all 256
+gates, checks ABI sizes/alignments and descriptor pointers, audits the rlib
+dependency surface, and rejects seven semantic/completeness/proof-escape
+mutations plus the explicit no-`vstd` proof boundary. See
+[M1 descriptor-table images](../evidence/m1/descriptor-tables.md).
+
+This checkpoint proves memory construction only. The registered handler
+addresses are fixture slots; the 256 entry stubs are not yet built or linked.
+The selected stack tops still require placement in guarded mapped pages. No
+`LGDT`, `LIDT`, `LTR`, segment reload, exception delivery, or privilege-return
+instruction has executed on hardware. Those effects are the next capsule and
+BSP-entry checkpoints.
+
 ## 7. System-call and exception entry
 
 `IA32_LSTAR` points to a proved entry capsule. The capsule:

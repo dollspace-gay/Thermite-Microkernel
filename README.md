@@ -9,7 +9,8 @@ is in progress; accepted components now include the verified static-kernel ELF
 load policy, normalized memory-map/`ExitBootServices` retry policy, and
 alias-aware kernel address-plan policy, plus a concrete verified reference
 page-table image, executable four-level walker, and exact-byte CR3 installation
-capsule.
+capsule. The per-CPU GDT, TSS, descriptor pointers, and all 256 IDT gates now
+also have concrete verified memory images and an exhaustive executable consumer.
 
 The first platform is x86_64 QEMU/KVM on the `q35` machine, booted as a UEFI
 application through OVMF. The first useful release is single-core but is designed
@@ -73,9 +74,9 @@ M0 toolchain closure is complete. The public repository, pinned Cargo workspace,
 replayable standalone and rich-state Forge paths, verified platform layer,
 receipted higher-half link, reproducible UEFI probe, and signed development
 manifest have all passed their acceptance gates. M1 verified UEFI/BSP bring-up is
-in progress. The ELF/load-plan, firmware-response, address-plan, and concrete
-reference page-table checkpoints are accepted M1 subcomponents; these do not yet
-constitute an M1 loader or kernel.
+in progress. The ELF/load-plan, firmware-response, address-plan, concrete
+reference-page-table, CR3-capsule, and descriptor-table checkpoints are accepted
+M1 subcomponents; these do not yet constitute an M1 loader or kernel.
 
 The M1 ELF policy is a same-crate Thermite/direct-Verus kernel composition. It
 accepts only the pinned static ELF64/x86-64 profile, checks the digest and bounded
@@ -123,6 +124,14 @@ state preservation. Three model, runtime, and high-half post-link artifacts
 reproduce, and six proof/link mutations fail. The privileged instruction is not
 claimed as hardware-executed until the verified loader call site and QEMU
 translation probe are connected.
+
+The M1 descriptor-table checkpoint constructs exact `no_std` Verus memory
+images for the seven-entry GDT, 104-byte x86_64 TSS, packed GDTR/IDTR operands,
+and all 256 IDT gates. Verus proves 36 obligations; three rlibs and three
+separately linked consumers reproduce byte-for-byte; every consumer executes an
+exhaustive gate scan; and eight semantic, completeness, proof-escape, and proof-
+dependency negatives fail. This proves the data images, not `LGDT`, `LIDT`,
+`LTR`, segment reload, exception stubs, or hardware entry.
 
 The standalone probe's toolchain-binding gate is locally closed by pinned
 Thermite `v0.0.2` commit `845d684f00e829491ee4c537818fba2689bcaefc`. Forge records both
