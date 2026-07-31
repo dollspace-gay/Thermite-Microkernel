@@ -1,0 +1,12 @@
+a36661429627212d0a77eb1617ae96ca0eb5c1dc266368f85605fa8433f7a2a6  /home/doll/Thermite/target/debug/forge
+cd37b3e309696a1512f6eef167911a498876cc0a49c138d1357c84f07efa3e29  /home/doll/.codex/skills/thermite/references/language.md
+c5911ee43c7a92c49a48d2c8646c604d252a38c71c87bda88ad4d33eb9e7e0fc  /opt/verus/0.2026.05.24.ecee80a/verus
+260a93f9ad37363d880d251c79e3af07888ef3b2171eb8ec8d4d3808678a3e84  /opt/verus/0.2026.05.24.ecee80a/z3
+ba4b837efb6612dfa8d941c5a72b8a50d1d03a0f36216743b173949aa8d9eb75  /home/doll/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/rustc
+f30f9fd1b1d0b8fd10dc33219eb4cd4bec3543f40e434ac71f5a03fd0359063f  /home/doll/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin/cargo
+bff349e72704ff70bc08a234a3847338e797065bbedde5e556808bc87b7bf7c6  /home/doll/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/rustc
+841072d1d92f9e841d9ba5b0814182a0adf064acf4527cd120967b7bc49dcb66  /home/doll/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/cargo
+8294f7d61d86167076194e834c3e4c592923f1812709a46edf4bb8f76e55ec7e  /usr/bin/qemu-system-x86_64
+4e87e4be6bb9cdced848ec0b43adab3c7f15623e36055525d0691d137eb74af9  /usr/share/edk2/ovmf/OVMF_CODE.fd
+6ed987af3a3c155be71665f510eae3e007eda9b8b94afd59d45e91c4a11565cc  /usr/share/edk2/ovmf/OVMF_VARS.fd
+

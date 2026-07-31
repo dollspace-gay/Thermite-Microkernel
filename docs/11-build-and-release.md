@@ -36,7 +36,9 @@ The current design baseline is:
 - canonical Thermite skill SHA-256
   `cd37b3e309696a1512f6eef167911a498876cc0a49c138d1357c84f07efa3e29`;
 - Verus `0.2026.05.24.ecee80a`;
-- rustc `1.96.0`;
+- host rustc `1.96.0`;
+- Verus artifact-codegen rustc `1.95.0` (the current Forge receipt records this
+  incorrectly as the host compiler; Thermite issue #103 blocks M0 acceptance);
 - QEMU `9.2.4`; and
 - locally available OVMF x86_64 firmware.
 

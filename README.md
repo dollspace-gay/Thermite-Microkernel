@@ -2,7 +2,8 @@
 
 This repository contains the design for a capability-oriented, POSIX-compatible
 microkernel written primarily in Thermite and verified through Forge and Verus.
-Implementation has not started.
+Implementation has begun with M0 toolchain and proof-artifact closure; kernel/BSP
+implementation has not started.
 
 The first platform is x86_64 QEMU/KVM on the `q35` machine, booted as a UEFI
 application through OVMF. The first useful release is single-core but is designed
@@ -56,3 +57,30 @@ status.
 
 The working project name in these documents is **TMK**. It is not a commitment to
 a final product name.
+
+## Implementation status
+
+Implementation is in M0 toolchain closure. The public repository and pinned Cargo
+workspace exist. The first Thermite L3 kernel rlib has been verified, replayed,
+executed through a host consumer, and linked through a separate `no_std` consumer.
+
+That probe is development-only pending Thermite
+[#103](https://github.com/dollspace-gay/Thermite/issues/103): Forge currently
+records host Rust 1.96 in the receipt although Verus emits Rust 1.95 rlib metadata.
+The mismatch is fail-closed and M0 is not marked complete.
+
+Useful implementation commands:
+
+```text
+cargo run -p xtask -- toolchain-check
+cargo run -p xtask -- m0-forge-probe
+```
+
+The second command is the strict release gate. A temporary
+`TMK_UNBOUND_CODEGEN_RUSTC=<rustc-1.95>` override exists only to reproduce issue
+#103 and exercise the implementation; reports produced with it state
+`release_eligible=false`.
+
+Cargo build directories are cleaned after evidence is captured at each milestone
+boundary. Proof bundles and runtime reports live under ignored `build/` paths;
+reviewed summaries live under `evidence/`.
