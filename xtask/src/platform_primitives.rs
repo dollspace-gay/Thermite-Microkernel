@@ -963,6 +963,31 @@ fn audit_high_half_symbols(tools: &Tools, image: &Path) -> Result<(), String> {
 }
 
 fn audit_linked_primitive_bytes(tools: &Tools, image: &Path, output: &Path) -> Result<(), String> {
+    let specs: [(&str, &str, &str, &[u8]); 4] = [
+        (
+            "alloc.bin",
+            "tmk_alloc_capsule",
+            "tmk_alloc_capsule_end",
+            EXPECTED_ALLOC,
+        ),
+        (
+            "seal.bin",
+            "tmk_seal_capsule",
+            "tmk_seal_capsule_end",
+            EXPECTED_SEAL,
+        ),
+        ("memcpy.bin", "memcpy", "memcpy_end", EXPECTED_MEMCPY),
+        ("memset.bin", "memset", "memset_end", EXPECTED_MEMSET),
+    ];
+    audit_linked_primitive_selection(tools, image, output, &specs)
+}
+
+fn audit_linked_primitive_selection(
+    tools: &Tools,
+    image: &Path,
+    output: &Path,
+    specs: &[(&str, &str, &str, &[u8])],
+) -> Result<(), String> {
     fs::create_dir_all(output)
         .map_err(|error| format!("create linked primitive evidence path: {error}"))?;
     let linked_text = output.join("linked-text.bin");
@@ -994,22 +1019,7 @@ fn audit_linked_primitive_bytes(tools: &Tools, image: &Path, output: &Path) -> R
             .map_err(|error| format!("parse linked primitive symbol `{name}`: {error}"))
     };
     let text_base = symbol_address("_start")?;
-    for (name, start_name, end_name, expected) in [
-        (
-            "alloc.bin",
-            "tmk_alloc_capsule",
-            "tmk_alloc_capsule_end",
-            EXPECTED_ALLOC,
-        ),
-        (
-            "seal.bin",
-            "tmk_seal_capsule",
-            "tmk_seal_capsule_end",
-            EXPECTED_SEAL,
-        ),
-        ("memcpy.bin", "memcpy", "memcpy_end", EXPECTED_MEMCPY),
-        ("memset.bin", "memset", "memset_end", EXPECTED_MEMSET),
-    ] {
+    for &(name, start_name, end_name, expected) in specs {
         let start = symbol_address(start_name)?;
         let end = symbol_address(end_name)?;
         if start < text_base || end < start {
@@ -1033,6 +1043,16 @@ fn audit_linked_primitive_bytes(tools: &Tools, image: &Path, output: &Path) -> R
         require_exact_bytes(&path, expected, &format!("linked primitive `{name}`"))?;
     }
     Ok(())
+}
+
+pub(crate) fn audit_linked_composition_primitives(
+    image: &Path,
+    output: &Path,
+) -> Result<(), String> {
+    let tools = Tools::pinned()?;
+    let specs: [(&str, &str, &str, &[u8]); 1] =
+        [("memcpy.bin", "memcpy", "memcpy_end", EXPECTED_MEMCPY)];
+    audit_linked_primitive_selection(&tools, image, output, &specs)
 }
 
 fn run_negative_cases(

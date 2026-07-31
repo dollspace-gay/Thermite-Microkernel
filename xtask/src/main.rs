@@ -1,3 +1,4 @@
+mod composition;
 mod idl;
 mod m0_uefi;
 mod manifest;
@@ -23,6 +24,7 @@ fn main() {
 fn run() -> Result<(), String> {
     let mut args = env::args().skip(1);
     match args.next().as_deref() {
+        Some("m0-composition") if args.next().is_none() => composition::run(),
         Some("m0-composition-source-check") if args.next().is_none() => {
             m0_composition_source_check()
         }
@@ -38,7 +40,7 @@ fn run() -> Result<(), String> {
         Some("m0-verus-capsule") if args.next().is_none() => m0_verus_capsule(),
         Some("toolchain-check") if args.next().is_none() => toolchain_check(),
         _ => Err(
-            "usage: cargo run -p xtask -- <toolchain-check|m0-idl|m0-manifest|m0-uefi|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-verus-allocator|m0-verus-byte-allocator|m0-verus-capsule|m0-platform-primitives|m0-host-link>"
+            "usage: cargo run -p xtask -- <toolchain-check|m0-idl|m0-manifest|m0-uefi|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-composition|m0-verus-allocator|m0-verus-byte-allocator|m0-verus-capsule|m0-platform-primitives|m0-host-link>"
                 .to_string(),
         ),
     }
@@ -64,7 +66,7 @@ fn toolchain_check() -> Result<(), String> {
         "Thermite source revision check",
     )?;
     let actual = String::from_utf8_lossy(&output.stdout);
-    let expected = "902f29242c068190320c1e1e1f702fb933e0dda6";
+    let expected = "4fa63cb1a6d707e501d99a1da57b5a53f8346efa";
     if actual.trim() != expected {
         return Err(format!(
             "Thermite revision is {}, expected {expected}",
@@ -2089,7 +2091,7 @@ fn m0_composition_source_check() -> Result<(), String> {
         &["outside the v1 verified public ABI"],
     )?;
 
-    let report = "M0_COMPOSITION_SOURCE_OK\nrelease_eligible=false\ncomposition_build=blocked-by-thermite-issue-104\nmutants_killed=11/11\n";
+    let report = "M0_COMPOSITION_SOURCE_OK\nrelease_eligible=false\ncomposition_build=available-via-m0-composition\nmutants_killed=11/11\n";
     fs::write(work.join("report.txt"), report)
         .map_err(|error| format!("write rich-state composition report: {error}"))?;
     print!("{report}");

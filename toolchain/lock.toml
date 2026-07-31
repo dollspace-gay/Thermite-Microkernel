@@ -4,10 +4,10 @@ target = "x86_64-unknown-linux-gnu"
 
 [thermite]
 repository = "https://github.com/dollspace-gay/Thermite"
-commit = "902f29242c068190320c1e1e1f702fb933e0dda6"
+commit = "4fa63cb1a6d707e501d99a1da57b5a53f8346efa"
 forge_path = "/home/doll/Thermite/target/debug/forge"
-forge_sha256 = "c1cc11e39afd9b5a534d6ca30f5692b86d34c2ccaa5dbbc35227648acb8bb229"
-skill_sha256 = "cd37b3e309696a1512f6eef167911a498876cc0a49c138d1357c84f07efa3e29"
+forge_sha256 = "3fad9e2b328367ad0169b297ea03165664edc854f6a026fcb08bcfcb814f35d4"
+skill_sha256 = "92141afe423f30b495398e806589753fb4ad57c2d0d10f3ef0fcd417beb557dd"
 
 [verus]
 version = "0.2026.05.24.ecee80a"

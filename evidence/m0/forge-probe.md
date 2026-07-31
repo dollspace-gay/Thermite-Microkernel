@@ -3,10 +3,10 @@
 Date: 2026-07-31
 
 Status: **standalone release gate accepted against pinned Thermite commit
-`902f29242c068190320c1e1e1f702fb933e0dda6`.** Thermite issue
-[#103](https://github.com/dollspace-gay/Thermite/issues/103) was subsequently
-closed by merged PR #105; TMK continues to pin and validate the immutable fix
-commit until its coordinated composition/toolchain repin.
+`4fa63cb1a6d707e501d99a1da57b5a53f8346efa`.** This coordinated pin retains the
+toolchain-binding fix from Thermite issue
+[#103](https://github.com/dollspace-gay/Thermite/issues/103) and adds the
+deterministic rich-state composition repair from issue #104.
 
 The probe at `thermite/core/probe.th` was processed through:
 
@@ -38,14 +38,14 @@ Observed evidence digests:
 
 ```text
 consumer_rustc_sha256=bff349e72704ff70bc08a234a3847338e797065bbedde5e556808bc87b7bf7c6
-toolchain_evidence_sha256=aa0df25072d6ef0f8bef575acaab51fc5c7a386c5e4e594b8e9285db20ad5cda
-receipt_sha256=361d608e49cdc0d4028e17a158985d3cfa73bc8cd55d96e579226a37c53db38c
+toolchain_evidence_sha256=82cea2d3e619085812f3c786eb00d1c93cab6a5e8e9f2737e0bd7fff5011b868
+receipt_sha256=aeaa9f7dbd64465e8121d1bc23080b5fb86602f5529433aa4662f25350dd846d
 artifact_sha256=278c6835e311a2c3fa3bd84a3f5e7d3165e1b034b080449db5ece01b68f80cd3
 no_std_consumer_sha256=0590a78a7f70eba210c3bbd504c1d4d0a9222942ed69cf9e0a11122924beaafd
 incompatible_rustc_result_sha256=79f8245393e41fe0171c821af6e9e98a426fe420cb656e1c86bbe508a575d08d
-report_sha256=3c1555a9a1c78b2ffdb7d4fb7d7cf9135bc69c8913885d83c18627a4c75ef723
+report_sha256=aef10840ac1763834b1ff14ae7617b5fccf0116567696af08f3846b895578b3f
 ```
 
 The report states `release_eligible=true`. This accepts the standalone primitive
-Forge artifact path; it does not accept rich-state composition or the final
-kernel image, which retain their independent M0 gates.
+Forge artifact path. Rich-state composition is accepted by its separate
+component gate; signed-manifest binding remains independent.

@@ -6,7 +6,7 @@ This document defines how TMK consumes Thermite code without losing assurance
 between proof, compilation, and final kernel composition.
 
 The baseline is Thermite commit
-`902f29242c068190320c1e1e1f702fb933e0dda6`, which ships:
+`4fa63cb1a6d707e501d99a1da57b5a53f8346efa`, which ships:
 
 - `forge build --level l3 --target kernel --export ...`;
 - exact-source Verus proof and code generation;
@@ -17,11 +17,11 @@ The baseline is Thermite commit
 - `VerifiedBuildReceiptV1`; and
 - `forge verify-build [--replay]`.
 
-The standalone L3 rlib path is implemented and independently exercised. The
-same-crate rich-state composition path required by the full kernel is a remaining
-M0 deliverable. Forge main now emits that bundle shape, but TMK's multi-field
-fixture still fails deterministic replay, so the older accepted standalone pin
-is retained. Nothing in this document relabels an ordinary Forge L1 build.
+The standalone L3 rlib path and same-crate rich-state composition path are
+implemented and independently exercised. The pinned public Thermite commit
+deterministically generates the multi-field-enum composition bundle; three TMK
+builds reproduce its combined source, receipt, and rlib, and receipt replay
+succeeds. Nothing in this document relabels an ordinary Forge L1 build.
 
 ## 2. Two different interfaces
 
@@ -345,12 +345,12 @@ and the TMK case remains as an integration test.
 | Primitive explicit exports and ABI fingerprint | shipped upstream | independent consumer and tamper tests |
 | Strict rejection of non-L3/TV non-pass cases | nine local bundle-tamper cases pass | certificate/TV verdict and source-mutation fault-injection remainder |
 | Actual codegen-rustc receipt binding | pinned fix passes locally and #103 is closed by merged PR #105 | receipt-selected consumer links; mismatched host compiler is rejected |
-| Rich-state same-crate composition | Forge main builds and validates the rich shell, but replay of the M0 multi-field-enum artifact is nondeterministic; #104 reopened | deterministic rlib, receipt validation/replay, and negative matrix |
-| Verified bounded allocator and panic host | unit and byte/layout policies, exact-image-decoded `GlobalAlloc`/seal/memory primitives, real hosted `Box`/`Vec`, and reproducible no-undefined low/higher-half static consumers pass | bind these accepted components into the composition receipt and receipted final image |
-| Exact-byte instruction capsules | M0 `mov rax,rdi; hlt` component capsule and 56-byte UEFI debug/return capsule prove and survive link byte-identically | bind the final composition receipt; extend per platform operation |
+| Rich-state same-crate composition | three exact-source builds reproduce the receipt/source/rlib; validation, replay, hosted behavior, visibility, compiler mismatch, static links, and eleven negative cases pass | bind the accepted receipt into the signed manifest |
+| Verified bounded allocator and panic host | unit and byte/layout policies, exact-image-decoded `GlobalAlloc`/seal/memory primitives, real hosted `Box`/`Vec`, and reproducible no-undefined low/higher-half static consumers pass; the composition final link selects exact `memcpy` | bind the accepted receipts into the signed final image |
+| Exact-byte instruction capsules | M0 `mov rax,rdi; hlt` component capsule and 56-byte UEFI debug/return capsule prove and survive link byte-identically; composition-linked `memcpy` also matches | bind the final composition receipt; extend per platform operation |
 | Native ABI IDL generator | three-path C/Rust generation, hosted runtimes, `no_std` compile, and five negative cases pass | add verified decoders, fuzz/property tests, golden vectors, and manifest binding |
-| Release manifest schema | real M0 evidence including the platform primitives, PE/FAT image, and firmware observations is artifact-replayed and reproducibly Ed25519-signed; fourteen negative cases pass | replace development key/input set with external release key and composition receipt |
-| Final receipted link/image | unreceipted direct-Verus component-link gate passes; reproducible PE/FAT image boots in OVMF TCG/KVM | bind image and final allowlist to the composition receipt |
+| Release manifest schema | real M0 evidence including the platform primitives, PE/FAT image, and firmware observations is artifact-replayed and reproducibly Ed25519-signed; fourteen negative cases pass | consume the accepted composition/final-link receipts; replace the development key only for production release |
+| Final receipted link/image | composition low/higher-half links reproduce, exact `memcpy` survives, and `tmk.final-link-receipt.v1` binds the allowlist; the separate PE/FAT image boots in OVMF TCG/KVM | bind both receipts and the image in the signed manifest |
 
 M1 cannot begin until every row is demonstrated locally, even when an upstream
 component already carries its own passing conformance tests.

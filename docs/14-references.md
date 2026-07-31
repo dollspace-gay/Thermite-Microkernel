@@ -66,18 +66,19 @@ device introspection and conformance tests.
 The design was read against the local Thermite repository at commit:
 
 ```text
-902f29242c068190320c1e1e1f702fb933e0dda6
+4fa63cb1a6d707e501d99a1da57b5a53f8346efa
 ```
 
 The canonical generated language reference at design time had SHA-256:
 
 ```text
-cd37b3e309696a1512f6eef167911a498876cc0a49c138d1357c84f07efa3e29
+92141afe423f30b495398e806589753fb4ad57c2d0d10f3ef0fcd417beb557dd
 ```
 
 This baseline includes correspondence-backed L3 build bundles from Thermite
-issue #101 / implementation PR #102. TMK's normative consumption and remaining
-same-crate composition requirements are defined in
+issue #101 / implementation PR #102, the codegen-toolchain binding repair from
+#103 / PR #105, and deterministic exact-source rich-state composition from #104.
+TMK's normative consumption and same-crate composition requirements are defined in
 [Forge L3 integration](15-forge-integration.md).
 
 Normative Thermite behavior for implementation comes from the pinned Forge

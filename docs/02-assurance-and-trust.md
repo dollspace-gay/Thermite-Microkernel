@@ -218,7 +218,7 @@ assumption.” Calling all three “verified” is forbidden.
 
 ## 10. Forge L3 artifact integration
 
-Thermite commit `902f29242c068190320c1e1e1f702fb933e0dda6` closes the
+Thermite commit `4fa63cb1a6d707e501d99a1da57b5a53f8346efa` closes the
 standalone proof-to-executable gap through an explicit strict build:
 
 ```text
@@ -248,21 +248,25 @@ checks are not spliced into the L3 output; contracts, invariants, and internal
 preconditions are proof obligations. A nontrivial executable precondition on a
 public scalar export is handled by a proved total `Result` wrapper.
 
-### 10.1 Remaining kernel-composition requirement
+### 10.1 Kernel-composition requirement
 
 Forge v1 link exports admit primitive scalars and unit. TMK's real transition
 boundary carries structured abstract state, machine actions, and bounded
 collections. Flattening that state into an unchecked FFI representation would
 reintroduce the assurance gap under another name.
 
-Before M1, TMK MUST demonstrate one exact-source Verus composition that lets the
-direct-Verus shell call a Thermite transition while preserving its rich verified
-types. The selected design is a same-crate composition mode described in
-[Forge L3 integration](15-forge-integration.md): Forge emits composition-visible
-functions and combines the unchanged Thermite lowering with the platform shell,
-then one strict Verus invocation verifies and compiles the whole crate. Until that
-mode exists, the primitive-export rlib is sufficient only for the M0 smoke test.
+TMK demonstrates one exact-source Verus composition that lets the direct-Verus
+shell call a Thermite transition while preserving its rich verified types. The
+same-crate mode described in [Forge L3 integration](15-forge-integration.md)
+emits composition-visible functions, combines the unchanged Thermite lowering
+with the platform shell, and verifies and compiles the whole crate in one strict
+Verus invocation. Three independent builds reproduce the combined source,
+receipt, and rlib; validation and replay pass; hosted and freestanding consumers
+run or fail-stop as specified; and the selected post-link platform primitive
+matches its proved bytes.
 
-The final release orchestrator MUST consume the Forge binding digest, independently
-bind the combined Verus source and final image, and prove that no post-Forge shim,
-wrapper, or reconstructed Thermite body entered the executable closure.
+The final release orchestrator MUST consume the Forge binding digest,
+independently bind the combined Verus source and final image, and prove that no
+post-Forge shim, wrapper, or reconstructed Thermite body entered the executable
+closure. M0's component gate emits this final-link receipt; signed-manifest
+consumption remains the release-orchestrator closure step.

@@ -47,7 +47,7 @@ Stable identities from the passing run:
 ```text
 model_source_sha256=453be38acca7df6b3a040f74ac2ab8cfadd21a5d6099749ed73502cf5a14b38e
 adapter_source_sha256=e027bdb1c387b92f7edbe264173bb9c74a665a5f9c39dc0b2c053feace9ddab0
-auditor_sha256=bf7deb60f6cbfaa624908a673eac493818014ddfe41c6d979273ddb23367e7ab
+auditor_sha256=8e179064e255dcd7c6d4ac71a04a087f8f6c0244c244dab92701d327dfa06ce
 linker_script_sha256=24a79defc5a11fa1802301fc910667f9c13584b5206eb8aaf57d165fbe4dfba4
 model_artifact_sha256=a3e502361cb16032919539adfc50d06c7955a474b1a15046467928ff9eacee0c
 adapter_artifact_sha256=83ba4fb59da7d97db85cf706a9a529f1bce409926ed2e30ddd45a18d79f536d4
@@ -62,12 +62,13 @@ memset_capsule_sha256=0d0dc6ef40ca8da2d7833d483b172e4d74418b38446b7658af583e94e9
 runtime_marker=M0_GLOBAL_ALLOC_OK:box:vec:reject:sealed
 freestanding_runtime=fail-stop-timeout-124
 high_half_link_base=ffffffff80000000
-report_sha256=0904aae7592d439dd53c992e9495b882d4ff1cebcfd5b19ff3090c9836a1f6ac
+report_sha256=4de332a6cae6720e26af3e891f8104525c395951006715426ac24f7828273a70
 ```
 
 The primitive object also resolves the compiler-emitted `memcpy` in the real
 rich-state composition consumer. The development-manifest gate now rechecks and
 binds the model, adapter, primitive object, higher-half image, emitted bytes,
 post-link bytes, complete report identities, and runtime/negative-test report.
-This checkpoint is not release-eligible by itself: deterministic composition
-receipt replay and receipted final-link allowlisting remain M0 gates.
+This checkpoint is not release-eligible by itself. Deterministic composition
+receipt replay and receipted final linking now pass their component gate; the
+signed development manifest must still bind that evidence.

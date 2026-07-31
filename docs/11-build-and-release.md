@@ -32,9 +32,9 @@ Generated files live under the build directory and are never hand edited.
 
 The current design baseline is:
 
-- Thermite commit `902f29242c068190320c1e1e1f702fb933e0dda6`;
+- Thermite commit `4fa63cb1a6d707e501d99a1da57b5a53f8346efa`;
 - canonical Thermite skill SHA-256
-  `cd37b3e309696a1512f6eef167911a498876cc0a49c138d1357c84f07efa3e29`;
+  `92141afe423f30b495398e806589753fb4ad57c2d0d10f3ef0fcd417beb557dd`;
 - Verus `0.2026.05.24.ecee80a`;
 - host rustc `1.96.0`;
 - Verus artifact-codegen rustc `1.95.0`, selected from Verus's authoritative
@@ -146,11 +146,15 @@ audits. Real `Box`/`Vec` use runs hosted, while low-address and
 each reproduce in three links. The same primitive object resolves the
 real composition probe's compiler-emitted `memcpy`.
 
-The development manifest binds these platform components, but this is not yet
-the final kernel link: the accepted composition receipt, final receipt allowlist,
-and receipted selection of the UEFI image remain required. The final linker
-accepts only objects named by accepted Forge, composition, direct-Verus, and
-capsule receipts.
+The accepted composition gate now produces reproducible low and higher-half
+static links and a canonical `tmk.final-link-receipt.v1`. The receipt names the
+composition rlib and dependency archives, verified platform object and report,
+consumer and linker sources, selected and discarded primitive symbols, tool
+identities, output digests, and runtime observations. Only the proved `memcpy`
+capsule survives the higher-half link, and its linked bytes equal the registered
+model bytes. The signed development manifest still must consume this receipt and
+the composition bundle. The final linker accepts only objects named by accepted
+Forge, composition, direct-Verus, and capsule receipts.
 
 ## 6. Capsule gate
 
@@ -310,14 +314,15 @@ The reviewed development manifest binds current M0 evidence, including the
 reparsed PE/FAT boot image, exact TCG/KVM observations, verified platform model,
 audited `GlobalAlloc` adapter, primitive object, higher-half image, and exact
 emitted/post-link primitive bytes. It correctly states `release_eligible=false`;
-the composition receipt and receipted final-link allowlist are absent. See
+the now-accepted composition receipt and final-link receipt are not yet consumed.
+See
 `evidence/m0/release-manifest.md`.
 
 The independently reproduced M0 UEFI probe image is now implemented and boots
 under OVMF with TCG and KVM; see `evidence/m0/uefi-image.md`. Its loader and image
 digests are in the signed development manifest described above. That binding does
-not make the image release-eligible without the rich-state composition receipt
-and final-link allowlist.
+not make the image release-eligible without signed binding of the rich-state
+composition receipt and final-link allowlist.
 
 ## 11. CI failure policy
 

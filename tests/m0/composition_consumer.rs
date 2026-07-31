@@ -5,4 +5,5 @@ fn main() {
         tmk_composition_probe::composition_shell::boot_observation(),
         1
     );
+    println!("M0_COMPOSITION_OK:store:reject:1");
 }

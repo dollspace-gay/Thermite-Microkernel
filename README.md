@@ -69,23 +69,25 @@ Implementation is in M0 toolchain closure. The public repository and pinned Carg
 workspace exist. The first Thermite L3 kernel rlib has been verified, replayed,
 executed through a host consumer, and linked through a separate `no_std` consumer.
 
-The standalone probe's toolchain-binding gate is now locally closed by pinned
-Thermite commit `902f29242c068190320c1e1e1f702fb933e0dda6`. Forge records both
+The standalone probe's toolchain-binding gate is locally closed by pinned
+Thermite commit `4fa63cb1a6d707e501d99a1da57b5a53f8346efa`. Forge records both
 ambient Rust 1.96 and the authoritative Verus-selected Rust 1.95 codegen closure;
 TMK selects the consumer compiler from the bound evidence, links and executes it,
 and confirms that the incompatible host compiler is rejected. Upstream issue
-[#103](https://github.com/dollspace-gay/Thermite/issues/103) is closed by merged
-PR #105; TMK retains the already accepted immutable fix pin until the separate
-composition replay gate permits a coordinated repin.
+[#103](https://github.com/dollspace-gay/Thermite/issues/103) is closed by PR #105,
+and the coordinated pin retains that repair.
 
-The rich-state acceptance transition and its direct-Verus shell are implemented.
-Thermite `main` now provides the exact-source composition build and receipt from
-[#104](https://github.com/dollspace-gay/Thermite/issues/104). The TMK multi-field
-action probe builds, validates, executes through a hosted consumer, keeps the rich
-root private, and final-links freestanding with the proved TPL primitives. Its
-three-build/replay gate exposed nondeterministic Verus-generated rlib metadata,
-so #104 is reopened and TMK has not repinned Forge or accepted the composition
-receipt yet.
+The rich-state acceptance transition and its direct-Verus shell are implemented
+and accepted with the deterministic exact-source composition repair from
+Thermite [#104](https://github.com/dollspace-gay/Thermite/issues/104). Three
+independent composition builds reproduce the combined source, receipt, and rlib;
+validation and replay pass. A hosted consumer executes authorized and rejected
+transitions, private rich exports remain inaccessible, incompatible rustc is
+rejected, and reproducible low/higher-half links retain only the selected proved
+`memcpy` bytes. Eleven independent composition mutations fail. A canonical final-
+link receipt binds every input, tool, selected/discarded symbol, linked output,
+and runtime result. Signed-manifest consumption of this component is the remaining
+M0 integration step.
 
 The direct-Verus allocation layer now closes the raw-pointer ABI as well as the
 fixed-unit and byte/layout policies. A 39-obligation Verus machine model owns the
@@ -145,6 +147,7 @@ cargo run -p xtask -- m0-uefi
 cargo run -p xtask -- m0-forge-probe
 cargo run -p xtask -- m0-forge-tamper
 cargo run -p xtask -- m0-composition-source-check
+cargo run -p xtask -- m0-composition
 cargo run -p xtask -- m0-verus-allocator
 cargo run -p xtask -- m0-verus-byte-allocator
 cargo run -p xtask -- m0-verus-capsule

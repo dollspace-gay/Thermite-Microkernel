@@ -1,76 +1,96 @@
-# M0 rich-state composition source evidence
+# M0 rich-state composition evidence
 
-The pre-composition Thermite source fixture is
-`thermite/core/composition_probe.th`, SHA-256
-`d53d61ecb2cc92b6a8bbe94cd35ccba628f663014d31f7e548f7e7d5a0494370`.
-It defines:
+Date: 2026-07-31
 
-- `ProbeState` with owner, generation, and a state field bounded to four slots;
-- a typed `ProbeEvent`;
-- a `ProbeAction` carrying the authorized store parameters or an explicit
-  rejection; and
-- `composition_step`, whose postcondition pins both successful authorization and
-  complete rejection behavior.
+Status: **accepted as a replayable component gate against pinned Thermite commit
+`4fa63cb1a6d707e501d99a1da57b5a53f8346efa`.** This exact public commit closes
+the deterministic composition-replay defect reported as Thermite
+[#104](https://github.com/dollspace-gay/Thermite/issues/104). It replaces
+nondeterministic Verus-generated enum helpers with Forge-owned deterministic
+item generation while retaining one exact combined source and one strict Verus
+verification/code-generation invocation.
 
-The following command was run against pinned Forge commit
-`902f29242c068190320c1e1e1f702fb933e0dda6`:
+The Thermite fixture `thermite/core/composition_probe.th` defines a rich
+`ProbeState`, typed `ProbeEvent`, multi-field `ProbeAction`, and
+`composition_step`. The direct-Verus shell proves both an authorized `Store`
+transition and a rejected transition with no state change. The rich transition
+remains private to the canonical crate; it is not converted into an unchecked
+FFI boundary.
 
-```text
-cargo run -p xtask -- m0-composition-source-check
-```
-
-Observed results:
-
-- all three ADTs and `composition_step` certified at L3;
-- `composition_step` had end-to-end scope and discharged its proof obligation;
-- the mutation battery killed 11 of 11 mutants;
-- the audit reported project assurance L3; and
-- a standalone L3 export attempt failed because the rich return type is outside
-  the primitive v1 link ABI.
-
-The complete ignored outputs had these SHA-256 digests:
+The complete acceptance command is:
 
 ```text
-check.json   73aac3efa79a1e3ced98d8bf508bdb473563319145abb183fa10092c96b4e8e4
-audit.txt    241d563c3e5739cfc235991aca6f11c07058049bd7c90c84e86d24960532b776
-battery.txt  34b2527cb1a203579a1268a3648e59d4e3d430b36c596ccc03a0d595a7ab32c0
-report.txt   c68759da700582f6d2abaa248bde6c3318a1e83eb31774adc9bd64bca6fe9fc2
+cargo run -p xtask -- m0-composition
 ```
 
-This is not the M0 composition acceptance result. Forge main now supplies the
-same-canonical-source shell inclusion, combined rlib, receipt, validator, and
-replay command. The M0 multi-field-enum fixture builds and validates, but replay
-does not reproduce its bound artifact digest at commit `57848f3e`; Thermite
-[#104](https://github.com/dollspace-gay/Thermite/issues/104) is therefore
-reopened. The generated source-check report states `release_eligible=false`.
+It performed:
 
-## Post-upstream shakedown
+- Forge source checking, audit, and an 11/11 mutation battery;
+- three independent exact-source composition builds;
+- independent receipt validation and `forge verify-build --replay`;
+- byte-identical receipt, combined-source, and kernel rlib comparison;
+- receipt, plan, source, translation-validation, visibility, dependency, and
+  compiler-identity audits;
+- a hosted execution of both `Store` and `Reject`, producing
+  `M0_COMPOSITION_OK:store:reject:1`;
+- rejection of an external consumer of the private rich transition;
+- rejection of the incompatible ambient Rust 1.96 consumer;
+- three reproducible low-address static links with no undefined symbols and the
+  expected fail-stop timeout;
+- three reproducible links at `0xffffffff80000000` with no undefined symbols;
+- final-link garbage collection that retained only the selected proved
+  `memcpy` primitive and discarded allocator, seal, and `memset`; and
+- post-link extraction showing that the linked `memcpy` bytes exactly equal the
+  registered Verus capsule.
 
-The checked-in direct-Verus shell now proves the accepted `Store` action's four
-field values, the Thermite/platform representation relation, state advancement,
-and rejection without state change. Against Forge main commit `57848f3e`, the
-following richer build succeeds and ordinary validation accepts its receipt:
+The build also rejected eleven independent mutations:
 
 ```text
-forge build thermite/core/composition_probe.th --level l3 \
-  --compose-export composition_step \
-  --compose-shell tests/m0/composition_shell.rs \
-  --crate-name tmk_composition_probe --target kernel \
-  --out build/m0-composition/reported-fixed.verified
-forge verify-build build/m0-composition/reported-fixed.verified
+artifact-tamper
+binding-tamper
+certificate-l2
+external-body
+extra-file
+host-rustc
+post-plan-shell
+private-export
+rich-standalone-export
+shell-tamper
+tv-nonpass
 ```
 
-That run bound combined source
-`41f790eaf177516d3352d08052f8ad2f52ca1115a8063efe0c3dfc57f2f6d6e7`,
-artifact `291aec88346d4ff3fcd833d21ed58da04aac75d0781305c8efd5022c9f24c708`,
-and binding
-`74c3c1a2dfe294bb9eab9dc24e2dba0c70be822228b77116d74965a55deca50b`.
-A hosted consumer executed `boot_observation() == 1`, a separate consumer was
-correctly refused access to the private rich transition, and a static consumer
-linked with no undefined symbols once the verified TMK `memcpy` primitive was
-included. The static consumer remained in its expected fail-stop loop.
+Stable identities from the passing run:
 
-`forge verify-build ... --replay` still reports `replayed: false`; therefore the
-artifact and binding above are diagnostic identities, not accepted release
-evidence. No composition receipt enters the manifest until the same bundle
-replays and independent clean builds reproduce byte-for-byte.
+```text
+forge_revision=4fa63cb1a6d707e501d99a1da57b5a53f8346efa
+forge_sha256=3fad9e2b328367ad0169b297ea03165664edc854f6a026fcb08bcfcb814f35d4
+skill_sha256=92141afe423f30b495398e806589753fb4ad57c2d0d10f3ef0fcd417beb557dd
+source_sha256=d53d61ecb2cc92b6a8bbe94cd35ccba628f663014d31f7e548f7e7d5a0494370
+shell_sha256=eb5298f5d0aef48141bcf539873235adbfad4fb1279c3286a29682b7dd51d36d
+combined_source_sha256=51c909f368c52b202ed74340d730b7e14d560a5a2d53db3a75135b04e48893f2
+receipt_sha256=27ff22646b265e82e4eec170bc22ec1583e9a60604e69e9ebe971cfb380d858a
+binding_sha256=c2ff30a35ffa69a60b3b5c73918d906f9614cc7c9d8fa4e88d6fa835ad174598
+artifact_sha256=d5d5032af0a9e625a5663ca1ec5826cd181d00f7d8907ad26a6ed0f17c43d8f8
+platform_primitive_object_sha256=a3884a20bfb8193e6cfdbf921eae60bac038406aebfe9184ad5039e0629ec50f
+final_link_receipt_sha256=cf795dc2d092531bb2e20a7d87f48c4dd737fa025f566340f7f0a38b62ff3883
+hosted_consumer_sha256=13d67123a98aa2889f614f82b507e771ab0eec96c31c1d57baf11bef5e5aaa2b
+low_static_consumer_sha256=1c17a0a84a2c175b569dd7125c0df1fc7cbd77e7157581faefd245334b46c428
+high_half_consumer_sha256=45203ad97f95930ee4d7638ee0604b2f70a81d84b194ea3f3911590f7536d5d6
+report_sha256=47b1b3f2d3a8deb32c62a527f47ae72de76bd48769e2a6fb3285eae9a67a0699
+```
+
+The machine-readable `tmk.final-link-receipt.v1` additionally binds the exact
+composition artifact and dependency archives, verified platform primitive
+object and report, selected and discarded symbols, consumer and linker sources,
+tool identities, runtime observations, and reproducible low/high output
+digests. Its orchestrator-source digest is
+`ef5056d2ad68d161a89de94b2b241f2d8e3795cf992e09ca56041c229561cd67`.
+
+The smaller source-only regression remains available as
+`m0-composition-source-check`; its current check and report digests are
+`734e8a6118d8642c386e507a8c477e75412fa0df0242bfcbcd79c1ee1612109a`
+and `b4baa0f01ba60ba531b6d86bed5328be41028b6a352b97085823b69c7415ba5e`.
+
+This checkpoint intentionally reports `release_eligible=false`. The component
+is accepted, but the signed M0 development manifest must still validate and bind
+the composition receipt and final-link receipt before M0 closure.
