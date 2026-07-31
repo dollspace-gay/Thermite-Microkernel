@@ -407,6 +407,22 @@ fn m0_manifest() -> Result<(), String> {
         "build/m0-capsule/linked-capsule.bin",
         "build/m0-host/host.elf",
         "build/m0-host/libtmk_panic_host.rlib",
+        "build/m0-platform-primitives/adapter-primary/libtmk_global_allocator.rlib",
+        "build/m0-platform-primitives/emitted/alloc.bin",
+        "build/m0-platform-primitives/emitted/memcpy.bin",
+        "build/m0-platform-primitives/emitted/memset.bin",
+        "build/m0-platform-primitives/emitted/seal.bin",
+        "build/m0-platform-primitives/global-allocator-consumer",
+        "build/m0-platform-primitives/global-allocator-high-half",
+        "build/m0-platform-primitives/global-allocator-kernel-consumer",
+        "build/m0-platform-primitives/linked/alloc.bin",
+        "build/m0-platform-primitives/linked/memcpy.bin",
+        "build/m0-platform-primitives/linked/memset.bin",
+        "build/m0-platform-primitives/linked/seal.bin",
+        "build/m0-platform-primitives/model-primary/libtmk_platform_primitives.rlib",
+        "build/m0-platform-primitives/model-primary/verus-result.json",
+        "build/m0-platform-primitives/objects/platform-primitives.o",
+        "build/m0-platform-primitives/report.txt",
         "build/m0/probe.verified/artifact/libtmk_probe.rlib",
         "build/m0/probe.verified/receipt.json",
         "build/m0-uefi/entry.bin",
@@ -466,6 +482,100 @@ fn m0_manifest() -> Result<(), String> {
     let capsule_report = sha256sum(&root.join("build/m0-capsule/report.txt"))?;
     let forge_report = sha256sum(&root.join("build/m0/forge-probe-report.txt"))?;
     let host_report = sha256sum(&root.join("build/m0-host/report.txt"))?;
+    let platform_result_path =
+        root.join("build/m0-platform-primitives/model-primary/verus-result.json");
+    let platform_report_path = root.join("build/m0-platform-primitives/report.txt");
+    let platform_result = sha256sum(&platform_result_path)?;
+    let platform_report = sha256sum(&platform_report_path)?;
+    let platform_report_text = fs::read_to_string(&platform_report_path)
+        .map_err(|error| format!("read platform-primitives report: {error}"))?;
+    for (key, expected) in [
+        ("component_verified", "true".to_string()),
+        ("release_eligible", "false".to_string()),
+        ("linked_primitives_verified", "true".to_string()),
+        ("verus_verified", "39".to_string()),
+        (
+            "model_source_sha256",
+            sha256sum(&root.join("verus/machine-model/platform_primitives_capsule.rs"))?,
+        ),
+        (
+            "adapter_source_sha256",
+            sha256sum(&root.join("kernel-host/platform/global_allocator.rs"))?,
+        ),
+        (
+            "auditor_sha256",
+            sha256sum(&root.join("xtask/src/platform_primitives.rs"))?,
+        ),
+        (
+            "linker_script_sha256",
+            sha256sum(&root.join("tests/m0/global_allocator_kernel.ld"))?,
+        ),
+        (
+            "model_artifact_sha256",
+            sha256sum(&root.join(
+                "build/m0-platform-primitives/model-primary/libtmk_platform_primitives.rlib",
+            ))?,
+        ),
+        (
+            "adapter_artifact_sha256",
+            sha256sum(&root.join(
+                "build/m0-platform-primitives/adapter-primary/libtmk_global_allocator.rlib",
+            ))?,
+        ),
+        (
+            "primitive_object_sha256",
+            sha256sum(&root.join("build/m0-platform-primitives/objects/platform-primitives.o"))?,
+        ),
+        (
+            "hosted_consumer_sha256",
+            sha256sum(&root.join("build/m0-platform-primitives/global-allocator-consumer"))?,
+        ),
+        (
+            "freestanding_consumer_sha256",
+            sha256sum(&root.join("build/m0-platform-primitives/global-allocator-kernel-consumer"))?,
+        ),
+        (
+            "high_half_consumer_sha256",
+            sha256sum(&root.join("build/m0-platform-primitives/global-allocator-high-half"))?,
+        ),
+        ("model_reproducibility_builds", "3".to_string()),
+        ("adapter_reproducibility_builds", "3".to_string()),
+        ("freestanding_reproducibility_links", "3".to_string()),
+        ("high_half_reproducibility_links", "3".to_string()),
+        (
+            "alloc_capsule_sha256",
+            sha256sum(&root.join("build/m0-platform-primitives/emitted/alloc.bin"))?,
+        ),
+        (
+            "seal_capsule_sha256",
+            sha256sum(&root.join("build/m0-platform-primitives/emitted/seal.bin"))?,
+        ),
+        (
+            "memcpy_capsule_sha256",
+            sha256sum(&root.join("build/m0-platform-primitives/emitted/memcpy.bin"))?,
+        ),
+        (
+            "memset_capsule_sha256",
+            sha256sum(&root.join("build/m0-platform-primitives/emitted/memset.bin"))?,
+        ),
+        (
+            "runtime_marker",
+            "M0_GLOBAL_ALLOC_OK:box:vec:reject:sealed".to_string(),
+        ),
+        ("freestanding_runtime", "fail-stop-timeout-124".to_string()),
+        ("high_half_link_base", "ffffffff80000000".to_string()),
+        (
+            "negative_cases",
+            "alloc-byte,alloc-semantics,assume,arena-layout,code-model".to_string(),
+        ),
+    ] {
+        let actual = report_field(&platform_report_text, key)?;
+        if actual != expected {
+            return Err(format!(
+                "platform-primitives report field `{key}` is `{actual}`, expected `{expected}`"
+            ));
+        }
+    }
     let receipt_sha = sha256sum(&receipt_path)?;
     let uefi_result = sha256sum(&root.join("build/m0-uefi/verus-result.json"))?;
     let uefi_report = sha256sum(&root.join("build/m0-uefi/report.txt"))?;
@@ -536,6 +646,13 @@ fn m0_manifest() -> Result<(), String> {
         ],
         "tools": [
             {
+                "name": "ar",
+                "version": "2.44",
+                "path": "/usr/sbin/ar",
+                "sha256": "a21151402078c113fd801d16e0a0d2659ee44cee1b9828474f937bbf097b0df6",
+                "classification": "trusted_tool"
+            },
+            {
                 "name": "forge",
                 "version": "thermite-902f2924",
                 "path": "/home/doll/Thermite/target/debug/forge",
@@ -564,10 +681,24 @@ fn m0_manifest() -> Result<(), String> {
                 "classification": "trusted_tool"
             },
             {
+                "name": "nm",
+                "version": "2.44",
+                "path": "/usr/sbin/nm",
+                "sha256": "988d8ded768c4e59284a44f641e92db6c0c8dd222547c32ce432577ff3cb9cc6",
+                "classification": "trusted_tool"
+            },
+            {
                 "name": "objcopy",
                 "version": "2.44",
                 "path": "/usr/sbin/objcopy",
                 "sha256": "8f09a5b2d8e2b34aebf269fffef2308492a022dcfedf87b49489592e838129b4",
+                "classification": "trusted_tool"
+            },
+            {
+                "name": "objdump",
+                "version": "2.44",
+                "path": "/usr/sbin/objdump",
+                "sha256": "c7c3f8c5c0ed23b2330e148e58624f8d798f1673f4c9fb126ee81096f05e3653",
                 "classification": "trusted_tool"
             },
             {
@@ -597,6 +728,13 @@ fn m0_manifest() -> Result<(), String> {
                 "path": "/usr/bin/qemu-system-x86_64",
                 "sha256": "8294f7d61d86167076194e834c3e4c592923f1812709a46edf4bb8f76e55ec7e",
                 "classification": "environmental"
+            },
+            {
+                "name": "readelf",
+                "version": "2.44",
+                "path": "/usr/sbin/readelf",
+                "sha256": "59d345f2a2b47f5617e8f53c72f6db5169c723c11d3e809a9e6e3c5673f2420c",
+                "classification": "trusted_tool"
             },
             {
                 "name": "rustc-codegen",
@@ -629,12 +767,52 @@ fn m0_manifest() -> Result<(), String> {
         ],
         "functions": [
             {
+                "semantic_address": "capsule::global_alloc_shim",
+                "origin": "capsule",
+                "assurance": "capsule_refinement",
+                "scope": "exact_bytes",
+                "source_sha256": sha256sum(&root.join("verus/machine-model/platform_primitives_capsule.rs"))?,
+                "artifact_name": "m0-global-allocator-adapter"
+            },
+            {
                 "semantic_address": "capsule::hlt_register",
                 "origin": "capsule",
                 "assurance": "capsule_refinement",
                 "scope": "exact_bytes",
                 "source_sha256": sha256sum(&root.join("verus/machine-model/hlt_register_capsule.rs"))?,
                 "artifact_name": "m0-capsule"
+            },
+            {
+                "semantic_address": "capsule::platform_alloc",
+                "origin": "capsule",
+                "assurance": "capsule_refinement",
+                "scope": "exact_bytes",
+                "source_sha256": sha256sum(&root.join("verus/machine-model/platform_primitives_capsule.rs"))?,
+                "artifact_name": "m0-platform-primitives"
+            },
+            {
+                "semantic_address": "capsule::platform_memcpy",
+                "origin": "capsule",
+                "assurance": "capsule_refinement",
+                "scope": "exact_bytes",
+                "source_sha256": sha256sum(&root.join("verus/machine-model/platform_primitives_capsule.rs"))?,
+                "artifact_name": "m0-platform-primitives"
+            },
+            {
+                "semantic_address": "capsule::platform_memset",
+                "origin": "capsule",
+                "assurance": "capsule_refinement",
+                "scope": "exact_bytes",
+                "source_sha256": sha256sum(&root.join("verus/machine-model/platform_primitives_capsule.rs"))?,
+                "artifact_name": "m0-platform-primitives"
+            },
+            {
+                "semantic_address": "capsule::platform_seal",
+                "origin": "capsule",
+                "assurance": "capsule_refinement",
+                "scope": "exact_bytes",
+                "source_sha256": sha256sum(&root.join("verus/machine-model/platform_primitives_capsule.rs"))?,
+                "artifact_name": "m0-platform-primitives"
             },
             {
                 "semantic_address": "capsule::uefi_debug_return",
@@ -704,6 +882,16 @@ fn m0_manifest() -> Result<(), String> {
                 "no_cheating": true
             },
             {
+                "name": "platform-primitives",
+                "source_sha256": sha256sum(&root.join("verus/machine-model/platform_primitives_capsule.rs"))?,
+                "result_sha256": platform_result.clone(),
+                "artifact_name": "m0-platform-model",
+                "artifact_sha256": sha256sum(&root.join("build/m0-platform-primitives/model-primary/libtmk_platform_primitives.rlib"))?,
+                "verified_queries": 39,
+                "errors": 0,
+                "no_cheating": true
+            },
+            {
                 "name": "uefi-entry-model",
                 "source_sha256": sha256sum(&root.join("verus/machine-model/uefi_debug_exit_capsule.rs"))?,
                 "result_sha256": uefi_result.clone(),
@@ -725,6 +913,42 @@ fn m0_manifest() -> Result<(), String> {
                 "artifact_name": "m0-capsule"
             },
             {
+                "name": "platform-alloc",
+                "model_source_sha256": sha256sum(&root.join("verus/machine-model/platform_primitives_capsule.rs"))?,
+                "proof_result_sha256": platform_result.clone(),
+                "emitted_sha256": sha256sum(&root.join("build/m0-platform-primitives/emitted/alloc.bin"))?,
+                "linked_sha256": sha256sum(&root.join("build/m0-platform-primitives/linked/alloc.bin"))?,
+                "semantic_claim": "exact registered bump-allocation bytes implement aligned bounded boot-arena allocation and null-on-failure semantics",
+                "artifact_name": "m0-platform-primitives"
+            },
+            {
+                "name": "platform-memcpy",
+                "model_source_sha256": sha256sum(&root.join("verus/machine-model/platform_primitives_capsule.rs"))?,
+                "proof_result_sha256": platform_result.clone(),
+                "emitted_sha256": sha256sum(&root.join("build/m0-platform-primitives/emitted/memcpy.bin"))?,
+                "linked_sha256": sha256sum(&root.join("build/m0-platform-primitives/linked/memcpy.bin"))?,
+                "semantic_claim": "exact registered memcpy bytes implement pointwise copy for valid non-overlapping ranges under the DF-clear invariant",
+                "artifact_name": "m0-platform-primitives"
+            },
+            {
+                "name": "platform-memset",
+                "model_source_sha256": sha256sum(&root.join("verus/machine-model/platform_primitives_capsule.rs"))?,
+                "proof_result_sha256": platform_result.clone(),
+                "emitted_sha256": sha256sum(&root.join("build/m0-platform-primitives/emitted/memset.bin"))?,
+                "linked_sha256": sha256sum(&root.join("build/m0-platform-primitives/linked/memset.bin"))?,
+                "semantic_claim": "exact registered memset bytes implement pointwise byte fill for valid ranges under the DF-clear invariant",
+                "artifact_name": "m0-platform-primitives"
+            },
+            {
+                "name": "platform-seal",
+                "model_source_sha256": sha256sum(&root.join("verus/machine-model/platform_primitives_capsule.rs"))?,
+                "proof_result_sha256": platform_result.clone(),
+                "emitted_sha256": sha256sum(&root.join("build/m0-platform-primitives/emitted/seal.bin"))?,
+                "linked_sha256": sha256sum(&root.join("build/m0-platform-primitives/linked/seal.bin"))?,
+                "semantic_claim": "exact registered seal bytes preserve arena contents and cursor while permanently refusing later allocations",
+                "artifact_name": "m0-platform-primitives"
+            },
+            {
                 "name": "uefi-debug-return",
                 "model_source_sha256": sha256sum(&root.join("verus/machine-model/uefi_debug_exit_capsule.rs"))?,
                 "proof_result_sha256": uefi_result.clone(),
@@ -738,7 +962,11 @@ fn m0_manifest() -> Result<(), String> {
             manifest_artifact(&root, "kernel-abi-rust", "generated_source", "build/m0-idl/generated/kernel_abi.rs", vec![idl_result.clone()], false)?,
             manifest_artifact(&root, "m0-byte-allocator", "kernel_rlib", "build/m0-byte-allocator/libtmk_byte_allocator.rlib", vec![byte_result.clone()], false)?,
             manifest_artifact(&root, "m0-capsule", "capsule_elf", "build/m0-capsule/capsule.elf", vec![capsule_result.clone()], true)?,
+            manifest_artifact(&root, "m0-global-allocator-adapter", "kernel_rlib", "build/m0-platform-primitives/adapter-primary/libtmk_global_allocator.rlib", vec![platform_result.clone(), platform_report.clone()], false)?,
+            manifest_artifact(&root, "m0-global-allocator-high-half", "kernel_elf", "build/m0-platform-primitives/global-allocator-high-half", vec![platform_result.clone(), platform_report.clone()], true)?,
             manifest_artifact(&root, "m0-host", "kernel_elf", "build/m0-host/host.elf", host_bindings, true)?,
+            manifest_artifact(&root, "m0-platform-model", "kernel_rlib", "build/m0-platform-primitives/model-primary/libtmk_platform_primitives.rlib", vec![platform_result.clone()], false)?,
+            manifest_artifact(&root, "m0-platform-primitives", "kernel_object", "build/m0-platform-primitives/objects/platform-primitives.o", vec![platform_result.clone(), platform_report.clone()], true)?,
             manifest_artifact(&root, "m0-uefi-boot-image", "boot_image", "build/m0-uefi/image-primary/thermite-microkernel-m0.img", vec![uefi_result.clone(), uefi_report.clone()], false)?,
             manifest_artifact(&root, "m0-uefi-entry-model", "kernel_rlib", "build/m0-uefi/libtmk_uefi_capsule.rlib", vec![uefi_result.clone()], false)?,
             manifest_artifact(&root, "m0-uefi-loader", "uefi_loader", "build/m0-uefi/pe-primary/BOOTX64.EFI", vec![uefi_result.clone(), uefi_report.clone()], true)?,
@@ -750,6 +978,7 @@ fn m0_manifest() -> Result<(), String> {
             { "name": "forge-probe", "status": "pass", "result_sha256": forge_report, "passed": 6, "failed": 0, "skipped": 0 },
             { "name": "host-link", "status": "pass", "result_sha256": host_report, "passed": 4, "failed": 0, "skipped": 0 },
             { "name": "kernel-idl", "status": "pass", "result_sha256": idl_result, "passed": 8, "failed": 0, "skipped": 0 },
+            { "name": "platform-primitives", "status": "pass", "result_sha256": platform_report, "passed": 10, "failed": 0, "skipped": 0 },
             { "name": "uefi-image", "status": "pass", "result_sha256": uefi_report.clone(), "passed": 16, "failed": 0, "skipped": 0 }
         ],
         "assumptions": [
@@ -765,8 +994,8 @@ fn m0_manifest() -> Result<(), String> {
             "filesystem_format_major": 1
         },
         "known_limitations": [
-            "GlobalAlloc raw-pointer ABI bridge is not verified.",
             "M0 UEFI image is only a debug-return probe, not the M1 loader.",
+            "M0 platform primitives are component-bound but not selected by an accepted composition/final-link receipt.",
             "Rich-state composition receipt is unavailable while Thermite issue #104 is in progress."
         ],
         "signing": {
@@ -918,6 +1147,38 @@ fn m0_manifest() -> Result<(), String> {
         ));
     }
     negative_results.push_str(&format!("artifact-file-drift: {file_diagnostic}\n"));
+
+    let mut platform_file_drift = manifest_value.clone();
+    let platform_artifact = platform_file_drift
+        .pointer_mut("/artifacts")
+        .and_then(serde_json::Value::as_array_mut)
+        .and_then(|artifacts| {
+            artifacts.iter_mut().find(|artifact| {
+                artifact.get("name").and_then(serde_json::Value::as_str)
+                    == Some("m0-platform-primitives")
+            })
+        })
+        .ok_or_else(|| "platform-primitives file mutation target missing".to_string())?;
+    *platform_artifact
+        .get_mut("sha256")
+        .ok_or_else(|| "platform-primitives digest mutation target missing".to_string())? =
+        serde_json::json!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    manifest::validate(&schema, &platform_file_drift)?;
+    let platform_file_diagnostic = validate_manifest_artifact_files(&root, &platform_file_drift)
+        .err()
+        .ok_or_else(|| {
+            "platform-primitives file digest mutation unexpectedly passed".to_string()
+        })?;
+    if !platform_file_diagnostic.contains("m0-platform-primitives")
+        || !platform_file_diagnostic.contains("file digest")
+    {
+        return Err(format!(
+            "platform-primitives-file-drift diagnostic `{platform_file_diagnostic}` is unexpected"
+        ));
+    }
+    negative_results.push_str(&format!(
+        "platform-primitives-file-drift: {platform_file_diagnostic}\n"
+    ));
 
     let mut boot_image_file_drift = manifest_value.clone();
     let boot_artifact = boot_image_file_drift
@@ -1136,7 +1397,7 @@ fn m0_manifest() -> Result<(), String> {
     let schema_sha = sha256sum(&schema_path)?;
     let validator_sha = sha256sum(&root.join("xtask/src/manifest.rs"))?;
     let report = format!(
-        "M0_MANIFEST_OK\nschema_validated=true\nsignature_verified=true\nartifact_files_replayed=true\nrelease_eligible=false\nschema_sha256={schema_sha}\nvalidator_sha256={validator_sha}\nmanifest_sha256={primary_manifest_sha}\npayload_sha256={primary_payload_sha}\nsignature_sha256={primary_signature_sha}\npublic_key_sha256={expected_public_sha}\nreproducibility_builds=3\nnegative_results_sha256={negative_sha}\nnegative_cases=unknown-property,capsule-byte-drift,unknown-source-binding,direct-verus-artifact-mismatch,artifact-file-drift,boot-image-file-drift,noncanonical-order,development-key-release,missing-composition-release,missing-boot-image-release,schema-loosening,signature-mutation,payload-mutation\n"
+        "M0_MANIFEST_OK\nschema_validated=true\nsignature_verified=true\nartifact_files_replayed=true\nrelease_eligible=false\nschema_sha256={schema_sha}\nvalidator_sha256={validator_sha}\nmanifest_sha256={primary_manifest_sha}\npayload_sha256={primary_payload_sha}\nsignature_sha256={primary_signature_sha}\npublic_key_sha256={expected_public_sha}\nreproducibility_builds=3\nnegative_results_sha256={negative_sha}\nnegative_cases=unknown-property,capsule-byte-drift,unknown-source-binding,direct-verus-artifact-mismatch,artifact-file-drift,platform-primitives-file-drift,boot-image-file-drift,noncanonical-order,development-key-release,missing-composition-release,missing-boot-image-release,schema-loosening,signature-mutation,payload-mutation\n"
     );
     fs::write(work.join("report.txt"), &report)
         .map_err(|error| format!("write manifest report: {error}"))?;
@@ -3579,6 +3840,18 @@ fn consumer_command(
     }
     command.arg("-o").arg(output);
     command
+}
+
+fn report_field<'a>(report: &'a str, key: &str) -> Result<&'a str, String> {
+    let prefix = format!("{key}=");
+    let mut values = report.lines().filter_map(|line| line.strip_prefix(&prefix));
+    let value = values
+        .next()
+        .ok_or_else(|| format!("report is missing field `{key}`"))?;
+    if values.next().is_some() {
+        return Err(format!("report repeats field `{key}`"));
+    }
+    Ok(value)
 }
 
 fn json_string<'a>(

@@ -276,6 +276,7 @@
         "kind": {
           "enum": [
             "generated_source",
+            "kernel_object",
             "kernel_rlib",
             "kernel_elf",
             "capsule_elf",

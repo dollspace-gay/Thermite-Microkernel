@@ -303,6 +303,7 @@ pub fn run() -> Result<(), String> {
         ));
     }
     audit_high_half_symbols(&tools, &high_half)?;
+    audit_linked_primitive_bytes(&tools, &high_half, &work.join("linked"))?;
     let high_half_sha = sha256sum(&high_half)?;
     for name in ["high-half-repro-a", "high-half-repro-b"] {
         let reproduced = work.join(name);
@@ -335,7 +336,7 @@ pub fn run() -> Result<(), String> {
     let primitives_sha = sha256sum(&primitives)?;
     let hosted_sha = sha256sum(&hosted)?;
     let report = format!(
-        "M0_PLATFORM_PRIMITIVES_OK\ncomponent_verified=true\nrelease_eligible=false\nmodel_source_sha256={model_source_sha}\nadapter_source_sha256={adapter_source_sha}\nauditor_sha256={auditor_sha}\nlinker_script_sha256={}\nmodel_artifact_sha256={model_sha}\nadapter_artifact_sha256={adapter_sha}\nprimitive_object_sha256={primitives_sha}\nhosted_consumer_sha256={hosted_sha}\nfreestanding_consumer_sha256={kernel_sha}\nhigh_half_consumer_sha256={high_half_sha}\nmodel_reproducibility_builds=3\nadapter_reproducibility_builds=3\nfreestanding_reproducibility_links=3\nhigh_half_reproducibility_links=3\nverus_verified=39\nalloc_capsule_sha256={}\nseal_capsule_sha256={}\nmemcpy_capsule_sha256={}\nmemset_capsule_sha256={}\nruntime_marker=M0_GLOBAL_ALLOC_OK:box:vec:reject:sealed\nfreestanding_runtime=fail-stop-timeout-124\nhigh_half_link_base=ffffffff80000000\nnegative_cases=alloc-byte,alloc-semantics,assume,arena-layout,code-model\n",
+        "M0_PLATFORM_PRIMITIVES_OK\ncomponent_verified=true\nrelease_eligible=false\nlinked_primitives_verified=true\nmodel_source_sha256={model_source_sha}\nadapter_source_sha256={adapter_source_sha}\nauditor_sha256={auditor_sha}\nlinker_script_sha256={}\nmodel_artifact_sha256={model_sha}\nadapter_artifact_sha256={adapter_sha}\nprimitive_object_sha256={primitives_sha}\nhosted_consumer_sha256={hosted_sha}\nfreestanding_consumer_sha256={kernel_sha}\nhigh_half_consumer_sha256={high_half_sha}\nmodel_reproducibility_builds=3\nadapter_reproducibility_builds=3\nfreestanding_reproducibility_links=3\nhigh_half_reproducibility_links=3\nverus_verified=39\nalloc_capsule_sha256={}\nseal_capsule_sha256={}\nmemcpy_capsule_sha256={}\nmemset_capsule_sha256={}\nruntime_marker=M0_GLOBAL_ALLOC_OK:box:vec:reject:sealed\nfreestanding_runtime=fail-stop-timeout-124\nhigh_half_link_base=ffffffff80000000\nnegative_cases=alloc-byte,alloc-semantics,assume,arena-layout,code-model\n",
         sha256sum(&kernel_linker)?,
         sha256sum(&emitted.join("alloc.bin"))?,
         sha256sum(&emitted.join("seal.bin"))?,
@@ -958,6 +959,79 @@ fn audit_high_half_symbols(tools: &Tools, image: &Path) -> Result<(), String> {
         "higher-half GlobalAlloc program headers",
         &["Entry point 0xffffffff80000000", "0xffffffff80000000"],
     )?;
+    Ok(())
+}
+
+fn audit_linked_primitive_bytes(tools: &Tools, image: &Path, output: &Path) -> Result<(), String> {
+    fs::create_dir_all(output)
+        .map_err(|error| format!("create linked primitive evidence path: {error}"))?;
+    let linked_text = output.join("linked-text.bin");
+    run_checked(
+        Command::new(&tools.objcopy)
+            .arg("--dump-section")
+            .arg(format!(".text={}", linked_text.display()))
+            .arg(image)
+            .arg(output.join("audited-image-copy")),
+        "extract higher-half linked text",
+    )?;
+    let bytes =
+        fs::read(&linked_text).map_err(|error| format!("read higher-half linked text: {error}"))?;
+    let symbols = run_checked(
+        Command::new(&tools.nm).args(["-n"]).arg(image),
+        "locate linked primitive symbols",
+    )?;
+    let symbol_text = String::from_utf8_lossy(&symbols.stdout);
+    let symbol_address = |name: &str| -> Result<u64, String> {
+        let line = symbol_text
+            .lines()
+            .find(|line| line.split_whitespace().last() == Some(name))
+            .ok_or_else(|| format!("linked image is missing primitive symbol `{name}`"))?;
+        let address = line
+            .split_whitespace()
+            .next()
+            .ok_or_else(|| format!("linked primitive symbol `{name}` has no address"))?;
+        u64::from_str_radix(address, 16)
+            .map_err(|error| format!("parse linked primitive symbol `{name}`: {error}"))
+    };
+    let text_base = symbol_address("_start")?;
+    for (name, start_name, end_name, expected) in [
+        (
+            "alloc.bin",
+            "tmk_alloc_capsule",
+            "tmk_alloc_capsule_end",
+            EXPECTED_ALLOC,
+        ),
+        (
+            "seal.bin",
+            "tmk_seal_capsule",
+            "tmk_seal_capsule_end",
+            EXPECTED_SEAL,
+        ),
+        ("memcpy.bin", "memcpy", "memcpy_end", EXPECTED_MEMCPY),
+        ("memset.bin", "memset", "memset_end", EXPECTED_MEMSET),
+    ] {
+        let start = symbol_address(start_name)?;
+        let end = symbol_address(end_name)?;
+        if start < text_base || end < start {
+            return Err(format!(
+                "linked primitive `{name}` has invalid address range {start:#x}..{end:#x}"
+            ));
+        }
+        let offset = usize::try_from(start - text_base)
+            .map_err(|_| format!("linked primitive `{name}` offset does not fit usize"))?;
+        let length = usize::try_from(end - start)
+            .map_err(|_| format!("linked primitive `{name}` length does not fit usize"))?;
+        let end_offset = offset
+            .checked_add(length)
+            .ok_or_else(|| format!("linked primitive `{name}` range overflowed"))?;
+        let linked = bytes
+            .get(offset..end_offset)
+            .ok_or_else(|| format!("linked primitive `{name}` escaped the text section"))?;
+        let path = output.join(name);
+        fs::write(&path, linked)
+            .map_err(|error| format!("write linked primitive `{name}`: {error}"))?;
+        require_exact_bytes(&path, expected, &format!("linked primitive `{name}`"))?;
+    }
     Ok(())
 }
 
