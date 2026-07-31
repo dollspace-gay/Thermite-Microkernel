@@ -1035,7 +1035,7 @@ fn m0_manifest() -> Result<(), String> {
         "tests": [
             { "name": "byte-allocator", "status": "pass", "result_sha256": byte_report, "passed": 4, "failed": 0, "skipped": 0 },
             { "name": "capsule", "status": "pass", "result_sha256": capsule_report, "passed": 5, "failed": 0, "skipped": 0 },
-            { "name": "composition", "status": "pass", "result_sha256": composition.report_sha.clone(), "passed": 23, "failed": 0, "skipped": 0 },
+            { "name": "composition", "status": "pass", "result_sha256": composition.report_sha.clone(), "passed": 24, "failed": 0, "skipped": 0 },
             { "name": "forge-probe", "status": "pass", "result_sha256": forge_report, "passed": 6, "failed": 0, "skipped": 0 },
             { "name": "host-link", "status": "pass", "result_sha256": host_report, "passed": 4, "failed": 0, "skipped": 0 },
             { "name": "kernel-idl", "status": "pass", "result_sha256": idl_result, "passed": 8, "failed": 0, "skipped": 0 },
@@ -1735,7 +1735,7 @@ fn validate_m0_composition_inputs(root: &Path) -> Result<ManifestCompositionEvid
         ("final_link_receipted", "true".to_string()),
         ("linked_primitives_verified", "true".to_string()),
         ("selected_primitives", "memcpy".to_string()),
-        ("positive_gates", "12".to_string()),
+        ("positive_gates", "13".to_string()),
         ("forge_revision", thermite_revision.to_string()),
         ("forge_sha256", forge_sha),
         (
@@ -1775,6 +1775,7 @@ fn validate_m0_composition_inputs(root: &Path) -> Result<ManifestCompositionEvid
         ("composition_reproducibility_builds", "3".to_string()),
         ("low_static_reproducibility_links", "3".to_string()),
         ("high_half_reproducibility_links", "3".to_string()),
+        ("absolute_path_reproducibility_roots", "2".to_string()),
         (
             "hosted_runtime_marker",
             "M0_COMPOSITION_OK:store:reject:1".to_string(),
@@ -1950,6 +1951,11 @@ fn validate_m0_final_link_receipt(
             "/outputs/higher_half_reproducibility_links",
             "higher-half-link reproducibility count",
         )? != 3
+        || json_u64(
+            &receipt,
+            "/outputs/absolute_path_reproducibility_roots",
+            "absolute-path reproducibility root count",
+        )? != 2
         || json_string(
             &receipt,
             "/outputs/freestanding_runtime",

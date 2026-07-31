@@ -153,6 +153,15 @@ pub fn run() -> Result<(), String> {
     run_incompatible_rustc_negative(&root, &work, primary, &toolchain)?;
 
     let (low_sha, high_sha) = run_freestanding_links(&root, &work, primary, &codegen_rustc)?;
+    run_cross_absolute_path_reproduction(
+        &forge,
+        &root,
+        &work,
+        primary,
+        &codegen_rustc,
+        &low_sha,
+        &high_sha,
+    )?;
     run_bundle_tamper_negatives(&forge, &root, &work, primary)?;
     run_build_negatives(&forge, &root, &work)?;
 
@@ -163,7 +172,7 @@ pub fn run() -> Result<(), String> {
     let platform_object_sha =
         sha256sum(&root.join("build/m0-platform-primitives/objects/platform-primitives.o"))?;
     let report = format!(
-        "M0_COMPOSITION_OK\ncomponent_verified=true\nrelease_eligible=false\nreceipt_validated=true\nreceipt_replayed=true\nfinal_link_receipted=true\nlinked_primitives_verified=true\nselected_primitives=memcpy\npositive_gates=12\nforge_revision={}\nforge_sha256={}\nskill_sha256={}\nsource_sha256={}\nshell_sha256={}\ncombined_source_sha256={combined_source_sha}\nreceipt_sha256={receipt_sha}\nbinding_sha256={binding_sha}\nartifact_sha256={artifact_sha}\nplatform_primitive_object_sha256={platform_object_sha}\nfinal_link_receipt_sha256={final_link_receipt_sha}\nhosted_consumer_sha256={hosted_sha}\nlow_static_consumer_sha256={low_sha}\nhigh_half_consumer_sha256={high_sha}\ncomposition_reproducibility_builds=3\nlow_static_reproducibility_links=3\nhigh_half_reproducibility_links=3\nhosted_runtime_marker={RUNTIME_MARKER}\nfreestanding_runtime=fail-stop-timeout-124\nhigh_half_link_base=ffffffff80000000\nnegative_cases=artifact-tamper,binding-tamper,certificate-l2,external-body,extra-file,host-rustc,post-plan-shell,private-export,rich-standalone-export,shell-tamper,tv-nonpass\n",
+        "M0_COMPOSITION_OK\ncomponent_verified=true\nrelease_eligible=false\nreceipt_validated=true\nreceipt_replayed=true\nfinal_link_receipted=true\nlinked_primitives_verified=true\nselected_primitives=memcpy\npositive_gates=13\nforge_revision={}\nforge_sha256={}\nskill_sha256={}\nsource_sha256={}\nshell_sha256={}\ncombined_source_sha256={combined_source_sha}\nreceipt_sha256={receipt_sha}\nbinding_sha256={binding_sha}\nartifact_sha256={artifact_sha}\nplatform_primitive_object_sha256={platform_object_sha}\nfinal_link_receipt_sha256={final_link_receipt_sha}\nhosted_consumer_sha256={hosted_sha}\nlow_static_consumer_sha256={low_sha}\nhigh_half_consumer_sha256={high_sha}\ncomposition_reproducibility_builds=3\nlow_static_reproducibility_links=3\nhigh_half_reproducibility_links=3\nabsolute_path_reproducibility_roots=2\nhosted_runtime_marker={RUNTIME_MARKER}\nfreestanding_runtime=fail-stop-timeout-124\nhigh_half_link_base=ffffffff80000000\nnegative_cases=artifact-tamper,binding-tamper,certificate-l2,external-body,extra-file,host-rustc,post-plan-shell,private-export,rich-standalone-export,shell-tamper,tv-nonpass\n",
         pins.revision,
         pins.forge_sha,
         pins.skill_sha,
@@ -291,6 +300,7 @@ fn write_final_link_receipt(
             "higher_half_entry": "ffffffff80000000",
             "low_static_reproducibility_links": 3,
             "higher_half_reproducibility_links": 3,
+            "absolute_path_reproducibility_roots": 2,
             "freestanding_runtime": "fail-stop-timeout-124",
         },
     });
@@ -1025,6 +1035,242 @@ fn run_freestanding_links(
         }
     }
     Ok((low_sha, high_sha))
+}
+
+fn run_cross_absolute_path_reproduction(
+    forge: &Path,
+    root: &Path,
+    work: &Path,
+    primary: &Path,
+    rustc: &Path,
+    expected_low_sha: &str,
+    expected_high_sha: &str,
+) -> Result<(), String> {
+    let secondary_root = env::temp_dir().join(format!(
+        "tmk-m0-composition-absolute-{}",
+        std::process::id()
+    ));
+    if secondary_root.exists() {
+        fs::remove_dir_all(&secondary_root).map_err(|error| {
+            format!(
+                "remove stale absolute-path reproduction root {}: {error}",
+                secondary_root.display()
+            )
+        })?;
+    }
+
+    let result = (|| {
+        fs::create_dir_all(&secondary_root).map_err(|error| {
+            format!(
+                "create absolute-path reproduction root {}: {error}",
+                secondary_root.display()
+            )
+        })?;
+        let primary_absolute = fs::canonicalize(root)
+            .map_err(|error| format!("canonicalize primary composition root: {error}"))?;
+        let secondary_absolute = fs::canonicalize(&secondary_root)
+            .map_err(|error| format!("canonicalize secondary composition root: {error}"))?;
+        if primary_absolute == secondary_absolute {
+            return Err("absolute-path reproduction roots unexpectedly coincide".to_string());
+        }
+        fs::write(
+            work.join("absolute-roots.txt"),
+            format!(
+                "primary={}\nsecondary={}\n",
+                primary_absolute.display(),
+                secondary_absolute.display()
+            ),
+        )
+        .map_err(|error| format!("write absolute-path root evidence: {error}"))?;
+
+        for relative in [
+            SOURCE,
+            SHELL,
+            "tests/m0/composition_kernel_consumer.rs",
+            "tests/m0/global_allocator_kernel.ld",
+            "build/m0-platform-primitives/objects/platform-primitives.o",
+        ] {
+            let source = root.join(relative);
+            let destination = secondary_root.join(relative);
+            let parent = destination.parent().ok_or_else(|| {
+                format!("absolute-path reproduction input `{relative}` has no parent")
+            })?;
+            fs::create_dir_all(parent).map_err(|error| {
+                format!(
+                    "create absolute-path reproduction input directory {}: {error}",
+                    parent.display()
+                )
+            })?;
+            fs::copy(&source, &destination).map_err(|error| {
+                format!(
+                    "copy absolute-path reproduction input {} to {}: {error}",
+                    source.display(),
+                    destination.display()
+                )
+            })?;
+        }
+
+        let bundle = secondary_root.join("build/absolute.verified");
+        let build = run_checked(
+            &mut composition_build_command(forge, &secondary_root, SHELL, &bundle),
+            "Forge composition build from a second absolute root",
+        )?;
+        write_output(
+            &work.join("absolute-build.txt"),
+            &build,
+            "absolute-path composition build evidence",
+        )?;
+        let receipt = validate_receipt(&bundle, &secondary_root)?;
+        let artifact = fs::read(bundle.join(ARTIFACT))
+            .map_err(|error| format!("read absolute-path composition artifact: {error}"))?;
+        audit_combined_evidence(&bundle, &secondary_root, &receipt, &artifact)?;
+
+        let binding_sha =
+            json_string(&receipt, "/binding_sha256", "absolute-path binding")?.to_string();
+        let artifact_sha = json_string(
+            &receipt,
+            "/binding/artifact/sha256",
+            "absolute-path artifact digest",
+        )?
+        .to_string();
+        for (replay, file_name) in [
+            (false, "absolute-verify.json"),
+            (true, "absolute-replay.json"),
+        ] {
+            let report = verify_bundle(forge, &secondary_root, &bundle, replay)?;
+            if report.get("replayed").and_then(Value::as_bool) != Some(replay)
+                || json_string(&report, "/binding_sha256", "absolute-path replay")? != binding_sha
+                || json_string(&report, "/artifact_sha256", "absolute-path replay")? != artifact_sha
+            {
+                return Err(
+                    "absolute-path composition verification does not match its receipt".to_string(),
+                );
+            }
+            fs::write(
+                work.join(file_name),
+                serde_json::to_vec_pretty(&report).map_err(|error| {
+                    format!("serialize absolute-path composition verification: {error}")
+                })?,
+            )
+            .map_err(|error| format!("write absolute-path composition verification: {error}"))?;
+        }
+
+        for (relative, label) in [
+            ("receipt.json", "receipt"),
+            (ARTIFACT, "verified rlib"),
+            ("evidence/source.verus.rs", "combined Verus source"),
+        ] {
+            let expected = fs::read(primary.join(relative)).map_err(|error| {
+                format!("read primary composition {label} for absolute comparison: {error}")
+            })?;
+            let actual = fs::read(bundle.join(relative)).map_err(|error| {
+                format!("read secondary composition {label} for absolute comparison: {error}")
+            })?;
+            if actual != expected {
+                return Err(format!(
+                    "composition {label} differs across absolute source roots"
+                ));
+            }
+        }
+
+        let primitives =
+            secondary_root.join("build/m0-platform-primitives/objects/platform-primitives.o");
+        let low = secondary_root.join("build/composition-kernel-low");
+        compile_freestanding(&secondary_root, rustc, &bundle, &primitives, None, &low)?;
+        audit_no_undefined(&low, "absolute-path low static composition image")?;
+        let execution = run_expect_failure(
+            Command::new("/usr/bin/timeout")
+                .current_dir(&secondary_root)
+                .args(["0.1s"])
+                .arg(&low),
+            "execute absolute-path low static composition image",
+        )?;
+        if execution.status.code() != Some(124) {
+            return Err(format!(
+                "absolute-path low image exited with {}, expected timeout 124",
+                execution.status
+            ));
+        }
+        if sha256sum(&low)? != expected_low_sha
+            || fs::read(&low)
+                .map_err(|error| format!("read absolute-path low composition image: {error}"))?
+                != fs::read(work.join("composition-kernel-low"))
+                    .map_err(|error| format!("read primary low composition image: {error}"))?
+        {
+            return Err(
+                "low static composition image differs across absolute source roots".to_string(),
+            );
+        }
+
+        let linker = secondary_root.join("tests/m0/global_allocator_kernel.ld");
+        let high = secondary_root.join("build/composition-kernel-high-half");
+        compile_freestanding(
+            &secondary_root,
+            rustc,
+            &bundle,
+            &primitives,
+            Some(&linker),
+            &high,
+        )?;
+        audit_no_undefined(&high, "absolute-path higher-half composition image")?;
+        let header = run_checked(
+            Command::new("/usr/sbin/readelf").args(["-hW"]).arg(&high),
+            "absolute-path higher-half ELF-header audit",
+        )?;
+        require_output_fragments(
+            &header.stdout,
+            "absolute-path higher-half ELF header",
+            &["Entry point address:               0xffffffff80000000"],
+        )?;
+        let symbols = run_checked(
+            Command::new("/usr/sbin/nm").args(["-C"]).arg(&high),
+            "absolute-path higher-half symbol audit",
+        )?;
+        require_output_fragments(
+            &symbols.stdout,
+            "absolute-path higher-half symbol audit",
+            &[
+                "tmk_composition_probe::composition_step",
+                "tmk_composition_probe::composition_shell::boot_observation",
+                " memcpy",
+            ],
+        )?;
+        reject_unselected_primitive_symbols(&symbols.stdout)?;
+        let linked = secondary_root.join("build/linked-primitives");
+        super::platform_primitives::audit_linked_composition_primitives(&high, &linked)?;
+        if fs::read(linked.join("memcpy.bin"))
+            .map_err(|error| format!("read absolute-path linked memcpy: {error}"))?
+            != fs::read(work.join("linked-primitives/memcpy.bin"))
+                .map_err(|error| format!("read primary linked memcpy: {error}"))?
+            || sha256sum(&high)? != expected_high_sha
+            || fs::read(&high).map_err(|error| {
+                format!("read absolute-path higher-half composition image: {error}")
+            })? != fs::read(work.join("composition-kernel-high-half"))
+                .map_err(|error| format!("read primary higher-half composition image: {error}"))?
+        {
+            return Err(
+                "higher-half composition output differs across absolute source roots".to_string(),
+            );
+        }
+        Ok(())
+    })();
+
+    let cleanup = if secondary_root.exists() {
+        fs::remove_dir_all(&secondary_root).map_err(|error| {
+            format!(
+                "remove absolute-path reproduction root {}: {error}",
+                secondary_root.display()
+            )
+        })
+    } else {
+        Ok(())
+    };
+    match (result, cleanup) {
+        (Ok(()), Ok(())) => Ok(()),
+        (Err(error), Ok(())) => Err(error),
+        (Ok(()), Err(error)) => Err(error),
+        (Err(error), Err(cleanup_error)) => Err(format!("{error}; {cleanup_error}")),
+    }
 }
 
 fn reject_unselected_primitive_symbols(symbols: &[u8]) -> Result<(), String> {
