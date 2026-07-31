@@ -186,9 +186,28 @@ validation/replay, separate runtime execution, a 64/64 mutation battery, and
 fourteen malformed-plan/proof/receipt rejection cases. See
 [M1 address-space policy](../evidence/m1/address-space-policy.md).
 
-This checkpoint consumes scalar mapping observations. Real page-table page
-ownership and writes, translation correspondence, CR3 installation, invalidation
-capsules, and live QEMU translation probes remain open M1 gates.
+This checkpoint consumes scalar mapping observations.
+
+### 5.2 Implemented reference page-table checkpoint
+
+The next accepted checkpoint lowers the six-region fixture into thirteen real,
+contiguous, 4-KiB-aligned table pages. A `no_std` executable Verus constructor
+populates all four levels for the direct, heap, guarded-stack, and kernel-image
+paths and proves every other entry zero. Its executable walker follows the
+encoded physical links, rejects absent and huge intermediate entries, combines
+permission bits across levels, and proves ten registered translation and
+non-translation observations.
+
+`cargo run -p xtask -- m1-page-tables` performs three reproducible proof/codegen
+runs and three reproducible runtime links, executes every consumer, audits the
+artifact dependency surface, and rejects wrong-text-physical, executable-data,
+unexpected-present-entry, and false-observation mutations. See
+[M1 reference boot page tables](../evidence/m1/boot-page-tables.md).
+
+The fixed image is an encoding/correspondence fixture, not the full boot map.
+Real page-table frame ownership and physical writes, a bounded builder for all
+accepted firmware ranges, cache-attribute connection, CR3 installation,
+invalidation capsules, and live QEMU translation probes remain open M1 gates.
 
 ## 6. Descriptor and entry state
 

@@ -127,11 +127,20 @@ the fixed windows and direct-map offset, low guard, virtual non-overlap, guarded
 stacks, W^X, physical alias exclusion, and exact text/rodata/data image coverage.
 See [M1 address-space policy](../evidence/m1/address-space-policy.md).
 
+The concrete reference page-table image is a fourth accepted M1 subcomponent.
+Its `no_std` Verus implementation constructs thirteen contiguous,
+4-KiB-aligned x86_64 table pages and executes a real four-level walker. Verus
+proves 75 obligations; three model artifacts and three consumers reproduce
+byte-for-byte; all consumers execute ten mapping/guard observations; and four
+semantic mutations fail proof. See
+[M1 reference boot page tables](../evidence/m1/boot-page-tables.md).
+
 This status does not close M1. The raw `BootInfo` decoder remains fail-closed
 pending Thermite [#108](https://github.com/dollspace-gay/Thermite/issues/108), and
 the UEFI call gateway, raw map decoding and real `ExitBootServices` execution,
-page-table construction/CR3 installation, BSP entry state, interrupt/timer path,
-QEMU boots, and final signed `M1_OK` gate remain to be implemented.
+general page-table construction/physical placement and CR3 installation, BSP
+entry state, interrupt/timer path, QEMU boots, and final signed `M1_OK` gate
+remain to be implemented.
 
 Deliver:
 

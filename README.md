@@ -7,7 +7,8 @@ composition final-links at the higher-half address, and a reproducible M0 UEFI
 probe image boots under OVMF with both TCG and KVM. M1 kernel/BSP implementation
 is in progress; accepted components now include the verified static-kernel ELF
 load policy, normalized memory-map/`ExitBootServices` retry policy, and
-alias-aware kernel address-plan policy.
+alias-aware kernel address-plan policy, plus a concrete verified reference
+page-table image and executable four-level walker.
 
 The first platform is x86_64 QEMU/KVM on the `q35` machine, booted as a UEFI
 application through OVMF. The first useful release is single-core but is designed
@@ -71,8 +72,9 @@ M0 toolchain closure is complete. The public repository, pinned Cargo workspace,
 replayable standalone and rich-state Forge paths, verified platform layer,
 receipted higher-half link, reproducible UEFI probe, and signed development
 manifest have all passed their acceptance gates. M1 verified UEFI/BSP bring-up is
-in progress. The ELF/load-plan policy is accepted as an M1 subcomponent; this
-does not yet constitute an M1 loader or kernel.
+in progress. The ELF/load-plan, firmware-response, address-plan, and concrete
+reference page-table checkpoints are accepted M1 subcomponents; these do not yet
+constitute an M1 loader or kernel.
 
 The M1 ELF policy is a same-crate Thermite/direct-Verus kernel composition. It
 accepts only the pinned static ELF64/x86-64 profile, checks the digest and bounded
@@ -103,6 +105,15 @@ the physical image contiguously with RX, R/NX, and RW/NX permissions. Three
 builds reproduce; receipt validation/replay, a real compiled consumer, 64/64
 mutation battery, and fourteen malformed/proof/receipt cases pass. This proves a
 scalar mapping plan, not page-table memory or CR3 installation.
+
+The M1 reference page-table checkpoint lowers the accepted fixture into a real
+`no_std` Verus construction containing thirteen contiguous, 4-KiB-aligned x86_64
+table pages and an executable four-level walker. Verus proves 75 obligations;
+three rlibs and three separately linked consumers reproduce byte-for-byte; all
+three consumers execute the direct, heap, guarded-stack, image-permission,
+low-guard, and recursive-absence checks; and four semantic mutations fail proof.
+This closes encoding and sample-walker correspondence, not the general mapping
+builder, physical placement, CR3 installation, or live hardware translation.
 
 The standalone probe's toolchain-binding gate is locally closed by pinned
 Thermite `v0.0.2` commit `845d684f00e829491ee4c537818fba2689bcaefc`. Forge records both
