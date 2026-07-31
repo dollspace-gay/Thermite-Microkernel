@@ -20,8 +20,10 @@ The baseline is Thermite `v0.0.2` commit
 The standalone L3 rlib path and same-crate rich-state composition path are
 implemented and independently exercised. The pinned public Thermite commit
 deterministically generates the multi-field-enum composition bundle; three TMK
-builds reproduce its combined source, receipt, and rlib, and receipt replay
-succeeds. Nothing in this document relabels an ordinary Forge L1 build.
+builds reproduce its combined source, receipt, and rlib, a clean build in a
+second absolute source root reproduces those products and both final images, and
+receipt replay succeeds. Nothing in this document relabels an ordinary Forge L1
+build.
 
 ## 2. Two different interfaces
 
@@ -298,8 +300,11 @@ action. A direct-Verus shell:
 - applies it to a mock platform state; and
 - is verified and compiled in the same exact-source invocation.
 
-The resulting rlib is linked into the empty UEFI image and contributes a
-manifest-bound boot observation.
+The resulting rlib is linked into the receipted higher-half M0 kernel ELF. The
+signed manifest binds that ELF and its final-link receipt alongside the
+independently verified UEFI debug/return image and its TCG/KVM observations. M1
+provides the first loader that transfers control to the composed kernel; M0 does
+not add an unverified PE-to-kernel handoff merely to collapse those two artifacts.
 
 Negative tests independently inject:
 
@@ -341,16 +346,16 @@ and the TMK case remains as an integration test.
 
 | Gate | Current status | Required evidence |
 |---|---|---|
-| Standalone exact-source L3 artifact | shipped upstream | TMK-pinned build, validation, replay, and link test |
-| Primitive explicit exports and ABI fingerprint | shipped upstream | independent consumer and tamper tests |
-| Strict rejection of non-L3/TV non-pass cases | nine local bundle-tamper cases pass | certificate/TV verdict and source-mutation fault-injection remainder |
-| Actual codegen-rustc receipt binding | pinned fix passes locally and #103 is closed by merged PR #105 | receipt-selected consumer links; mismatched host compiler is rejected |
-| Rich-state same-crate composition | three exact-source builds reproduce the receipt/source/rlib; validation, replay, hosted behavior, visibility, compiler mismatch, static links, and eleven negative cases pass | bind the accepted receipt into the signed manifest |
-| Verified bounded allocator and panic host | unit and byte/layout policies, exact-image-decoded `GlobalAlloc`/seal/memory primitives, real hosted `Box`/`Vec`, and reproducible no-undefined low/higher-half static consumers pass; the composition final link selects exact `memcpy` | bind the accepted receipts into the signed final image |
-| Exact-byte instruction capsules | M0 `mov rax,rdi; hlt` component capsule and 56-byte UEFI debug/return capsule prove and survive link byte-identically; composition-linked `memcpy` also matches | bind the final composition receipt; extend per platform operation |
-| Native ABI IDL generator | three-path C/Rust generation, hosted runtimes, `no_std` compile, and five negative cases pass | add verified decoders, fuzz/property tests, golden vectors, and manifest binding |
-| Release manifest schema | real M0 evidence including the platform primitives, PE/FAT image, and firmware observations is artifact-replayed and reproducibly Ed25519-signed; fourteen negative cases pass | consume the accepted composition/final-link receipts; replace the development key only for production release |
-| Final receipted link/image | composition low/higher-half links reproduce, exact `memcpy` survives, and `tmk.final-link-receipt.v1` binds the allowlist; the separate PE/FAT image boots in OVMF TCG/KVM | bind both receipts and the image in the signed manifest |
+| Standalone exact-source L3 artifact | accepted locally | pinned build, validation, replay, runtime/link, compiler-mismatch, and tamper tests pass |
+| Primitive explicit exports and ABI fingerprint | accepted locally | independent consumer and nine bundle-tamper tests pass |
+| Strict rejection of non-L3/TV non-pass cases | accepted locally | standalone and composition certificate/TV/source/visibility fault matrices pass |
+| Actual codegen-rustc receipt binding | accepted locally and upstream | receipt-selected consumers link; mismatched host compiler is rejected |
+| Rich-state same-crate composition | accepted and manifest-bound | three builds plus a second absolute source root reproduce receipt/source/rlib and final images; validation, replay, runtime, links, and eleven negatives pass |
+| Verified bounded allocator and panic host | accepted and manifest-bound | real `Box`/`Vec`, exact-image primitives, low/higher-half links, and composition-selected `memcpy` pass |
+| Exact-byte instruction capsules | accepted for M0 | component, UEFI, and composition-selected capsule bytes survive link exactly; extend per M1 operation |
+| Native ABI IDL generator | accepted and manifest-bound | three-path generation/compilation/runtime and five negative cases pass; M2 adds verified decoders/fuzzing |
+| Release manifest schema | accepted for M0 development | composition replay, final-link audit, PE/FAT/firmware evidence, three signatures, and seventeen negatives pass |
+| Final receipted link/image | accepted and manifest-bound | higher-half allowlist receipt and separate reproducible OVMF-booted PE/FAT image are signed together |
 
-M1 cannot begin until every row is demonstrated locally, even when an upstream
-component already carries its own passing conformance tests.
+Every M0 row is demonstrated locally. M1 may begin; the pinned tests remain
+mandatory regressions even when the upstream component carries conformance tests.

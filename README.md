@@ -2,9 +2,9 @@
 
 This repository contains the design for a capability-oriented, POSIX-compatible
 microkernel written primarily in Thermite and verified through Forge and Verus.
-Implementation has begun with M0 toolchain and proof-artifact closure. A
-freestanding verified component host links and executes, and a reproducible M0
-UEFI probe image boots under OVMF with both TCG and KVM. Kernel/BSP implementation
+M0 toolchain and proof-artifact closure is complete. A freestanding verified
+composition final-links at the higher-half address, and a reproducible M0 UEFI
+probe image boots under OVMF with both TCG and KVM. M1 kernel/BSP implementation
 has not started.
 
 The first platform is x86_64 QEMU/KVM on the `q35` machine, booted as a UEFI
@@ -65,9 +65,11 @@ a final product name.
 
 ## Implementation status
 
-Implementation is in M0 toolchain closure. The public repository and pinned Cargo
-workspace exist. The first Thermite L3 kernel rlib has been verified, replayed,
-executed through a host consumer, and linked through a separate `no_std` consumer.
+M0 toolchain closure is complete. The public repository, pinned Cargo workspace,
+replayable standalone and rich-state Forge paths, verified platform layer,
+receipted higher-half link, reproducible UEFI probe, and signed development
+manifest have all passed their acceptance gates. M1 verified UEFI/BSP bring-up is
+next; the kernel proper has not started.
 
 The standalone probe's toolchain-binding gate is locally closed by pinned
 Thermite `v0.0.2` commit `845d684f00e829491ee4c537818fba2689bcaefc`. Forge records both
@@ -84,10 +86,12 @@ independent composition builds reproduce the combined source, receipt, and rlib;
 validation and replay pass. A hosted consumer executes authorized and rejected
 transitions, private rich exports remain inaccessible, incompatible rustc is
 rejected, and reproducible low/higher-half links retain only the selected proved
-`memcpy` bytes. Eleven independent composition mutations fail. A canonical final-
-link receipt binds every input, tool, selected/discarded symbol, linked output,
-and runtime result. Signed-manifest consumption of this component is the remaining
-M0 integration step.
+`memcpy` bytes. A fresh second absolute source root reproduces the receipt, rlib,
+both final images, and linked primitive byte-for-byte. Eleven independent
+composition mutations fail. A canonical final-link receipt binds every input,
+tool, selected/discarded symbol, linked output, runtime result, and two-root
+reproducibility result. The clean signed development manifest independently
+replays and binds the component and receipt.
 
 The direct-Verus allocation layer now closes the raw-pointer ABI as well as the
 fixed-unit and byte/layout policies. A 39-obligation Verus machine model owns the
@@ -118,9 +122,11 @@ then produces and verifies three byte-identical Ed25519-signed development
 manifests. The manifest now reparses and binds the verified UEFI entry model,
 PE loader, raw FAT image, pinned firmware/hypervisor tools, TCG/KVM observations,
 platform model, `GlobalAlloc` adapter, primitive object, higher-half image, and
-exact emitted/post-link primitive bytes. Fourteen negative cases pass. The
-public M0 test key is policy-locked to non-release development manifests and
-cannot authorize production.
+exact emitted/post-link primitive bytes, rich-state composition receipt,
+receipted higher-half final link, and selected `memcpy` bytes. The manifest
+reruns composition replay and final-ELF audits, reproduces three signatures, and
+rejects seventeen mutations. The public M0 test key is policy-locked to
+non-release development manifests and cannot authorize production.
 
 The M0 x86 capsule is also live: Verus proves the exact encoding and machine-state
 transition for `mov rax,rdi; hlt`; the emitted bytes survive object conversion and

@@ -66,5 +66,6 @@ The report digest was
 
 This proves and post-link checks the M0 capsule instance. The exact bytes also
 survive the freestanding component-host link recorded in `panic-host.md`. The
-empty UEFI image, receipt/manifest binding, and later privileged-operation
-capsules remain outstanding, so the report states `release_eligible=false`.
+empty UEFI image and clean receipt/manifest binding now pass. Later privileged-
+operation capsules are M1 work, so this component report correctly states
+`release_eligible=false`.

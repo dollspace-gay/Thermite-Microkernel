@@ -27,6 +27,7 @@
 | D-021 | permit an exact opaque `PanicInfo` type specification, never an executable `external_body` | Verus must name the foreign lang-item parameter type while still verifying the panic implementation |
 | D-022 | one strict JSON IDL generates transient C11 and `repr(C)` Rust ABI definitions | prevents numeric/layout drift while keeping generated files out of the authored source set |
 | D-023 | strict canonical JSON manifests use Ed25519 and a fail-closed release-policy validator | binds proof, tool, artifact, test, assumption, and image identities without allowing a development key to authorize release |
+| D-024 | M0 signs the composed higher-half ELF and independently booted UEFI probe as separate artifacts; M1 implements their verified handoff | preserves the M0/M1 loader boundary and avoids temporary unverified PE-to-kernel glue |
 
 No architecture-significant user choice remains open for implementation kickoff.
 Numeric limits may be tuned only within the invariants and ABI rules documented
@@ -43,15 +44,15 @@ here.
 | G-005 | closed locally | exact-image Verus decoders now own the boot-arena allocator, sealing, `memcpy`, `memset`, and the complete `GlobalAlloc` shim shape/relocation plan; real hosted `Box`/`Vec` plus reproducible low and higher-half static links pass | preserve the byte/model/source pins and bind the accepted component into the final receipted link |
 | G-006 | closed for M0 probe | no existing exact-byte x86 capsule system | M0 model/emitter/post-link auditor passes; extend the opcode model for each M1 operation |
 | G-007 | closed upstream for L3 builds | general Forge TV commands can report unsupported bodies | strict L3 artifact mode rejects every reachable non-`Faithful` verdict |
-| G-008 | closed upstream and locally | pinned Forge `v0.0.2` commit `845d684f` deterministically emits the rich multi-field-enum composition bundle; three independent receipts, sources, and rlibs match and replay succeeds | preserve the exact tool/source pins and replay regression |
+| G-008 | closed upstream and locally | pinned Forge `v0.0.2` commit `845d684f` deterministically emits the rich multi-field-enum composition bundle; three local builds and a second absolute source root reproduce receipts, sources, rlibs, and final images, and replay succeeds | preserve the exact tool/source pins and replay regression |
 | G-009 | accepted residual TCB | final rustc/LLVM correctness is trusted | record exact TCB; later add codegen validation if feasible |
 | G-010 | closed upstream | L3 verification and kernel codegen used different lowerings | compile the same canonical Verus body with `--no-cheating --compile` |
-| G-011 | component gate closed; manifest binding open | combined exact-source verification/codegen, runtime consumers, exact selected primitive, and canonical final-link allowlist pass | validate and consume the composition/final-link receipts in the signed manifest |
+| G-011 | closed locally | combined exact-source verification/codegen, runtime consumers, exact selected primitive, canonical final-link allowlist, independent manifest replay/audit, and signed binding pass | preserve the receipts, final-object allowlist, and seventeen-case manifest regression |
 | G-012 | closed locally and upstream; #103 closed by merged PR #105 | L3 receipt previously recorded ambient rustc 1.96 although Verus emits an rlib with rustc 1.95 metadata | receipt binds rustc/sysroot/LLVM closure; selected consumer links and incompatible host rustc is rejected |
 | G-013 | closed upstream and locally | the exact-source rich-state composition build reproduces and replays; the local build/validate/replay/runtime/link/11-negative matrix passes | preserve as a pinned shakedown regression |
 
-Only G-011's signed-manifest integration blocks M1. G-005 is a verified input to
-the accepted G-011 final-link receipt. G-006's M0 acceptance instance
+No toolchain-closure ledger item blocks M1. G-005 is a verified input to the
+accepted and manifest-bound G-011 final-link receipt. G-006's M0 acceptance instance
 is closed, including the exact-byte UEFI entry/return probe and real OVMF
 TCG/KVM boot; additional privileged operations are M1 proof work. Closed-upstream
 rows remain pinned TMK regression tests; an upstream capability is not treated
@@ -113,9 +114,9 @@ Mitigation:
 - exact capsule-byte checks; and
 - clean-build reproducibility.
 
-Residual: the standalone and rich-state paths are closed at their rlib and
-receipted final-link boundaries. Signed-manifest binding remains M0 work;
-rustc/LLVM/linker remain trusted until stronger translation validation is added.
+Residual: the standalone and rich-state paths are closed at their rlib,
+receipted final-link, and signed-manifest boundaries. rustc/LLVM/linker remain
+trusted until stronger translation validation is added.
 
 ### R-004 — POSIX cross-service atomicity
 

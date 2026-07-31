@@ -268,5 +268,5 @@ matches its proved bytes.
 The final release orchestrator MUST consume the Forge binding digest,
 independently bind the combined Verus source and final image, and prove that no
 post-Forge shim, wrapper, or reconstructed Thermite body entered the executable
-closure. M0's component gate emits this final-link receipt; signed-manifest
-consumption remains the release-orchestrator closure step.
+closure. M0's component gate emits this final-link receipt, and the signed clean
+development manifest independently replays and consumes it.

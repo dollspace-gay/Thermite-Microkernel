@@ -48,6 +48,7 @@ stable across reruns. The report digest was
 This policy is also present in the verified freestanding host recorded in
 `panic-host.md`. The byte/layout layer is recorded separately in
 `byte-allocator.md`. The later exact-byte `GlobalAlloc` bridge and boot-memory
-primitives are recorded in `platform-primitives.md`. The composition receipt and
-final-image binding remain outstanding, so the report states
-`release_eligible=false`.
+primitives are recorded in `platform-primitives.md`. The later composition
+receipt, final-link receipt, and clean signed development manifest now bind the
+allocator's selected platform dependency. This component report correctly
+states `release_eligible=false` because it is not a release authority.

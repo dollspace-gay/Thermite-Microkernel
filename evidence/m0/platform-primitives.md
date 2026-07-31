@@ -70,5 +70,6 @@ rich-state composition consumer. The development-manifest gate now rechecks and
 binds the model, adapter, primitive object, higher-half image, emitted bytes,
 post-link bytes, complete report identities, and runtime/negative-test report.
 This checkpoint is not release-eligible by itself. Deterministic composition
-receipt replay and receipted final linking now pass their component gate; the
-signed development manifest must still bind that evidence.
+receipt replay and receipted final linking pass their component gate, and the
+clean signed M0 development manifest now binds that evidence and the selected
+exact `memcpy` bytes.

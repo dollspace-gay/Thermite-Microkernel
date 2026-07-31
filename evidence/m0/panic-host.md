@@ -63,8 +63,8 @@ disassembly.txt  6745af9080e36d3ae7dc56c6d6a1537e436164b3bdfd9c6ce953f7b43480c68
 report.txt       fa55072bd017d57a28e76b6d3a4fcdb3045317b5cfd10e4c834048ac15937b0b
 ```
 
-The linked ELF is a component gate, not a boot image: the panic loop does not yet
+The linked ELF is a component gate, not a boot image: the panic loop does not
 invoke the HLT capsule. The later `platform-primitives.md` checkpoint connects
-the verified allocation semantics to Rust's raw-pointer `GlobalAlloc` ABI.
-Composition receipt and final-link selection remain outstanding, so this report
-states `release_eligible=false`.
+the verified allocation semantics to Rust's raw-pointer `GlobalAlloc` ABI. The
+composition/final-link gates and clean signed M0 manifest now consume the
+verified platform path; this component report correctly remains non-release.

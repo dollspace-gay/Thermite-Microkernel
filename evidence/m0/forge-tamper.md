@@ -26,7 +26,9 @@ The normalized report digest was
 and reported `rejected_cases=9`. Case directories were removed after each check,
 so the matrix used bounded temporary disk space.
 
-This covers bundle binding and inventory tampering. It does not yet complete the
-separate pre-publication certificate downgrade, each TV non-pass verdict,
-post-plan mutation, private-symbol, or wrong-valid-archive injections required by
-the full M0 negative matrix.
+This covers standalone bundle binding and inventory tampering. The composition
+matrix separately rejects certificate downgrade, TV non-pass, post-plan source
+mutation, private export, rich standalone export, executable `external_body`,
+compiler mismatch, and bundle tampering. The signed-manifest matrix then rejects
+artifact, receipt, policy, schema, and signature drift, completing the M0
+negative-test closure.

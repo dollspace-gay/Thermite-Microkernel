@@ -8,6 +8,9 @@ gates remain green.
 
 ## 2. M0 — toolchain closure
 
+Status: **accepted** on 2026-07-31. All exit gates below are demonstrated by
+clean, signed, reproducible evidence; M1 may begin.
+
 Pinned Forge already provides the following upstream capability, which M0 must
 reproduce locally rather than redesign:
 
@@ -38,9 +41,7 @@ TMK delivers:
 The kernel IDL generator deliverable is locally demonstrated: strict schema and
 layout validation, byte-identical three-path C/Rust generation, hosted C/Rust and
 freestanding Rust compilation, cross-language runtime agreement, and five
-negative cases pass. See `evidence/m0/kernel-idl.md`. This does not close M0 while
-the accepted composition and final-link receipts remain outside the signed
-manifest.
+negative cases pass. See `evidence/m0/kernel-idl.md`.
 
 The platform-primitives checkpoint closes the raw-pointer allocator bridge with
 a registered exact-byte Verus model and a pinned Rust ABI adapter. It proves the
@@ -56,24 +57,26 @@ by the accepted composition final-link receipt.
 
 The rich-state composition deliverable is locally demonstrated by
 `cargo run -p xtask -- m0-composition`. Three independent Forge builds reproduce
-the exact combined source, receipt, and rlib; validation and replay pass; hosted
-authorized/rejected transitions execute; private visibility and compiler pins
-are enforced; and reproducible low/higher-half static links contain only the
+the exact combined source, receipt, and rlib; a fresh second absolute source root
+also reproduces those products and both final images. Validation and replay pass;
+hosted authorized/rejected transitions execute; private visibility and compiler
+pins are enforced; and reproducible low/higher-half static links contain only the
 selected exact-byte `memcpy` primitive. Eleven mutations fail, and a canonical
 final-link receipt binds all inputs, tools, selected/discarded symbols, outputs,
-and runtime results. See `evidence/m0/composition-source.md`. Signed-manifest
-consumption remains open.
+runtime results, and two-root result. See `evidence/m0/composition-source.md`.
+The clean signed manifest independently replays and consumes this evidence.
 
 The release manifest schema deliverable is also locally demonstrated. A clean
 development run binds and replays current M0 artifacts, signs the canonical
-payload reproducibly with Ed25519, verifies it, and rejects fourteen structural,
+payload reproducibly with Ed25519, verifies it, and rejects seventeen structural,
 provenance, release-policy, schema, and cryptographic mutations. The committed
 test key is forbidden for release eligibility. See
 `evidence/m0/release-manifest.md`. The PE loader, FAT image, entry proof, pinned
 firmware tools, TCG/KVM observations, platform model, audited adapter, primitive
-object, higher-half image, and emitted/post-link bytes are bound. Final manifest
-closure still requires binding the accepted composition receipt and receipted
-final-link allowlist.
+object, higher-half images, emitted/post-link bytes, replayed composition receipt,
+and canonical final-link receipt are bound. The command reruns composition
+replay, final-ELF symbol/entry audits, and exact linked-byte extraction before
+signing.
 
 The reproducible empty UEFI image is locally demonstrated by
 `cargo run -p xtask -- m0-uefi`. A no-cheating Verus proof generates the exact
@@ -81,8 +84,8 @@ entry bytes; three model rlibs, PE32+ applications, and FAT16 disk images reprod
 byte-for-byte; independent parsers bind `EFI/BOOT/BOOTX64.EFI` to those bytes; and
 OVMF emits the exact success marker under both TCG and KVM. Eight structural,
 proof, and real-firmware negative cases pass. See `evidence/m0/uefi-image.md`.
-The signed development manifest binds this checkpoint; the accepted rich-state
-composition and final-link selection still require manifest integration.
+The signed development manifest binds this checkpoint together with the accepted
+rich-state composition and final-link selection.
 
 Exit:
 
@@ -98,8 +101,8 @@ Exit:
   changes all block the build; and
 - two clean builds are byte-identical.
 
-No kernel implementation begins until both the standalone artifact path and the
-rich-state composition path demonstrate honest composition.
+Both the standalone artifact path and rich-state composition path now
+demonstrate honest composition. Kernel implementation begins with M1.
 
 ## 3. M1 — verified UEFI and BSP bring-up
 

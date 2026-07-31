@@ -50,7 +50,8 @@ report_sha256=6baa19dd71f1eb141efb8f4048f47ca148a764805dca206755ccf4710bb170a9
 ```
 
 The generator is a validated build tool, not a formally verified kernel
-component, so the report states `release_eligible=false` while M0 remains open.
-Thermite/Verus decoder proofs, fuzzing of every syscall decoder, failure
-atomicity, and old-minor compatibility are later ABI implementation gates and
-are not claimed by this checkpoint.
+component, so its component report correctly states `release_eligible=false`.
+The clean signed development manifest binds its output and acceptance report as
+part of the now-closed M0 input set. Thermite/Verus decoder proofs, fuzzing of
+every syscall decoder, failure atomicity, and old-minor compatibility are later
+ABI implementation gates and are not claimed by this checkpoint.

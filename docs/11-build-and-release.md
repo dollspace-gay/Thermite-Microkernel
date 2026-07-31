@@ -152,8 +152,8 @@ composition rlib and dependency archives, verified platform object and report,
 consumer and linker sources, selected and discarded primitive symbols, tool
 identities, output digests, and runtime observations. Only the proved `memcpy`
 capsule survives the higher-half link, and its linked bytes equal the registered
-model bytes. The signed development manifest still must consume this receipt and
-the composition bundle. The final linker accepts only objects named by accepted
+model bytes. The clean signed development manifest consumes this receipt and the
+composition bundle. The final linker accepts only objects named by accepted
 Forge, composition, direct-Verus, and capsule receipts.
 
 ## 6. Capsule gate
@@ -309,20 +309,21 @@ The M0 schema and validator are implemented by
 `cargo run -p xtask -- m0-manifest`. The validator interprets only an explicit,
 fail-closed JSON Schema subset, enforces cross-record release semantics, replays
 artifact files, and verifies a canonical Ed25519 signature. Three clean-path
-signatures reproduce byte-for-byte and fourteen negative cases fail as intended.
+signatures reproduce byte-for-byte and seventeen negative cases fail as intended.
 The reviewed development manifest binds current M0 evidence, including the
 reparsed PE/FAT boot image, exact TCG/KVM observations, verified platform model,
 audited `GlobalAlloc` adapter, primitive object, higher-half image, and exact
-emitted/post-link primitive bytes. It correctly states `release_eligible=false`;
-the now-accepted composition receipt and final-link receipt are not yet consumed.
-See
+emitted/post-link primitive bytes, replayed rich-state composition receipt,
+receipted higher-half link, and exact selected `memcpy`. It correctly states
+`release_eligible=false` because the public development key cannot authorize a
+production release. See
 `evidence/m0/release-manifest.md`.
 
 The independently reproduced M0 UEFI probe image is now implemented and boots
 under OVMF with TCG and KVM; see `evidence/m0/uefi-image.md`. Its loader and image
 digests are in the signed development manifest described above. That binding does
-not make the image release-eligible without signed binding of the rich-state
-composition receipt and final-link allowlist.
+does not make the image a release artifact; M0's signed development binding is
+complete, while production requires an external key and later release inputs.
 
 ## 11. CI failure policy
 

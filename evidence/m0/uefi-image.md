@@ -94,4 +94,6 @@ The report correctly states `release_eligible=false`. This artifact is the M0
 empty-image and proof-to-firmware gate. It is not the M1 UEFI loader: it does not
 yet produce `BootInfo`, normalize the firmware memory map, call
 `ExitBootServices`, load the kernel/service bundle, or carry the still-pending
-Thermite/direct-Verus rich-state composition receipt and final-link allowlist.
+kernel handoff. The clean signed M0 development manifest binds this independently
+booted probe together with the now-accepted rich-state composition receipt,
+final-link allowlist, and higher-half ELF; M1 implements their verified handoff.
