@@ -146,10 +146,11 @@ audits. Real `Box`/`Vec` use runs hosted, while low-address and
 each reproduce in three links. The same primitive object resolves the
 real composition probe's compiler-emitted `memcpy`.
 
-This is not yet the final kernel link: the accepted composition receipt, final
-receipt allowlist, UEFI image selection, and manifest binding remain required.
-The final linker accepts only objects named by accepted Forge, composition,
-direct-Verus, and capsule receipts.
+The development manifest binds these platform components, but this is not yet
+the final kernel link: the accepted composition receipt, final receipt allowlist,
+and receipted selection of the UEFI image remain required. The final linker
+accepts only objects named by accepted Forge, composition, direct-Verus, and
+capsule receipts.
 
 ## 6. Capsule gate
 
@@ -304,11 +305,13 @@ The M0 schema and validator are implemented by
 `cargo run -p xtask -- m0-manifest`. The validator interprets only an explicit,
 fail-closed JSON Schema subset, enforces cross-record release semantics, replays
 artifact files, and verifies a canonical Ed25519 signature. Three clean-path
-signatures reproduce byte-for-byte and thirteen negative cases fail as intended.
+signatures reproduce byte-for-byte and fourteen negative cases fail as intended.
 The reviewed development manifest binds current M0 evidence, including the
-reparsed PE/FAT boot image and exact TCG/KVM observations, but correctly states
-`release_eligible=false`; the composition receipt and receipted final-link
-allowlist are absent. See `evidence/m0/release-manifest.md`.
+reparsed PE/FAT boot image, exact TCG/KVM observations, verified platform model,
+audited `GlobalAlloc` adapter, primitive object, higher-half image, and exact
+emitted/post-link primitive bytes. It correctly states `release_eligible=false`;
+the composition receipt and receipted final-link allowlist are absent. See
+`evidence/m0/release-manifest.md`.
 
 The independently reproduced M0 UEFI probe image is now implemented and boots
 under OVMF with TCG and KVM; see `evidence/m0/uefi-image.md`. Its loader and image

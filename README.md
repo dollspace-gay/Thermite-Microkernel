@@ -94,12 +94,12 @@ encodings, with exact-image decoders connecting the registered bytes and shim
 relocations to their semantics. A pinned minimal Rust `GlobalAlloc` ABI adapter
 is admitted only when its complete function skeletons, relocation targets, arena
 size/alignment, and undefined-symbol set match the registered model. Three model
-rlibs, adapter rlibs, and static links reproduce byte-for-byte. A hosted consumer actually runs
-`Box`, bounded-capacity `Vec`, rejected alignment, post-seal failure, copy, and
-set operations; fully static low-address and `0xffffffff80000000` higher-half
-consumers final-link reproducibly with no unresolved symbol. The boot allocator
-deliberately returns null for `realloc` and `alloc_zeroed` and is sealed before
-AP startup.
+rlibs, adapter rlibs, and static links reproduce byte-for-byte. A hosted consumer
+actually runs `Box`, bounded-capacity `Vec`, rejected alignment, post-seal
+failure, copy, and set operations; fully static low-address and
+`0xffffffff80000000` higher-half consumers final-link reproducibly with no
+unresolved symbol. The boot allocator deliberately returns null for `realloc`
+and `alloc_zeroed` and is sealed before AP startup.
 
 The native ABI now has a strict single-source IDL generator. It emits C11 and
 `repr(C)` Rust definitions with compile-time layout assertions, reproduces all
@@ -114,10 +114,11 @@ Forge receipt, direct-Verus results, capsule bytes, generated ABI, component ELF
 tool identities, assumptions, and test reports; replays each artifact digest;
 then produces and verifies three byte-identical Ed25519-signed development
 manifests. The manifest now reparses and binds the verified UEFI entry model,
-PE loader, raw FAT image, pinned firmware/hypervisor tools, and TCG/KVM
-observations. Thirteen negative cases pass. The public M0 test key is
-policy-locked to non-release development manifests and cannot authorize
-production.
+PE loader, raw FAT image, pinned firmware/hypervisor tools, TCG/KVM observations,
+platform model, `GlobalAlloc` adapter, primitive object, higher-half image, and
+exact emitted/post-link primitive bytes. Fourteen negative cases pass. The
+public M0 test key is policy-locked to non-release development manifests and
+cannot authorize production.
 
 The M0 x86 capsule is also live: Verus proves the exact encoding and machine-state
 transition for `mov rax,rdi; hlt`; the emitted bytes survive object conversion and

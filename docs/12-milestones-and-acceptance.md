@@ -48,17 +48,21 @@ a registered exact-byte Verus model and a pinned Rust ABI adapter. It proves the
 relocation; runs real `Box` and `Vec` operations; and reproducibly links both
 low-address and higher-half static consumers with no unresolved symbols.
 Unsupported growth and zeroed allocation fail with null, and allocation fails
-after sealing. See `evidence/m0/platform-primitives.md`. This is a component
-gate, not the final composition receipt or release link.
+after sealing. The signed development manifest binds the model, adapter,
+primitive object, higher-half image, emitted/post-link bytes, and acceptance
+report. See `evidence/m0/platform-primitives.md`. This is a component gate, not
+the final composition receipt or release link.
 
 The release manifest schema deliverable is also locally demonstrated. A clean
 development run binds and replays current M0 artifacts, signs the canonical
-payload reproducibly with Ed25519, verifies it, and rejects thirteen structural,
+payload reproducibly with Ed25519, verifies it, and rejects fourteen structural,
 provenance, release-policy, schema, and cryptographic mutations. The committed
 test key is forbidden for release eligibility. See
 `evidence/m0/release-manifest.md`. The PE loader, FAT image, entry proof, pinned
-firmware tools, and TCG/KVM observations are bound. Final manifest closure still
-requires the composition receipt and receipted final-link allowlist.
+firmware tools, TCG/KVM observations, platform model, audited adapter, primitive
+object, higher-half image, and emitted/post-link bytes are bound. Final manifest
+closure still requires the composition receipt and receipted final-link
+allowlist.
 
 The reproducible empty UEFI image is locally demonstrated by
 `cargo run -p xtask -- m0-uefi`. A no-cheating Verus proof generates the exact
