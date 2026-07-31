@@ -209,6 +209,27 @@ Real page-table frame ownership and physical writes, a bounded builder for all
 accepted firmware ranges, cache-attribute connection, CR3 installation,
 invalidation capsules, and live QEMU translation probes remain open M1 gates.
 
+### 5.3 Implemented CR3 capsule checkpoint
+
+The initial root-install capsule is accepted as the exact four bytes
+`0f 22 df c3` (`mov cr3,rdi; ret`). Its direct Verus machine model requires CPL0,
+PCID disabled, a page-aligned 52-bit root, a readable non-overflowing return
+stack, and a canonical return address. It proves the CR3 write, RET stack/RIP
+effects, non-global TLB invalidation, and preservation of unrelated state. The
+specialized call contract binds RDI to the reference root at `0x0040_0000`.
+
+`cargo run -p xtask -- m1-cr3` performs three reproducible model builds, three
+runtime decoder executions, and three high-half post-links; requires one
+four-byte executable section with no relocations; and rejects six byte, section,
+semantic, binding, and proof-escape mutations. See
+[M1 CR3 installation capsule](../evidence/m1/cr3-install-capsule.md).
+
+This closes the capsule refinement and post-link identity only. The caller does
+the validation; the instruction has not yet run in the boot VM. Root-frame
+ownership/population, verified call-site state, final-kernel inclusion, and live
+post-install translation probes remain open. PCID remains disabled until its
+allocator, `INVPCID`, local invalidation, and SMP shootdown protocols are proved.
+
 ## 6. Descriptor and entry state
 
 Each CPU has:

@@ -51,14 +51,17 @@ here.
 | G-012 | closed locally and upstream; #103 closed by merged PR #105 | L3 receipt previously recorded ambient rustc 1.96 although Verus emits an rlib with rustc 1.95 metadata | receipt binds rustc/sysroot/LLVM closure; selected consumer links and incompatible host rustc is rejected |
 | G-013 | closed upstream and locally | the exact-source rich-state composition build reproduces and replays; the local build/validate/replay/runtime/link/11-negative matrix passes | preserve as a pinned shakedown regression |
 | G-014 | open upstream; Thermite #108; reproduced at `845d684f` after both 2026-07-31 fix notices | `--target kernel --no-vstd` compositions cannot state a content-preserving contract for executable `&[u8]` indexing because the slice `View`/`spec_index` model is absent; the exact BootInfo composition still reports twelve missing `spec_index` methods | add a no-stdlib verified byte-slice view or equivalent Forge-owned wrapper; prove endian readers, bounds rejection, runtime behavior, replay, and freestanding link without an unverified conversion seam |
+| G-015 | closed for the M1 initial-root capsule | direct Rust cannot express the privileged CR3 write | direct Verus machine model plus exact `0f22dfc3` byte registration, one-section relocation-free post-link audit, and explicit verified-caller obligations; retain hardware execution as a separate gate |
 
 No toolchain-closure ledger item blocks the completed M0 evidence. G-014 blocks
 the content-preserving raw-byte `BootInfo` composition but not independent M1
 scalar policy and capsule work; TMK will not bypass it with an unverified adapter.
 G-005 is a verified input to the accepted and manifest-bound G-011 final-link
 receipt. G-006's M0 acceptance instance is closed, including the exact-byte UEFI
-entry/return probe and real OVMF TCG/KVM boot; additional privileged operations
-are M1 proof work. Closed-upstream rows remain pinned TMK regression tests; an
+entry/return probe and real OVMF TCG/KVM boot. G-015 closes the initial CR3
+capsule model and post-link identity but not its boot-time call site or hardware
+execution; additional privileged operations remain M1 proof work.
+Closed-upstream rows remain pinned TMK regression tests; an
 upstream capability is not treated as locally demonstrated until its local replay
 and negative-test matrix pass.
 

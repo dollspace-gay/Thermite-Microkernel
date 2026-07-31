@@ -8,7 +8,8 @@ probe image boots under OVMF with both TCG and KVM. M1 kernel/BSP implementation
 is in progress; accepted components now include the verified static-kernel ELF
 load policy, normalized memory-map/`ExitBootServices` retry policy, and
 alias-aware kernel address-plan policy, plus a concrete verified reference
-page-table image and executable four-level walker.
+page-table image, executable four-level walker, and exact-byte CR3 installation
+capsule.
 
 The first platform is x86_64 QEMU/KVM on the `q35` machine, booted as a UEFI
 application through OVMF. The first useful release is single-core but is designed
@@ -114,6 +115,14 @@ three consumers execute the direct, heap, guarded-stack, image-permission,
 low-guard, and recursive-absence checks; and four semantic mutations fail proof.
 This closes encoding and sample-walker correspondence, not the general mapping
 builder, physical placement, CR3 installation, or live hardware translation.
+
+The M1 CR3 capsule checkpoint proves the exact four bytes for
+`mov cr3,rdi; ret`, the CPL0/PCID-disabled/aligned-root/return-stack call
+contract, CR3 and RET state changes, non-global TLB invalidation, and unrelated
+state preservation. Three model, runtime, and high-half post-link artifacts
+reproduce, and six proof/link mutations fail. The privileged instruction is not
+claimed as hardware-executed until the verified loader call site and QEMU
+translation probe are connected.
 
 The standalone probe's toolchain-binding gate is locally closed by pinned
 Thermite `v0.0.2` commit `845d684f00e829491ee4c537818fba2689bcaefc`. Forge records both

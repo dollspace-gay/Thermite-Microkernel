@@ -135,12 +135,20 @@ byte-for-byte; all consumers execute ten mapping/guard observations; and four
 semantic mutations fail proof. See
 [M1 reference boot page tables](../evidence/m1/boot-page-tables.md).
 
+The exact-byte CR3 installation capsule is a fifth accepted M1 subcomponent.
+Its direct Verus model proves 15 obligations for the four-byte
+`mov cr3,rdi; ret` sequence, including caller conditions, register/stack effects,
+and non-global TLB invalidation. Three model artifacts, three runtime decoder
+executions, and three high-half links reproduce byte-for-byte; six semantic and
+post-link mutations fail. See
+[M1 CR3 installation capsule](../evidence/m1/cr3-install-capsule.md).
+
 This status does not close M1. The raw `BootInfo` decoder remains fail-closed
 pending Thermite [#108](https://github.com/dollspace-gay/Thermite/issues/108), and
 the UEFI call gateway, raw map decoding and real `ExitBootServices` execution,
-general page-table construction/physical placement and CR3 installation, BSP
-entry state, interrupt/timer path, QEMU boots, and final signed `M1_OK` gate
-remain to be implemented.
+general page-table construction/physical placement, the verified CR3 call site
+and hardware execution, BSP entry state, interrupt/timer path, QEMU boots, and
+the final signed `M1_OK` gate remain to be implemented.
 
 Deliver:
 
