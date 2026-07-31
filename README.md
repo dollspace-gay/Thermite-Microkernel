@@ -105,8 +105,11 @@ The M0 release-manifest schema is also executable. A clean run binds the actual
 Forge receipt, direct-Verus results, capsule bytes, generated ABI, component ELF,
 tool identities, assumptions, and test reports; replays each artifact digest;
 then produces and verifies three byte-identical Ed25519-signed development
-manifests. Eleven negative cases pass. The public M0 test key is policy-locked to
-non-release development manifests and cannot authorize production.
+manifests. The manifest now reparses and binds the verified UEFI entry model,
+PE loader, raw FAT image, pinned firmware/hypervisor tools, and TCG/KVM
+observations. Thirteen negative cases pass. The public M0 test key is
+policy-locked to non-release development manifests and cannot authorize
+production.
 
 The M0 x86 capsule is also live: Verus proves the exact encoding and machine-state
 transition for `mov rax,rdi; hlt`; the emitted bytes survive object conversion and

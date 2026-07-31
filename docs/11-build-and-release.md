@@ -298,16 +298,17 @@ The M0 schema and validator are implemented by
 `cargo run -p xtask -- m0-manifest`. The validator interprets only an explicit,
 fail-closed JSON Schema subset, enforces cross-record release semantics, replays
 artifact files, and verifies a canonical Ed25519 signature. Three clean-path
-signatures reproduce byte-for-byte and eleven negative cases fail as intended.
-The reviewed development manifest binds current M0 evidence but correctly states
-`release_eligible=false`; composition and the final boot-image digest are absent.
-See `evidence/m0/release-manifest.md`.
+signatures reproduce byte-for-byte and thirteen negative cases fail as intended.
+The reviewed development manifest binds current M0 evidence, including the
+reparsed PE/FAT boot image and exact TCG/KVM observations, but correctly states
+`release_eligible=false`; the composition receipt and receipted final-link
+allowlist are absent. See `evidence/m0/release-manifest.md`.
 
 The independently reproduced M0 UEFI probe image is now implemented and boots
-under OVMF with TCG and KVM; see `evidence/m0/uefi-image.md`. Its digest is not yet
-in the signed development manifest described above. Adding that binding is the
-next schema-consumer checkpoint and does not make the image release-eligible
-without the rich-state composition receipt and final-link allowlist.
+under OVMF with TCG and KVM; see `evidence/m0/uefi-image.md`. Its loader and image
+digests are in the signed development manifest described above. That binding does
+not make the image release-eligible without the rich-state composition receipt
+and final-link allowlist.
 
 ## 11. CI failure policy
 

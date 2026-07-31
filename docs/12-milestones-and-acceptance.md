@@ -44,11 +44,12 @@ open.
 
 The release manifest schema deliverable is also locally demonstrated. A clean
 development run binds and replays current M0 artifacts, signs the canonical
-payload reproducibly with Ed25519, verifies it, and rejects eleven structural,
+payload reproducibly with Ed25519, verifies it, and rejects thirteen structural,
 provenance, release-policy, schema, and cryptographic mutations. The committed
 test key is forbidden for release eligibility. See
-`evidence/m0/release-manifest.md`. Final manifest closure still requires the
-composition receipt and reproducible UEFI boot image.
+`evidence/m0/release-manifest.md`. The PE loader, FAT image, entry proof, pinned
+firmware tools, and TCG/KVM observations are bound. Final manifest closure still
+requires the composition receipt and receipted final-link allowlist.
 
 The reproducible empty UEFI image is locally demonstrated by
 `cargo run -p xtask -- m0-uefi`. A no-cheating Verus proof generates the exact
@@ -56,7 +57,8 @@ entry bytes; three model rlibs, PE32+ applications, and FAT16 disk images reprod
 byte-for-byte; independent parsers bind `EFI/BOOT/BOOTX64.EFI` to those bytes; and
 OVMF emits the exact success marker under both TCG and KVM. Eight structural,
 proof, and real-firmware negative cases pass. See `evidence/m0/uefi-image.md`.
-Manifest binding and rich-state composition remain separate M0 gates.
+The signed development manifest binds this checkpoint; rich-state composition
+and final-link selection remain separate M0 gates.
 
 Exit:
 

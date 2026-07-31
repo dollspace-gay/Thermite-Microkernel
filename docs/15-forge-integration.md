@@ -347,7 +347,7 @@ and the TMK case remains as an integration test.
 | Verified bounded allocator and panic host | unit and byte/layout policies plus panic code prove/reproduce; component ELF links and runs fail-stop with exact HLT bytes and one RX segment | close raw-pointer `GlobalAlloc` bridge without assumptions; bind the receipted final image |
 | Exact-byte instruction capsules | M0 `mov rax,rdi; hlt` component capsule and 56-byte UEFI debug/return capsule prove and survive link byte-identically | bind the final composition receipt; extend per platform operation |
 | Native ABI IDL generator | three-path C/Rust generation, hosted runtimes, `no_std` compile, and five negative cases pass | add verified decoders, fuzz/property tests, golden vectors, and manifest binding |
-| Release manifest schema | real M0 evidence is artifact-replayed and reproducibly Ed25519-signed; eleven negative cases pass | add the new boot image, then replace development key/input set with external release key and composition receipt |
+| Release manifest schema | real M0 evidence including the PE/FAT image and firmware observations is artifact-replayed and reproducibly Ed25519-signed; thirteen negative cases pass | replace development key/input set with external release key and composition receipt |
 | Final receipted link/image | unreceipted direct-Verus component-link gate passes; reproducible PE/FAT image boots in OVMF TCG/KVM | bind image and final allowlist to the composition receipt |
 
 M1 cannot begin until every row is demonstrated locally, even when an upstream
