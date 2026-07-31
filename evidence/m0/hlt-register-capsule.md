@@ -42,9 +42,9 @@ Stable positive identities:
 ```text
 source_sha256=538f1cc62fe6bdda666a798df395aa27ca67bc9f1b1aa499861448f423580347
 linker_script_sha256=6b1700fed37eb5ceaf7fa4fb3c172712df20266a36b9406cef19913ba3e80e77
-model_artifact_sha256=e07877a41a813abcfc2c545f25a5ed15df7ef977af853b467304c1f39be0cd46
+model_artifact_sha256=5f122bdcedeffd4d469f53a954041333c4fb535570b0104a58b99ffa0a110df4
 verus_result_sha256=cb18c31a0a289672cf48f0e6d5f260a36ea9a8ffa31d013c84daebcf3f55e00b
-consumer_sha256=306e6f1a2db0b12fd3a1d9ac9e6af7ac144a06460f2887329248837fff17ca78
+consumer_sha256=586796e95f83507627e9176a9167c9c0e66ea64d0b71f4cfed0ab7906c3d54b2
 linked_capsule_sha256=86f039964fb227ba98078e671367c11641ed25204ea080f1b5b30bd13c5deda8
 linked_elf_sha256=76410ec81f67b150da038812bb45364293941f2813cbc23a97e826c2596ac576
 ```
@@ -62,9 +62,9 @@ The deterministic byte-mutation and unregistered-section rejection diagnostics
 have digests `6131a7485cb239f3105640cfd0e34cddd71b54199877af00a410e91dc5242b4b`
 and `afa6279a31f6320fd0b60993ce0b5bc0bcd064706e7f02ce49eef51cec82f2e1`.
 The report digest was
-`e5a95bfdc001eed143af0901af8c5bf7cef448b98d7f2001340d97de21698577`.
+`04620a8879a67a4e3d41a44ced9734d34f64f9d0c5a8507ab69633e08b7645c3`.
 
-This proves and post-link checks the M0 capsule instance. It is not yet a final
-panic host or image receipt: the panic ABI entry, empty UEFI image, manifest
-binding, and later privileged-operation capsules remain outstanding, so the
-report states `release_eligible=false`.
+This proves and post-link checks the M0 capsule instance. The exact bytes also
+survive the freestanding component-host link recorded in `panic-host.md`. The
+empty UEFI image, receipt/manifest binding, and later privileged-operation
+capsules remain outstanding, so the report states `release_eligible=false`.

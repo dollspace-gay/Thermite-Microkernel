@@ -45,8 +45,8 @@ Exit:
   manifest, with no post-verification wrapper or reconstructed body;
 - a proved `HLT`/register capsule survives link byte-identically;
 - injected private-symbol, source/cert mismatch, TV non-pass, post-plan mutation,
-  rich-state adapter, `external_body`, wrong-archive, and capsule-byte changes all
-  block the build; and
+  rich-state adapter, executable `external_body`, wrong-archive, and capsule-byte
+  changes all block the build; and
 - two clean builds are byte-identical.
 
 No kernel implementation begins until both the standalone artifact path and the

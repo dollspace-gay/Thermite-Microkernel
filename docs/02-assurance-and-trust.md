@@ -59,13 +59,22 @@ Direct Verus code MUST be rejected if its transitive source contains:
 - `assume`;
 - `admit`;
 - axioms;
-- `#[verifier::external_body]`;
+- `#[verifier::external_body]` on any executable item;
 - executable `#[verifier::external]` dependencies;
 - unreviewed `unsafe impl`; or
 - inline/global assembly outside the capsule generator.
 
 The scanner is necessary but not sufficient; Verus results and dependency closure
 are also inspected.
+
+There is one syntax-level exception for an unavailable foreign type: a declaration
+MAY pair `#[verifier::external_type_specification]` with
+`#[verifier::external_body]` solely to name an opaque type such as
+`core::panic::PanicInfo`. Such a declaration MUST have no executable body, MUST
+not expose or inspect fields, and MUST not introduce trusted methods. It is
+allowlisted by exact declaration shape and occurrence count. The executable
+function receiving that type still verifies under `--no-cheating`; applying
+`external_body` to that function remains a release-blocking error.
 
 ## 4. Functional core obligations
 

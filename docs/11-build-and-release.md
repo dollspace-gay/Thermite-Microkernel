@@ -87,13 +87,19 @@ Each platform/machine module runs the pinned Verus binary with:
 - zero verification errors;
 - pinned solver limits;
 - no timeouts;
-- no `assume`, `admit`, axiom, or `external_body`;
+- no `assume`, `admit`, axiom, or executable `external_body`;
 - no reachable ignored executable body;
 - dependency closure recorded; and
 - proof result bound to the exact source digest.
 
 Intentional environmental operations are represented as explicit input state or
 machine-capsule semantics, not trusted executable stubs.
+
+An exact-source audit MAY allow one `external_body` annotation paired with
+`external_type_specification` on an opaque foreign type declaration. This does
+not exempt executable code: the declaration may expose no fields or methods, the
+receiving functions verify normally, and a negative build MUST show that moving
+the annotation to an executable function is rejected by `--no-cheating`.
 
 ## 5. Forge kernel build and composition gate
 
@@ -127,8 +133,14 @@ second bound receipt. An ordinary rustc consumer link proves ABI usability but n
 the direct-Verus caller's preconditions or representation relation.
 
 The `no_std` host supplies a verified bounded allocator and fail-stop panic
-handler. The final linker accepts only objects named by accepted Forge,
-composition, direct-Verus, and capsule receipts.
+handler. The M0 component-link gate already combines the allocation policy, panic
+lang item, and registered HLT capsule into a static x86_64 ELF, requires one RX
+load segment, no relocations, no dynamic section, no undefined symbols, no
+runtime data, exact linked capsule bytes, three proof builds, three links, and an
+observed fail-stop execution. This is not yet the final kernel link: a verified
+byte/layout adapter and `GlobalAlloc`, receipt allowlist, UEFI image, and manifest
+binding remain required. The final linker accepts only objects named by accepted
+Forge, composition, direct-Verus, and capsule receipts.
 
 ## 6. Capsule gate
 
@@ -227,7 +239,7 @@ The pipeline intentionally injects:
 - stale reply reuse;
 - unbounded queue update;
 - capsule byte mutation;
-- `assume`/`external_body`;
+- `assume`/executable `external_body`;
 - certificate downgrade and each TV `Skipped`/`Unverifiable` class;
 - post-plan canonical-source mutation;
 - receipt, ABI, toolchain, and artifact mismatch;

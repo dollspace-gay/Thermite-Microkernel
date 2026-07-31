@@ -2,8 +2,9 @@
 
 This repository contains the design for a capability-oriented, POSIX-compatible
 microkernel written primarily in Thermite and verified through Forge and Verus.
-Implementation has begun with M0 toolchain and proof-artifact closure; kernel/BSP
-implementation has not started.
+Implementation has begun with M0 toolchain and proof-artifact closure; a
+freestanding verified component host now links and executes, but bootable
+kernel/BSP implementation has not started.
 
 The first platform is x86_64 QEMU/KVM on the `q35` machine, booted as a UEFI
 application through OVMF. The first useful release is single-core but is designed
@@ -24,8 +25,11 @@ A release kernel may contain:
   model.
 
 A release kernel may not contain `#[slag]`, unresolved proof holes, Forge L0/L1/L2
-downgrades, Verus `assume`, axioms, `external_body`, or unverified hand-written
-assembly. Firmware, the hypervisor, the proof tools, the compiler backend, and
+downgrades, Verus `assume`, axioms, executable `external_body`, or unverified
+hand-written assembly. The only permitted `external_body` syntax is paired with
+`external_type_specification` to name an opaque foreign type whose representation
+and operations are never used; it cannot suppress verification of executable
+code. Firmware, the hypervisor, the proof tools, the compiler backend, and
 hardware remain explicit environmental or trusted-tool assumptions; they are
 never silently described as verified.
 
@@ -76,8 +80,12 @@ composition build remains blocked on Thermite
 
 The first direct-Verus platform component is a total bounded bump-allocation
 policy over fixed-size units. Its proof/codegen, three-path reproducibility,
-separate runtime consumer, symbol audit, and two negative proof tests pass. The
-`GlobalAlloc`/panic-host integration remains an M0 task.
+separate runtime consumer, symbol audit, and two negative proof tests pass. A
+verified fail-stop panic lang item and the allocator policy are now linked with
+the registered capsule into a deterministic freestanding x86_64 ELF. The host
+actually runs its fail-stop entry, has one read/execute load segment, and passes
+negative divergence, executable-`external_body`, and writable-data tests. The
+byte/layout adapter and real `GlobalAlloc` implementation remain M0 work.
 
 The M0 x86 capsule is also live: Verus proves the exact encoding and machine-state
 transition for `mov rax,rdi; hlt`; the emitted bytes survive object conversion and
@@ -93,6 +101,7 @@ cargo run -p xtask -- m0-forge-tamper
 cargo run -p xtask -- m0-composition-source-check
 cargo run -p xtask -- m0-verus-allocator
 cargo run -p xtask -- m0-verus-capsule
+cargo run -p xtask -- m0-host-link
 ```
 
 The second command is the strict release gate. A temporary

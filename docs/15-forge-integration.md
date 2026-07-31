@@ -303,7 +303,7 @@ Negative tests independently inject:
 - a missing or downgraded certificate;
 - every TV non-pass verdict;
 - post-plan Thermite-source and generated-source mutation;
-- a direct-Verus `assume`, axiom, or `external_body`;
+- a direct-Verus `assume`, axiom, or executable `external_body`;
 - an unproved rich-state adapter;
 - a different Forge rlib at final link;
 - receipt/file/ABI/toolchain tampering; and
@@ -326,10 +326,12 @@ classified before any workaround:
 | TMK design defect | revise this design and preserve the original security claim |
 | Platform-model gap | extend the Verus model and capsule tests before using the operation |
 
-No gap is hidden with `#[slag]`, `#[boundary]`, `external_body`, `assume`, a raw
-FFI shim, or a manually edited generated file. The upstream regression becomes
-part of Thermite's conformance suite, and the TMK case remains as an integration
-test.
+No gap is hidden with `#[slag]`, `#[boundary]`, executable `external_body`,
+`assume`, a raw FFI shim, or a manually edited generated file. An opaque foreign
+type declaration may use the exact type-specification exception in
+[Assurance and trust](02-assurance-and-trust.md), but it cannot carry executable
+behavior. The upstream regression becomes part of Thermite's conformance suite,
+and the TMK case remains as an integration test.
 
 ## 12. Readiness gates
 
@@ -340,9 +342,9 @@ test.
 | Strict rejection of non-L3/TV non-pass cases | nine local bundle-tamper cases pass | certificate/TV verdict and source-mutation fault-injection remainder |
 | Actual codegen-rustc receipt binding | upstream issue #103 open | receipt-selected consumer links; mismatched compiler rejected |
 | Rich-state same-crate composition | source probe L3-checks; Thermite issue #104 open | same-crate shell proof, rlib, receipt validation, and replay |
-| Verified bounded allocator and panic host | allocation policy proved, compiled, reproduced, and executed | `GlobalAlloc`/panic-host integration and final link |
+| Verified bounded allocator and panic host | policy and panic code prove/reproduce; component ELF links and runs fail-stop with exact HLT bytes and one RX segment | verify byte/layout adapter and `GlobalAlloc`; bind the receipted final image |
 | Exact-byte instruction capsules | M0 `mov rax,rdi; hlt` model/emitter/post-link probe passes | bind probe receipt into empty UEFI image; extend per platform operation |
-| Final receipted link/image | not implemented | allowlist audit and reproducible UEFI image |
+| Final receipted link/image | unreceipted direct-Verus component-link gate passes | allowlist audit and reproducible manifest-bound UEFI image |
 
 M1 cannot begin until every row is demonstrated locally, even when an upstream
 component already carries its own passing conformance tests.

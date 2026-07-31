@@ -22,11 +22,12 @@ fn run() -> Result<(), String> {
         }
         Some("m0-forge-probe") if args.next().is_none() => m0_forge_probe(),
         Some("m0-forge-tamper") if args.next().is_none() => m0_forge_tamper(),
+        Some("m0-host-link") if args.next().is_none() => m0_host_link(),
         Some("m0-verus-allocator") if args.next().is_none() => m0_verus_allocator(),
         Some("m0-verus-capsule") if args.next().is_none() => m0_verus_capsule(),
         Some("toolchain-check") if args.next().is_none() => toolchain_check(),
         _ => Err(
-            "usage: cargo run -p xtask -- <toolchain-check|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-verus-allocator|m0-verus-capsule>"
+            "usage: cargo run -p xtask -- <toolchain-check|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-verus-allocator|m0-verus-capsule|m0-host-link>"
                 .to_string(),
         ),
     }
@@ -1161,6 +1162,571 @@ fn m0_verus_capsule() -> Result<(), String> {
     Ok(())
 }
 
+fn m0_host_link() -> Result<(), String> {
+    let root = workspace_root()?;
+    let verus = PathBuf::from("/opt/verus/0.2026.05.24.ecee80a/verus");
+    let ld = PathBuf::from("/usr/sbin/ld");
+    let objcopy = PathBuf::from("/usr/sbin/objcopy");
+    let objdump = PathBuf::from("/usr/sbin/objdump");
+    let readelf = PathBuf::from("/usr/sbin/readelf");
+    let nm = PathBuf::from("/usr/sbin/nm");
+    for (path, expected, label) in [
+        (
+            verus.as_path(),
+            "c5911ee43c7a92c49a48d2c8646c604d252a38c71c87bda88ad4d33eb9e7e0fc",
+            "Verus",
+        ),
+        (
+            ld.as_path(),
+            "6cf122245638eb45fd981c75bf3a116675b3f9c7510ae2e3b386aa6738e46505",
+            "GNU ld",
+        ),
+        (
+            objcopy.as_path(),
+            "8f09a5b2d8e2b34aebf269fffef2308492a022dcfedf87b49489592e838129b4",
+            "GNU objcopy",
+        ),
+        (
+            objdump.as_path(),
+            "c7c3f8c5c0ed23b2330e148e58624f8d798f1673f4c9fb126ee81096f05e3653",
+            "GNU objdump",
+        ),
+        (
+            readelf.as_path(),
+            "59d345f2a2b47f5617e8f53c72f6db5169c723c11d3e809a9e6e3c5673f2420c",
+            "GNU readelf",
+        ),
+        (
+            nm.as_path(),
+            "988d8ded768c4e59284a44f641e92db6c0c8dd222547c32ce432577ff3cb9cc6",
+            "GNU nm",
+        ),
+    ] {
+        require_file(path, label)?;
+        let actual = sha256sum(path)?;
+        if actual != expected {
+            return Err(format!("{label} digest is {actual}, expected {expected}"));
+        }
+    }
+
+    let allocator = root.join("build/m0-allocator/libtmk_allocator.rlib");
+    let allocator_report = root.join("build/m0-allocator/report.txt");
+    let capsule_object = root.join("build/m0-capsule/capsule.o");
+    let capsule_report = root.join("build/m0-capsule/report.txt");
+    for (path, label) in [
+        (&allocator, "verified allocator rlib"),
+        (&allocator_report, "allocator report"),
+        (&capsule_object, "registered capsule object"),
+        (&capsule_report, "capsule report"),
+    ] {
+        require_file(path, label)?;
+    }
+    let allocator_sha = sha256sum(&allocator)?;
+    let allocator_report_text = fs::read_to_string(&allocator_report)
+        .map_err(|error| format!("read {}: {error}", allocator_report.display()))?;
+    let allocator_binding = format!("artifact_sha256={allocator_sha}");
+    for required in ["component_verified=true", allocator_binding.as_str()] {
+        if !allocator_report_text.contains(required) {
+            return Err(format!("allocator report is missing `{required}`"));
+        }
+    }
+    let capsule_report_text = fs::read_to_string(&capsule_report)
+        .map_err(|error| format!("read {}: {error}", capsule_report.display()))?;
+    for required in [
+        "component_verified=true",
+        "linked_capsule_sha256=86f039964fb227ba98078e671367c11641ed25204ea080f1b5b30bd13c5deda8",
+    ] {
+        if !capsule_report_text.contains(required) {
+            return Err(format!("capsule report is missing `{required}`"));
+        }
+    }
+
+    let source = root.join("verus/platform/panic_host.rs");
+    let linker_script = root.join("kernel-host/link/m0_host.ld");
+    require_file(&source, "direct-Verus panic host source")?;
+    require_file(&linker_script, "M0 host linker script")?;
+    let source_sha = sha256sum(&source)?;
+    let linker_sha = sha256sum(&linker_script)?;
+    let canonical = fs::read_to_string(&source)
+        .map_err(|error| format!("read {}: {error}", source.display()))?;
+    audit_panic_host_source(&canonical)?;
+
+    let work = root.join("build/m0-host");
+    if work.exists() {
+        fs::remove_dir_all(&work)
+            .map_err(|error| format!("remove stale {}: {error}", work.display()))?;
+    }
+    fs::create_dir_all(&work).map_err(|error| format!("create {}: {error}", work.display()))?;
+    fs::copy(&source, work.join("tmk_panic_host.rs"))
+        .map_err(|error| format!("stage panic host source: {error}"))?;
+    fs::copy(&allocator, work.join("libtmk_allocator.rlib"))
+        .map_err(|error| format!("stage allocator rlib: {error}"))?;
+    fs::copy(&capsule_object, work.join("capsule.o"))
+        .map_err(|error| format!("stage capsule object: {error}"))?;
+
+    let verification = run_checked(
+        &mut direct_verus_command(&verus, &work, "tmk_panic_host.rs", true),
+        "Verus panic lang-item proof and codegen",
+    )?;
+    require_output_fragments(
+        &verification.stdout,
+        "Verus panic lang-item proof and codegen",
+        &[
+            "\"success\": true",
+            "\"verified\": 2",
+            "\"errors\": 0",
+            "\"version\": \"0.2026.05.24.ecee80a\"",
+            "\"toolchain\": \"1.95.0-x86_64-unknown-linux-gnu\"",
+        ],
+    )?;
+    fs::write(
+        work.join("verus-result.json"),
+        canonical_json(&verification.stdout, "panic host Verus result")?,
+    )
+    .map_err(|error| format!("write panic host Verus result: {error}"))?;
+    if sha256sum(&work.join("tmk_panic_host.rs"))? != source_sha {
+        return Err("panic host source changed during proof/codegen".to_string());
+    }
+
+    let panic_rlib = work.join("libtmk_panic_host.rlib");
+    require_file(&panic_rlib, "compiled panic host rlib")?;
+    let panic_sha = sha256sum(&panic_rlib)?;
+    for name in ["proof-repro-a", "proof-repro-b"] {
+        let repro = work.join(name);
+        fs::create_dir(&repro)
+            .map_err(|error| format!("create panic-host proof reproducibility path: {error}"))?;
+        fs::copy(&source, repro.join("tmk_panic_host.rs"))
+            .map_err(|error| format!("stage panic-host reproducibility source: {error}"))?;
+        run_checked(
+            &mut direct_verus_command(&verus, &repro, "tmk_panic_host.rs", true),
+            &format!("Verus panic-host clean build in {name}"),
+        )?;
+        let repro_sha = sha256sum(&repro.join("libtmk_panic_host.rlib"))?;
+        if repro_sha != panic_sha {
+            return Err(format!(
+                "panic host build in {name} produced {repro_sha}, expected {panic_sha}"
+            ));
+        }
+        fs::remove_dir_all(&repro)
+            .map_err(|error| format!("remove panic-host reproducibility path: {error}"))?;
+    }
+
+    let panic_symbols = run_checked(
+        Command::new(&nm)
+            .args(["-g", "--defined-only"])
+            .arg(&panic_rlib),
+        "find verified panic lang-item symbol",
+    )?;
+    let symbol_text = String::from_utf8_lossy(&panic_symbols.stdout);
+    let entry_symbols: Vec<_> = symbol_text
+        .lines()
+        .filter_map(|line| line.split_whitespace().last())
+        .filter(|symbol| symbol.contains("rust_begin_unwind"))
+        .collect();
+    if entry_symbols.len() != 1 {
+        return Err(format!(
+            "expected one panic lang-item symbol, found {entry_symbols:?}"
+        ));
+    }
+    let entry = entry_symbols[0];
+
+    let undefined_panic = run_checked(
+        Command::new(&nm).arg("-u").arg(&panic_rlib),
+        "panic host undefined-symbol audit",
+    )?;
+    if String::from_utf8_lossy(&undefined_panic.stdout)
+        .lines()
+        .any(|line| line.trim_start().starts_with("U "))
+    {
+        return Err("panic host rlib contains undefined symbols".to_string());
+    }
+
+    let host_elf = work.join("host.elf");
+    run_checked(
+        &mut m0_host_link_command(&ld, &work, &linker_script, entry, "host.elf"),
+        "link verified M0 host ELF",
+    )?;
+    require_file(&host_elf, "linked M0 host ELF")?;
+
+    let header = run_checked(
+        Command::new(&readelf)
+            .current_dir(&work)
+            .args(["-hW", "host.elf"]),
+        "M0 host ELF header audit",
+    )?;
+    require_output_fragments(
+        &header.stdout,
+        "M0 host ELF header audit",
+        &[
+            "Type:                              EXEC",
+            "Machine:                           Advanced Micro Devices X86-64",
+        ],
+    )?;
+
+    let sections = run_checked(
+        Command::new(&readelf)
+            .current_dir(&work)
+            .args(["-SW", "host.elf"]),
+        "M0 host section audit",
+    )?;
+    audit_host_sections(&sections.stdout)?;
+    fs::write(work.join("sections.txt"), &sections.stdout)
+        .map_err(|error| format!("write M0 host section evidence: {error}"))?;
+
+    let segments = run_checked(
+        Command::new(&readelf)
+            .current_dir(&work)
+            .args(["-lW", "host.elf"]),
+        "M0 host segment audit",
+    )?;
+    audit_host_segments(&segments.stdout)?;
+    fs::write(work.join("segments.txt"), &segments.stdout)
+        .map_err(|error| format!("write M0 host segment evidence: {error}"))?;
+
+    let relocations = run_checked(
+        Command::new(&readelf)
+            .current_dir(&work)
+            .args(["-rW", "host.elf"]),
+        "M0 host relocation audit",
+    )?;
+    require_output_fragments(
+        &relocations.stdout,
+        "M0 host relocation audit",
+        &["There are no relocations in this file"],
+    )?;
+    let dynamic = run_checked(
+        Command::new(&readelf)
+            .current_dir(&work)
+            .args(["-dW", "host.elf"]),
+        "M0 host dynamic-dependency audit",
+    )?;
+    require_output_fragments(
+        &dynamic.stdout,
+        "M0 host dynamic-dependency audit",
+        &["There is no dynamic section in this file"],
+    )?;
+    let undefined_host = run_checked(
+        Command::new(&nm).arg("-u").arg(&host_elf),
+        "M0 host unresolved-symbol audit",
+    )?;
+    if !undefined_host.stdout.is_empty() {
+        return Err(format!(
+            "M0 host has unresolved symbols:\n{}",
+            String::from_utf8_lossy(&undefined_host.stdout)
+        ));
+    }
+
+    run_checked(
+        Command::new(&objcopy).current_dir(&work).args([
+            "--dump-section",
+            ".text.tmk_capsule=host-linked-capsule.bin",
+            "host.elf",
+        ]),
+        "extract M0 host linked capsule",
+    )?;
+    require_exact_bytes(
+        &work.join("host-linked-capsule.bin"),
+        &[0x48, 0x89, 0xf8, 0xf4],
+        "M0 host linked capsule",
+    )?;
+
+    let disassembly = run_checked(
+        Command::new(&objdump)
+            .current_dir(&work)
+            .args(["-d", "-Mintel", "host.elf"]),
+        "M0 host disassembly audit",
+    )?;
+    require_output_fragments(
+        &disassembly.stdout,
+        "M0 host disassembly audit",
+        &[
+            "<tmk_hlt_register_capsule>",
+            "mov    rax,rdi",
+            "hlt",
+            "allocate_pair",
+            "rust_begin_unwind",
+        ],
+    )?;
+    fs::write(work.join("disassembly.txt"), &disassembly.stdout)
+        .map_err(|error| format!("write M0 host disassembly: {error}"))?;
+
+    let execution = run_expect_failure(
+        Command::new("timeout")
+            .current_dir(&work)
+            .args(["0.1s", "./host.elf"]),
+        "execute fail-stop panic entry",
+    )?;
+    if execution.status.code() != Some(124) {
+        return Err(format!(
+            "fail-stop host exited with {}, expected timeout status 124",
+            execution.status
+        ));
+    }
+
+    let host_sha = sha256sum(&host_elf)?;
+    for name in ["link-repro-a", "link-repro-b"] {
+        let repro = work.join(name);
+        fs::create_dir(&repro)
+            .map_err(|error| format!("create host link reproducibility path: {error}"))?;
+        fs::copy(&allocator, repro.join("libtmk_allocator.rlib"))
+            .map_err(|error| format!("stage allocator in host repro path: {error}"))?;
+        fs::copy(&panic_rlib, repro.join("libtmk_panic_host.rlib"))
+            .map_err(|error| format!("stage panic host in repro path: {error}"))?;
+        fs::copy(&capsule_object, repro.join("capsule.o"))
+            .map_err(|error| format!("stage capsule in host repro path: {error}"))?;
+        run_checked(
+            &mut m0_host_link_command(&ld, &repro, &linker_script, entry, "host.elf"),
+            &format!("link M0 host in {name}"),
+        )?;
+        let repro_sha = sha256sum(&repro.join("host.elf"))?;
+        if repro_sha != host_sha {
+            return Err(format!(
+                "host link in {name} produced {repro_sha}, expected {host_sha}"
+            ));
+        }
+        fs::remove_dir_all(&repro)
+            .map_err(|error| format!("remove host link reproducibility path: {error}"))?;
+    }
+
+    let missing_divergence =
+        canonical.replace("#[verifier::exec_allows_no_decreases_clause]\n", "");
+    if missing_divergence == canonical {
+        return Err("panic-host divergence mutation target was not found".to_string());
+    }
+    fs::write(work.join("missing-divergence.rs"), missing_divergence)
+        .map_err(|error| format!("write panic-host divergence mutation: {error}"))?;
+    let missing_divergence_result = run_expect_failure(
+        &mut direct_verus_command(&verus, &work, "missing-divergence.rs", false),
+        "Verus rejects unclassified panic divergence",
+    )?;
+    let mut missing_divergence_diagnostic = Vec::new();
+    missing_divergence_diagnostic.extend_from_slice(&missing_divergence_result.stdout);
+    missing_divergence_diagnostic.extend_from_slice(&missing_divergence_result.stderr);
+    require_output_fragments(
+        &missing_divergence_diagnostic,
+        "panic divergence rejection",
+        &["loop must have a decreases clause"],
+    )?;
+    write_combined_output(
+        &work.join("missing-divergence-result.txt"),
+        &missing_divergence_result,
+        "missing panic divergence classification",
+    )?;
+
+    let external_panic = canonical.replacen(
+        "#[panic_handler]\n",
+        "#[panic_handler]\n#[verifier::external_body]\n",
+        1,
+    );
+    if external_panic == canonical {
+        return Err("panic-host external-body mutation target was not found".to_string());
+    }
+    fs::write(work.join("external-panic.rs"), external_panic)
+        .map_err(|error| format!("write external panic mutation: {error}"))?;
+    let external_panic_result = run_expect_failure(
+        &mut direct_verus_command(&verus, &work, "external-panic.rs", false),
+        "Verus no-cheating rejects external panic body",
+    )?;
+    let mut external_panic_diagnostic = Vec::new();
+    external_panic_diagnostic.extend_from_slice(&external_panic_result.stdout);
+    external_panic_diagnostic.extend_from_slice(&external_panic_result.stderr);
+    require_output_fragments(
+        &external_panic_diagnostic,
+        "external panic body rejection",
+        &["external_body"],
+    )?;
+    write_combined_output(
+        &work.join("external-panic-result.txt"),
+        &external_panic_result,
+        "external panic body",
+    )?;
+
+    fs::write(work.join("writable.bin"), [1u8])
+        .map_err(|error| format!("write forbidden writable input: {error}"))?;
+    run_checked(
+        Command::new(&ld).current_dir(&work).args([
+            "-r",
+            "-b",
+            "binary",
+            "-o",
+            "writable-raw.o",
+            "writable.bin",
+        ]),
+        "wrap forbidden writable input",
+    )?;
+    run_checked(
+        Command::new(&objcopy).current_dir(&work).args([
+            "--rename-section",
+            ".data=.data,alloc,contents,load,data",
+            "writable-raw.o",
+            "writable.o",
+        ]),
+        "classify forbidden writable input",
+    )?;
+    let writable_link = run_expect_failure(
+        &mut m0_host_link_command_with_extra(
+            &ld,
+            &work,
+            &linker_script,
+            entry,
+            "writable-host.elf",
+            "writable.o",
+        ),
+        "M0 host linker rejects writable data",
+    )?;
+    let mut writable_diagnostic = Vec::new();
+    writable_diagnostic.extend_from_slice(&writable_link.stdout);
+    writable_diagnostic.extend_from_slice(&writable_link.stderr);
+    require_output_fragments(
+        &writable_diagnostic,
+        "M0 host writable-data rejection",
+        &["M0 host must not contain initialized writable data"],
+    )?;
+    write_combined_output(
+        &work.join("writable-data-result.txt"),
+        &writable_link,
+        "writable host data",
+    )?;
+
+    let panic_result_sha = sha256sum(&work.join("verus-result.json"))?;
+    let capsule_object_sha = sha256sum(&work.join("capsule.o"))?;
+    let report = format!(
+        "M0_HOST_LINK_OK\ncomponent_verified=true\nrelease_eligible=false\npanic_source_sha256={source_sha}\npanic_artifact_sha256={panic_sha}\npanic_verus_result_sha256={panic_result_sha}\nallocator_artifact_sha256={allocator_sha}\ncapsule_object_sha256={capsule_object_sha}\nlinker_script_sha256={linker_sha}\nhost_elf_sha256={host_sha}\nproof_reproducibility_builds=3\nlink_reproducibility_builds=3\nruntime_observation=fail-stop-timeout-124\nnegative_cases=missing-divergence,external-panic-body,writable-data\n"
+    );
+    fs::write(work.join("report.txt"), &report)
+        .map_err(|error| format!("write M0 host report: {error}"))?;
+    print!("{report}");
+    println!("evidence={}", work.display());
+    Ok(())
+}
+
+fn audit_panic_host_source(source: &str) -> Result<(), String> {
+    let opaque_type = "#[verifier::external_type_specification]\n#[verifier::external_body]\npub struct ExPanicInfo";
+    if source
+        .matches("#[verifier::external_type_specification]")
+        .count()
+        != 1
+        || source.matches("#[verifier::external_body]").count() != 1
+        || source.matches("pub struct ExPanicInfo").count() != 1
+        || !source.contains(opaque_type)
+    {
+        return Err(
+            "panic host permits exactly one opaque PanicInfo type specification and paired external_body"
+                .to_string(),
+        );
+    }
+    if source
+        .matches("#[verifier::exec_allows_no_decreases_clause]")
+        .count()
+        != 1
+    {
+        return Err("panic host requires exactly one explicit divergence allowance".to_string());
+    }
+    for forbidden in [
+        "assume(",
+        "admit(",
+        "axiom fn",
+        "unsafe",
+        "asm!",
+        "impl ExPanicInfo",
+        "impl<'",
+    ] {
+        if source.contains(forbidden) {
+            return Err(format!(
+                "panic host source contains forbidden `{forbidden}`"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn m0_host_link_command(
+    ld: &Path,
+    work: &Path,
+    linker_script: &Path,
+    entry: &str,
+    output: &str,
+) -> Command {
+    let mut command = Command::new(ld);
+    command
+        .current_dir(work)
+        .args([
+            "-m",
+            "elf_x86_64",
+            "--build-id=none",
+            "-nostdlib",
+            "-static",
+        ])
+        .arg("-T")
+        .arg(linker_script)
+        .arg("-e")
+        .arg(entry)
+        .arg("-o")
+        .arg(output)
+        .arg("--whole-archive")
+        .args(["libtmk_allocator.rlib", "libtmk_panic_host.rlib"])
+        .arg("--no-whole-archive")
+        .arg("capsule.o");
+    command
+}
+
+fn m0_host_link_command_with_extra(
+    ld: &Path,
+    work: &Path,
+    linker_script: &Path,
+    entry: &str,
+    output: &str,
+    extra: &str,
+) -> Command {
+    let mut command = m0_host_link_command(ld, work, linker_script, entry, output);
+    command.arg(extra);
+    command
+}
+
+fn audit_host_sections(readelf_output: &[u8]) -> Result<(), String> {
+    let output = String::from_utf8_lossy(readelf_output);
+    let executable: Vec<_> = output
+        .lines()
+        .filter(|line| line.contains(" AX "))
+        .collect();
+    if executable.len() != 2
+        || !executable
+            .iter()
+            .any(|line| line.contains(".text.tmk_capsule"))
+        || !executable.iter().any(|line| line.contains(".text.host"))
+    {
+        return Err(format!(
+            "M0 host executable-section mismatch: {executable:?}"
+        ));
+    }
+    for forbidden in [
+        ".eh_frame",
+        ".gcc_except_table",
+        ".got",
+        ".got.plt",
+        ".data",
+        ".bss",
+        ".rodata",
+    ] {
+        if output.lines().any(|line| line.contains(forbidden)) {
+            return Err(format!("M0 host contains forbidden section `{forbidden}`"));
+        }
+    }
+    Ok(())
+}
+
+fn audit_host_segments(readelf_output: &[u8]) -> Result<(), String> {
+    let output = String::from_utf8_lossy(readelf_output);
+    let loads: Vec<_> = output
+        .lines()
+        .filter(|line| line.trim_start().starts_with("LOAD"))
+        .collect();
+    if loads.len() != 1 || !loads[0].contains(" R E ") || loads[0].contains(" W ") {
+        return Err(format!("M0 host segment policy mismatch: {loads:?}"));
+    }
+    Ok(())
+}
+
 fn require_exact_bytes(path: &Path, expected: &[u8], label: &str) -> Result<(), String> {
     let actual =
         fs::read(path).map_err(|error| format!("read {label} {}: {error}", path.display()))?;
@@ -1219,6 +1785,7 @@ fn direct_verus_command(verus: &Path, work: &Path, source_name: &str, compile: b
     let mut command = Command::new(verus);
     command
         .current_dir(work)
+        .env("SOURCE_DATE_EPOCH", "0")
         .args(["--output-json", "--no-vstd", "--no-cheating"]);
     if compile {
         command.arg("--compile");
@@ -1228,6 +1795,8 @@ fn direct_verus_command(verus: &Path, work: &Path, source_name: &str, compile: b
         .args(["--smt-option", "smt.random_seed=1"])
         .args(["-C", "panic=abort"])
         .args(["-C", "overflow-checks=off"])
+        .args(["-C", "relocation-model=static"])
+        .args(["-C", "no-redzone=yes"])
         .arg(format!("--remap-path-prefix={}=.", work.display()))
         .arg(source_name);
     command
