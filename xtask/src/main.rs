@@ -407,6 +407,14 @@ fn m0_manifest() -> Result<(), String> {
         "build/m0-host/libtmk_panic_host.rlib",
         "build/m0/probe.verified/artifact/libtmk_probe.rlib",
         "build/m0/probe.verified/receipt.json",
+        "build/m0-uefi/entry.bin",
+        "build/m0-uefi/image-primary/thermite-microkernel-m0.img",
+        "build/m0-uefi/libtmk_uefi_capsule.rlib",
+        "build/m0-uefi/pe-primary/BOOTX64.EFI",
+        "build/m0-uefi/qemu-kvm-debugcon.log",
+        "build/m0-uefi/qemu-tcg-debugcon.log",
+        "build/m0-uefi/report.txt",
+        "build/m0-uefi/verus-result.json",
     ];
     for path in required_artifacts {
         require_file(&root.join(path), &format!("manifest input `{path}`"))?;
@@ -457,6 +465,30 @@ fn m0_manifest() -> Result<(), String> {
     let forge_report = sha256sum(&root.join("build/m0/forge-probe-report.txt"))?;
     let host_report = sha256sum(&root.join("build/m0-host/report.txt"))?;
     let receipt_sha = sha256sum(&receipt_path)?;
+    let uefi_result = sha256sum(&root.join("build/m0-uefi/verus-result.json"))?;
+    let uefi_report = sha256sum(&root.join("build/m0-uefi/report.txt"))?;
+    let uefi_entry = fs::read(root.join("build/m0-uefi/entry.bin"))
+        .map_err(|error| format!("read manifest UEFI entry bytes: {error}"))?;
+    let uefi_loader_path = root.join("build/m0-uefi/pe-primary/BOOTX64.EFI");
+    let uefi_loader = fs::read(&uefi_loader_path)
+        .map_err(|error| format!("read manifest UEFI loader: {error}"))?;
+    uefi::audit_pe(&uefi_loader, &uefi_entry)?;
+    let uefi_image_path = root.join("build/m0-uefi/image-primary/thermite-microkernel-m0.img");
+    let uefi_image = fs::read(&uefi_image_path)
+        .map_err(|error| format!("read manifest UEFI boot image: {error}"))?;
+    let embedded_loader = uefi::extract_bootx64(&uefi_image)?;
+    if embedded_loader.bytes != uefi_loader {
+        return Err("manifest UEFI boot image does not contain the audited loader".to_string());
+    }
+    for accelerator in ["tcg", "kvm"] {
+        let log = fs::read(root.join(format!("build/m0-uefi/qemu-{accelerator}-debugcon.log")))
+            .map_err(|error| format!("read manifest QEMU {accelerator} observation: {error}"))?;
+        if log != b"TMK_M0_UEFI_OK!\n" {
+            return Err(format!(
+                "manifest QEMU {accelerator} observation is not the exact UEFI marker"
+            ));
+        }
+    }
     let repository_revision = git_output(&root, &["rev-parse", "HEAD"], "TMK revision")?;
     let repository_dirty = !git_output(&root, &["status", "--porcelain"], "TMK status")?.is_empty();
 
@@ -509,6 +541,34 @@ fn m0_manifest() -> Result<(), String> {
                 "classification": "trusted_tool"
             },
             {
+                "name": "ld",
+                "version": "2.44",
+                "path": "/usr/sbin/ld",
+                "sha256": "6cf122245638eb45fd981c75bf3a116675b3f9c7510ae2e3b386aa6738e46505",
+                "classification": "trusted_tool"
+            },
+            {
+                "name": "mcopy",
+                "version": "4.0.49",
+                "path": "/usr/sbin/mcopy",
+                "sha256": "92d837c9b2ad562e5597a1881b7cdd7828e9c0e8ccfbc874fb396eee22fcebf3",
+                "classification": "trusted_tool"
+            },
+            {
+                "name": "mkfs-fat",
+                "version": "4.2",
+                "path": "/usr/sbin/mkfs.fat",
+                "sha256": "7075f676c8dd292015f8f72d3574eb024c5ab5e545c3b031b8ef5355a5701093",
+                "classification": "trusted_tool"
+            },
+            {
+                "name": "objcopy",
+                "version": "2.44",
+                "path": "/usr/sbin/objcopy",
+                "sha256": "8f09a5b2d8e2b34aebf269fffef2308492a022dcfedf87b49489592e838129b4",
+                "classification": "trusted_tool"
+            },
+            {
                 "name": "openssl",
                 "version": "3.2.6",
                 "path": "/usr/sbin/openssl",
@@ -516,10 +576,45 @@ fn m0_manifest() -> Result<(), String> {
                 "classification": "trusted_tool"
             },
             {
+                "name": "ovmf-code",
+                "version": "sha256-pinned",
+                "path": "/usr/share/edk2/ovmf/OVMF_CODE.fd",
+                "sha256": "4e87e4be6bb9cdced848ec0b43adab3c7f15623e36055525d0691d137eb74af9",
+                "classification": "environmental"
+            },
+            {
+                "name": "ovmf-vars",
+                "version": "sha256-pinned",
+                "path": "/usr/share/edk2/ovmf/OVMF_VARS.fd",
+                "sha256": "6ed987af3a3c155be71665f510eae3e007eda9b8b94afd59d45e91c4a11565cc",
+                "classification": "environmental"
+            },
+            {
+                "name": "qemu",
+                "version": "9.2.4",
+                "path": "/usr/bin/qemu-system-x86_64",
+                "sha256": "8294f7d61d86167076194e834c3e4c592923f1812709a46edf4bb8f76e55ec7e",
+                "classification": "environmental"
+            },
+            {
                 "name": "rustc-codegen",
                 "version": "1.95.0",
                 "path": "/home/doll/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/rustc",
                 "sha256": "bff349e72704ff70bc08a234a3847338e797065bbedde5e556808bc87b7bf7c6",
+                "classification": "trusted_tool"
+            },
+            {
+                "name": "timeout",
+                "version": "9.6",
+                "path": "/usr/bin/timeout",
+                "sha256": "350001cc47ad731c4e797532fe46a999477aba359692e2de3e93f316b4021dab",
+                "classification": "trusted_tool"
+            },
+            {
+                "name": "touch",
+                "version": "9.6",
+                "path": "/usr/bin/touch",
+                "sha256": "22c0c7439c659dff1d88dbe7e096d5f4f6fc12d82673395304815626e240934f",
                 "classification": "trusted_tool"
             },
             {
@@ -538,6 +633,14 @@ fn m0_manifest() -> Result<(), String> {
                 "scope": "exact_bytes",
                 "source_sha256": sha256sum(&root.join("verus/machine-model/hlt_register_capsule.rs"))?,
                 "artifact_name": "m0-capsule"
+            },
+            {
+                "semantic_address": "capsule::uefi_debug_return",
+                "origin": "capsule",
+                "assurance": "capsule_refinement",
+                "scope": "exact_bytes",
+                "source_sha256": sha256sum(&root.join("verus/machine-model/uefi_debug_exit_capsule.rs"))?,
+                "artifact_name": "m0-uefi-loader"
             },
             {
                 "semantic_address": "thermite::transition_probe",
@@ -597,6 +700,16 @@ fn m0_manifest() -> Result<(), String> {
                 "verified_queries": 2,
                 "errors": 0,
                 "no_cheating": true
+            },
+            {
+                "name": "uefi-entry-model",
+                "source_sha256": sha256sum(&root.join("verus/machine-model/uefi_debug_exit_capsule.rs"))?,
+                "result_sha256": uefi_result.clone(),
+                "artifact_name": "m0-uefi-entry-model",
+                "artifact_sha256": sha256sum(&root.join("build/m0-uefi/libtmk_uefi_capsule.rlib"))?,
+                "verified_queries": 3,
+                "errors": 0,
+                "no_cheating": true
             }
         ],
         "capsules": [
@@ -608,6 +721,15 @@ fn m0_manifest() -> Result<(), String> {
                 "linked_sha256": sha256sum(&root.join("build/m0-capsule/linked-capsule.bin"))?,
                 "semantic_claim": "mov rax,rdi; hlt preserves all modeled state except RAX and halted",
                 "artifact_name": "m0-capsule"
+            },
+            {
+                "name": "uefi-debug-return",
+                "model_source_sha256": sha256sum(&root.join("verus/machine-model/uefi_debug_exit_capsule.rs"))?,
+                "proof_result_sha256": uefi_result.clone(),
+                "emitted_sha256": sha256sum(&root.join("build/m0-uefi/entry.bin"))?,
+                "linked_sha256": sha256sum(&root.join("build/m0-uefi/entry.bin"))?,
+                "semantic_claim": "exact registered bytes emit TMK_M0_UEFI_OK to port 0xe9, preserve modeled firmware state, return EFI_SUCCESS, and survive PE/FAT link unchanged",
+                "artifact_name": "m0-uefi-loader"
             }
         ],
         "artifacts": [
@@ -615,6 +737,9 @@ fn m0_manifest() -> Result<(), String> {
             manifest_artifact(&root, "m0-byte-allocator", "kernel_rlib", "build/m0-byte-allocator/libtmk_byte_allocator.rlib", vec![byte_result.clone()], false)?,
             manifest_artifact(&root, "m0-capsule", "capsule_elf", "build/m0-capsule/capsule.elf", vec![capsule_result.clone()], true)?,
             manifest_artifact(&root, "m0-host", "kernel_elf", "build/m0-host/host.elf", host_bindings, true)?,
+            manifest_artifact(&root, "m0-uefi-boot-image", "boot_image", "build/m0-uefi/image-primary/thermite-microkernel-m0.img", vec![uefi_result.clone(), uefi_report.clone()], false)?,
+            manifest_artifact(&root, "m0-uefi-entry-model", "kernel_rlib", "build/m0-uefi/libtmk_uefi_capsule.rlib", vec![uefi_result.clone()], false)?,
+            manifest_artifact(&root, "m0-uefi-loader", "uefi_loader", "build/m0-uefi/pe-primary/BOOTX64.EFI", vec![uefi_result.clone(), uefi_report.clone()], true)?,
             manifest_artifact(&root, "thermite-probe", "kernel_rlib", "build/m0/probe.verified/artifact/libtmk_probe.rlib", vec![receipt_binding.to_string()], false)?
         ],
         "tests": [
@@ -622,10 +747,11 @@ fn m0_manifest() -> Result<(), String> {
             { "name": "capsule", "status": "pass", "result_sha256": capsule_report, "passed": 5, "failed": 0, "skipped": 0 },
             { "name": "forge-probe", "status": "pass", "result_sha256": forge_report, "passed": 6, "failed": 0, "skipped": 0 },
             { "name": "host-link", "status": "pass", "result_sha256": host_report, "passed": 4, "failed": 0, "skipped": 0 },
-            { "name": "kernel-idl", "status": "pass", "result_sha256": idl_result, "passed": 8, "failed": 0, "skipped": 0 }
+            { "name": "kernel-idl", "status": "pass", "result_sha256": idl_result, "passed": 8, "failed": 0, "skipped": 0 },
+            { "name": "uefi-image", "status": "pass", "result_sha256": uefi_report.clone(), "passed": 16, "failed": 0, "skipped": 0 }
         ],
         "assumptions": [
-            { "id": "firmware", "class": "environmental", "statement": "OVMF implements the UEFI services consumed before ExitBootServices." },
+            { "id": "firmware", "class": "environmental", "statement": "Pinned OVMF implements the UEFI image loading and return behavior exercised by the M0 probe." },
             { "id": "hardware", "class": "environmental", "statement": "The modeled x86_64 architectural behavior and memory ordering hold." },
             { "id": "linker", "class": "trusted_tool", "statement": "Pinned GNU binutils preserve verified object semantics outside exact-byte capsule checks." },
             { "id": "rust-codegen", "class": "trusted_tool", "statement": "Pinned rustc and LLVM preserve the semantics of verified source." }
@@ -638,8 +764,8 @@ fn m0_manifest() -> Result<(), String> {
         },
         "known_limitations": [
             "GlobalAlloc raw-pointer ABI bridge is not verified.",
-            "Rich-state composition receipt is unavailable while Thermite issue #104 is in progress.",
-            "UEFI boot image has not been built."
+            "M0 UEFI image is only a debug-return probe, not the M1 loader.",
+            "Rich-state composition receipt is unavailable while Thermite issue #104 is in progress."
         ],
         "signing": {
             "algorithm": "ed25519",
@@ -791,6 +917,34 @@ fn m0_manifest() -> Result<(), String> {
     }
     negative_results.push_str(&format!("artifact-file-drift: {file_diagnostic}\n"));
 
+    let mut boot_image_file_drift = manifest_value.clone();
+    let boot_artifact = boot_image_file_drift
+        .pointer_mut("/artifacts")
+        .and_then(serde_json::Value::as_array_mut)
+        .and_then(|artifacts| {
+            artifacts.iter_mut().find(|artifact| {
+                artifact.get("name").and_then(serde_json::Value::as_str)
+                    == Some("m0-uefi-boot-image")
+            })
+        })
+        .ok_or_else(|| "boot-image file mutation target missing".to_string())?;
+    *boot_artifact
+        .get_mut("sha256")
+        .ok_or_else(|| "boot-image digest mutation target missing".to_string())? =
+        serde_json::json!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    manifest::validate(&schema, &boot_image_file_drift)?;
+    let boot_file_diagnostic = validate_manifest_artifact_files(&root, &boot_image_file_drift)
+        .err()
+        .ok_or_else(|| "boot-image file digest mutation unexpectedly passed".to_string())?;
+    if !boot_file_diagnostic.contains("m0-uefi-boot-image")
+        || !boot_file_diagnostic.contains("file digest")
+    {
+        return Err(format!(
+            "boot-image-file-drift diagnostic `{boot_file_diagnostic}` is unexpected"
+        ));
+    }
+    negative_results.push_str(&format!("boot-image-file-drift: {boot_file_diagnostic}\n"));
+
     let mut reordered = manifest_value.clone();
     reordered
         .pointer_mut("/tools")
@@ -845,6 +999,69 @@ fn m0_manifest() -> Result<(), String> {
         &missing_composition,
         "missing-composition-release",
         "requires a composition receipt",
+        &mut negative_results,
+    )?;
+
+    let mut missing_boot_image = manifest_value.clone();
+    *missing_boot_image
+        .pointer_mut("/release/development")
+        .ok_or_else(|| "boot-image release development target missing".to_string())? =
+        serde_json::json!(false);
+    *missing_boot_image
+        .pointer_mut("/release/release_eligible")
+        .ok_or_else(|| "boot-image release eligibility target missing".to_string())? =
+        serde_json::json!(true);
+    *missing_boot_image
+        .pointer_mut("/signing/key_id")
+        .ok_or_else(|| "boot-image release key target missing".to_string())? =
+        serde_json::json!("external-production-key");
+    for repository in missing_boot_image
+        .pointer_mut("/repositories")
+        .and_then(serde_json::Value::as_array_mut)
+        .ok_or_else(|| "boot-image release repository target missing".to_string())?
+    {
+        *repository
+            .get_mut("dirty")
+            .ok_or_else(|| "boot-image release repository dirty field missing".to_string())? =
+            serde_json::json!(false);
+    }
+    missing_boot_image
+        .pointer_mut("/forge_receipts")
+        .and_then(serde_json::Value::as_array_mut)
+        .ok_or_else(|| "boot-image release receipt target missing".to_string())?
+        .insert(
+            0,
+            serde_json::json!({
+                "name": "composition-probe",
+                "kind": "composition",
+                "schema": "thermite.verified-composition-receipt.v1",
+                "binding_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "receipt_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "artifact_name": "thermite-probe",
+                "assurance": "l3",
+                "scope": "end_to_end",
+                "replay_passed": true
+            }),
+        );
+    let boot_artifact = missing_boot_image
+        .pointer_mut("/artifacts")
+        .and_then(serde_json::Value::as_array_mut)
+        .and_then(|artifacts| {
+            artifacts.iter_mut().find(|artifact| {
+                artifact.get("name").and_then(serde_json::Value::as_str)
+                    == Some("m0-uefi-boot-image")
+            })
+        })
+        .ok_or_else(|| "boot-image release artifact target missing".to_string())?;
+    *boot_artifact
+        .get_mut("kind")
+        .ok_or_else(|| "boot-image release kind target missing".to_string())? =
+        serde_json::json!("filesystem_image");
+    record_manifest_rejection(
+        &schema,
+        &missing_boot_image,
+        "missing-boot-image-release",
+        "requires exactly one boot image",
         &mut negative_results,
     )?;
 
@@ -917,7 +1134,7 @@ fn m0_manifest() -> Result<(), String> {
     let schema_sha = sha256sum(&schema_path)?;
     let validator_sha = sha256sum(&root.join("xtask/src/manifest.rs"))?;
     let report = format!(
-        "M0_MANIFEST_OK\nschema_validated=true\nsignature_verified=true\nartifact_files_replayed=true\nrelease_eligible=false\nschema_sha256={schema_sha}\nvalidator_sha256={validator_sha}\nmanifest_sha256={primary_manifest_sha}\npayload_sha256={primary_payload_sha}\nsignature_sha256={primary_signature_sha}\npublic_key_sha256={expected_public_sha}\nreproducibility_builds=3\nnegative_results_sha256={negative_sha}\nnegative_cases=unknown-property,capsule-byte-drift,unknown-source-binding,direct-verus-artifact-mismatch,artifact-file-drift,noncanonical-order,development-key-release,missing-composition-release,schema-loosening,signature-mutation,payload-mutation\n"
+        "M0_MANIFEST_OK\nschema_validated=true\nsignature_verified=true\nartifact_files_replayed=true\nrelease_eligible=false\nschema_sha256={schema_sha}\nvalidator_sha256={validator_sha}\nmanifest_sha256={primary_manifest_sha}\npayload_sha256={primary_payload_sha}\nsignature_sha256={primary_signature_sha}\npublic_key_sha256={expected_public_sha}\nreproducibility_builds=3\nnegative_results_sha256={negative_sha}\nnegative_cases=unknown-property,capsule-byte-drift,unknown-source-binding,direct-verus-artifact-mismatch,artifact-file-drift,boot-image-file-drift,noncanonical-order,development-key-release,missing-composition-release,missing-boot-image-release,schema-loosening,signature-mutation,payload-mutation\n"
     );
     fs::write(work.join("report.txt"), &report)
         .map_err(|error| format!("write manifest report: {error}"))?;
