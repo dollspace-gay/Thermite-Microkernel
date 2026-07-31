@@ -209,7 +209,7 @@ assumption.” Calling all three “verified” is forbidden.
 
 ## 10. Forge L3 artifact integration
 
-Thermite commit `ae79a0f59ce5c08b20db47d23047f1f0665d122f` closes the
+Thermite commit `902f29242c068190320c1e1e1f702fb933e0dda6` closes the
 standalone proof-to-executable gap through an explicit strict build:
 
 ```text
@@ -227,9 +227,11 @@ The L3 mode:
    non-L3 certificates, and any reachable `Skipped` or `Unverifiable` TV result;
 3. invokes Verus once with `--no-cheating --compile` over the exact canonical
    source that passed verification;
-4. publishes only after validating a staged, cryptographically bound
+4. binds the actual Verus-selected rustc/sysroot/LLVM codegen closure separately
+   from the ambient host compiler;
+5. publishes only after validating a staged, cryptographically bound
    `VerifiedBuildReceiptV1`; and
-5. retains the old independent `lower_l1` build as an unmistakably L1-only path
+6. retains the old independent `lower_l1` build as an unmistakably L1-only path
    that TMK release tooling MUST NOT consume.
 
 This satisfies executable correspondence for the Forge-produced rlib. L1 runtime

@@ -32,13 +32,13 @@ Generated files live under the build directory and are never hand edited.
 
 The current design baseline is:
 
-- Thermite commit `ae79a0f59ce5c08b20db47d23047f1f0665d122f`;
+- Thermite commit `902f29242c068190320c1e1e1f702fb933e0dda6`;
 - canonical Thermite skill SHA-256
   `cd37b3e309696a1512f6eef167911a498876cc0a49c138d1357c84f07efa3e29`;
 - Verus `0.2026.05.24.ecee80a`;
 - host rustc `1.96.0`;
-- Verus artifact-codegen rustc `1.95.0` (the current Forge receipt records this
-  incorrectly as the host compiler; Thermite issue #103 blocks M0 acceptance);
+- Verus artifact-codegen rustc `1.95.0`, selected from Verus's authoritative
+  `Toolchain:` identity and bound independently from the host compiler;
 - GNU binutils `2.44-12.fc42` for capsule object/link/post-link inspection;
 - QEMU `9.2.4`; and
 - locally available OVMF x86_64 firmware.

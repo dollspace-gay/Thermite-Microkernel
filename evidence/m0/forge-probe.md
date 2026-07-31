@@ -2,8 +2,10 @@
 
 Date: 2026-07-31
 
-Status: **development feature demonstrated; release gate blocked by Thermite
-issue [#103](https://github.com/dollspace-gay/Thermite/issues/103).**
+Status: **standalone release gate accepted against pinned Thermite commit
+`902f29242c068190320c1e1e1f702fb933e0dda6`.** Thermite issue
+[#103](https://github.com/dollspace-gay/Thermite/issues/103) remains open pending
+merge, but TMK pins and validates the immutable fix commit.
 
 The probe at `thermite/core/probe.th` was processed through:
 
@@ -12,8 +14,18 @@ The probe at `thermite/core/probe.th` was processed through:
 3. `forge build --level l3 --target kernel`;
 4. `forge verify-build`;
 5. `forge verify-build --replay`;
-6. a Rust host consumer linked to the emitted kernel rlib and executed; and
-7. a separate `#![no_std]`, `#![no_main]` final link.
+6. independent validation that the receipt binds `evidence/toolchain.json`;
+7. exact checks of the Verus-selected Rust 1.95 compiler and its target identity;
+8. a host consumer selected from that evidence, linked, and executed;
+9. a separate `#![no_std]`, `#![no_main]` final link; and
+10. a negative link with the separately recorded ambient Rust 1.96 compiler,
+    which failed with `E0514` and identified the rlib as Rust 1.95 output.
+
+The strict command needs no compiler override:
+
+```text
+cargo run -p xtask -- m0-forge-probe
+```
 
 The executed function emitted:
 
@@ -21,24 +33,18 @@ The executed function emitted:
 M0_FORGE_PROBE_OK:5aa512cb9889ff00
 ```
 
-The successful development run used Verus's actual Rust 1.95 codegen toolchain:
-
-```text
-TMK_UNBOUND_CODEGEN_RUSTC=/home/doll/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/rustc \
-  cargo run -p xtask -- m0-forge-probe
-```
-
 Observed evidence digests:
 
 ```text
-receipt_sha256=872053e80293bc091300bb7c8d04c2af60b3ae0270b5982ad0cbd667b6112af4
+consumer_rustc_sha256=bff349e72704ff70bc08a234a3847338e797065bbedde5e556808bc87b7bf7c6
+toolchain_evidence_sha256=aa0df25072d6ef0f8bef575acaab51fc5c7a386c5e4e594b8e9285db20ad5cda
+receipt_sha256=361d608e49cdc0d4028e17a158985d3cfa73bc8cd55d96e579226a37c53db38c
 artifact_sha256=278c6835e311a2c3fa3bd84a3f5e7d3165e1b034b080449db5ece01b68f80cd3
 no_std_consumer_sha256=0590a78a7f70eba210c3bbd504c1d4d0a9222942ed69cf9e0a11122924beaafd
+incompatible_rustc_result_sha256=79f8245393e41fe0171c821af6e9e98a426fe420cb656e1c86bbe508a575d08d
+report_sha256=3c1555a9a1c78b2ffdb7d4fb7d7cf9135bc69c8913885d83c18627a4c75ef723
 ```
 
-This is not release evidence because the override is deliberately unbound. The
-same consumer compiled with the receipt-recorded host Rust 1.96 fails with
-`E0514`: the rlib contains Rust 1.95 metadata. Forge #103 must make the receipt
-bind and select the actual Verus codegen compiler. After that fix, the strict
-command without `TMK_UNBOUND_CODEGEN_RUSTC` must pass and produce
-`release_eligible=true` before the M0 standalone probe is accepted.
+The report states `release_eligible=true`. This accepts the standalone primitive
+Forge artifact path; it does not accept rich-state composition or the final
+kernel image, which retain their independent M0 gates.

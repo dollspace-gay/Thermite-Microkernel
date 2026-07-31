@@ -13,7 +13,7 @@ It defines:
   complete rejection behavior.
 
 The following command was run against pinned Forge commit
-`ae79a0f59ce5c08b20db47d23047f1f0665d122f`:
+`902f29242c068190320c1e1e1f702fb933e0dda6`:
 
 ```text
 cargo run -p xtask -- m0-composition-source-check
@@ -31,7 +31,7 @@ Observed results:
 The complete ignored outputs had these SHA-256 digests:
 
 ```text
-check.json   52bf624761e36b944ad4ce2e0fc3e3033ec8fb827c894f663674f7994e5917aa
+check.json   73aac3efa79a1e3ced98d8bf508bdb473563319145abb183fa10092c96b4e8e4
 audit.txt    241d563c3e5739cfc235991aca6f11c07058049bd7c90c84e86d24960532b776
 battery.txt  34b2527cb1a203579a1268a3648e59d4e3d430b36c596ccc03a0d595a7ab32c0
 report.txt   c68759da700582f6d2abaa248bde6c3318a1e83eb31774adc9bd64bca6fe9fc2

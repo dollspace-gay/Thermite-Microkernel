@@ -6,12 +6,14 @@ This document defines how TMK consumes Thermite code without losing assurance
 between proof, compilation, and final kernel composition.
 
 The baseline is Thermite commit
-`ae79a0f59ce5c08b20db47d23047f1f0665d122f`, which ships:
+`902f29242c068190320c1e1e1f702fb933e0dda6`, which ships:
 
 - `forge build --level l3 --target kernel --export ...`;
 - exact-source Verus proof and code generation;
 - strict reachable-closure and translation-validation gates;
 - explicit primitive/unit Rust exports with ABI fingerprints;
+- separate, bound identities for the ambient host compiler and the complete
+  Verus-selected artifact-codegen rustc/sysroot/LLVM closure;
 - `VerifiedBuildReceiptV1`; and
 - `forge verify-build [--replay]`.
 
@@ -340,7 +342,7 @@ and the TMK case remains as an integration test.
 | Standalone exact-source L3 artifact | shipped upstream | TMK-pinned build, validation, replay, and link test |
 | Primitive explicit exports and ABI fingerprint | shipped upstream | independent consumer and tamper tests |
 | Strict rejection of non-L3/TV non-pass cases | nine local bundle-tamper cases pass | certificate/TV verdict and source-mutation fault-injection remainder |
-| Actual codegen-rustc receipt binding | upstream issue #103 open | receipt-selected consumer links; mismatched compiler rejected |
+| Actual codegen-rustc receipt binding | pinned fix commit passes locally; #103 pending merge | receipt-selected consumer links; mismatched host compiler is rejected |
 | Rich-state same-crate composition | source probe L3-checks; Thermite issue #104 open | same-crate shell proof, rlib, receipt validation, and replay |
 | Verified bounded allocator and panic host | policy and panic code prove/reproduce; component ELF links and runs fail-stop with exact HLT bytes and one RX segment | verify byte/layout adapter and `GlobalAlloc`; bind the receipted final image |
 | Exact-byte instruction capsules | M0 `mov rax,rdi; hlt` model/emitter/post-link probe passes | bind probe receipt into empty UEFI image; extend per platform operation |

@@ -4,9 +4,9 @@ target = "x86_64-unknown-linux-gnu"
 
 [thermite]
 repository = "https://github.com/dollspace-gay/Thermite"
-commit = "ae79a0f59ce5c08b20db47d23047f1f0665d122f"
+commit = "902f29242c068190320c1e1e1f702fb933e0dda6"
 forge_path = "/home/doll/Thermite/target/debug/forge"
-forge_sha256 = "a36661429627212d0a77eb1617ae96ca0eb5c1dc266368f85605fa8433f7a2a6"
+forge_sha256 = "c1cc11e39afd9b5a534d6ca30f5692b86d34c2ccaa5dbbc35227648acb8bb229"
 skill_sha256 = "cd37b3e309696a1512f6eef167911a498876cc0a49c138d1357c84f07efa3e29"
 
 [verus]
@@ -33,7 +33,7 @@ rustc_path = "/home/doll/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/
 rustc_sha256 = "bff349e72704ff70bc08a234a3847338e797065bbedde5e556808bc87b7bf7c6"
 cargo_path = "/home/doll/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/cargo"
 cargo_sha256 = "841072d1d92f9e841d9ba5b0814182a0adf064acf4527cd120967b7bc49dcb66"
-receipt_binding_status = "blocked-by-thermite-issue-103"
+receipt_binding_status = "bound-and-locally-validated"
 
 [qemu]
 version = "9.2.4"

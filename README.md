@@ -68,10 +68,13 @@ Implementation is in M0 toolchain closure. The public repository and pinned Carg
 workspace exist. The first Thermite L3 kernel rlib has been verified, replayed,
 executed through a host consumer, and linked through a separate `no_std` consumer.
 
-That probe is development-only pending Thermite
-[#103](https://github.com/dollspace-gay/Thermite/issues/103): Forge currently
-records host Rust 1.96 in the receipt although Verus emits Rust 1.95 rlib metadata.
-The mismatch is fail-closed and M0 is not marked complete.
+The standalone probe's toolchain-binding gate is now locally closed by pinned
+Thermite commit `902f29242c068190320c1e1e1f702fb933e0dda6`. Forge records both
+ambient Rust 1.96 and the authoritative Verus-selected Rust 1.95 codegen closure;
+TMK selects the consumer compiler from the bound evidence, links and executes it,
+and confirms that the incompatible host compiler is rejected. Upstream issue
+[#103](https://github.com/dollspace-gay/Thermite/issues/103) remains open pending
+merge, but the immutable fix commit passes the local release gate.
 
 The rich-state acceptance transition is also implemented and passes Forge L3,
 audit, and mutation-battery checks. Its honest same-crate Thermite/direct-Verus
@@ -104,10 +107,9 @@ cargo run -p xtask -- m0-verus-capsule
 cargo run -p xtask -- m0-host-link
 ```
 
-The second command is the strict release gate. A temporary
-`TMK_UNBOUND_CODEGEN_RUSTC=<rustc-1.95>` override exists only to reproduce issue
-#103 and exercise the implementation; reports produced with it state
-`release_eligible=false`.
+The second command is the strict standalone release gate. It accepts no compiler
+override: the Rust consumer compiler is selected from the receipt-bound Forge
+toolchain evidence and a passing report states `release_eligible=true`.
 
 Cargo build directories are cleaned after evidence is captured at each milestone
 boundary. Proof bundles and runtime reports live under ignored `build/` paths;

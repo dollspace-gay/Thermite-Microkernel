@@ -66,7 +66,7 @@ device introspection and conformance tests.
 The design was read against the local Thermite repository at commit:
 
 ```text
-ae79a0f59ce5c08b20db47d23047f1f0665d122f
+902f29242c068190320c1e1e1f702fb933e0dda6
 ```
 
 The canonical generated language reference at design time had SHA-256:

@@ -53,7 +53,7 @@ fn toolchain_check() -> Result<(), String> {
         "Thermite source revision check",
     )?;
     let actual = String::from_utf8_lossy(&output.stdout);
-    let expected = "ae79a0f59ce5c08b20db47d23047f1f0665d122f";
+    let expected = "902f29242c068190320c1e1e1f702fb933e0dda6";
     if actual.trim() != expected {
         return Err(format!(
             "Thermite revision is {}, expected {expected}",
@@ -203,6 +203,8 @@ fn m0_forge_probe() -> Result<(), String> {
     let receipt_path = bundle.join("receipt.json");
     let receipt = fs::read_to_string(&receipt_path)
         .map_err(|error| format!("read {}: {error}", receipt_path.display()))?;
+    let receipt_json: serde_json::Value = serde_json::from_str(&receipt)
+        .map_err(|error| format!("parse {}: {error}", receipt_path.display()))?;
     for required in [
         "\"assurance\": \"L3\"",
         "\"scope\": \"end_to_end\"",
@@ -226,15 +228,114 @@ fn m0_forge_probe() -> Result<(), String> {
         ));
     }
 
-    // Development-only escape for diagnosing Thermite issue #103. A release
-    // probe must obtain this compiler from authoritative receipt evidence; the
-    // current receipt incorrectly names ambient Rust 1.96 although Verus emits
-    // Rust 1.95 metadata. Setting this variable never makes a bundle
-    // release-eligible.
-    let consumer_rustc = env::var_os("TMK_UNBOUND_CODEGEN_RUSTC")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("rustc"));
-    let release_eligible = env::var_os("TMK_UNBOUND_CODEGEN_RUSTC").is_none();
+    if env::var_os("TMK_UNBOUND_CODEGEN_RUSTC").is_some() {
+        return Err(
+            "TMK_UNBOUND_CODEGEN_RUSTC is obsolete; the consumer compiler must come from the bound receipt"
+                .to_string(),
+        );
+    }
+    let toolchain_path = bundle.join("evidence/toolchain.json");
+    require_file(&toolchain_path, "Forge toolchain evidence")?;
+    let toolchain_text = fs::read_to_string(&toolchain_path)
+        .map_err(|error| format!("read {}: {error}", toolchain_path.display()))?;
+    let toolchain_json: serde_json::Value = serde_json::from_str(&toolchain_text)
+        .map_err(|error| format!("parse {}: {error}", toolchain_path.display()))?;
+    let toolchain_sha = sha256sum(&toolchain_path)?;
+    let bound_toolchain_sha = json_string(
+        &receipt_json,
+        "/binding/toolchain_sha256",
+        "receipt toolchain digest",
+    )?;
+    if toolchain_sha != bound_toolchain_sha {
+        return Err(format!(
+            "toolchain evidence digest is {toolchain_sha}, receipt binds {bound_toolchain_sha}"
+        ));
+    }
+    for (pointer, expected, label) in [
+        (
+            "/artifact_codegen/selection",
+            "verus --version Toolchain",
+            "codegen compiler selection",
+        ),
+        (
+            "/artifact_codegen/rustup_toolchain",
+            "1.95.0-x86_64-unknown-linux-gnu",
+            "codegen rustup toolchain",
+        ),
+        (
+            "/artifact_codegen/rustc_release",
+            "1.95.0",
+            "codegen rustc release",
+        ),
+        (
+            "/artifact_codegen/rustc_sha256",
+            "bff349e72704ff70bc08a234a3847338e797065bbedde5e556808bc87b7bf7c6",
+            "codegen rustc digest",
+        ),
+        (
+            "/artifact_codegen/target_triple",
+            "x86_64-unknown-linux-gnu",
+            "codegen target triple",
+        ),
+        (
+            "/artifact_codegen/target_pointer_width",
+            "64",
+            "codegen target pointer width",
+        ),
+        (
+            "/artifact_codegen/target_endian",
+            "little",
+            "codegen target endianness",
+        ),
+        (
+            "/host_rustc/rustc_sha256",
+            "ba4b837efb6612dfa8d941c5a72b8a50d1d03a0f36216743b173949aa8d9eb75",
+            "ambient host rustc digest",
+        ),
+    ] {
+        let actual = json_string(&toolchain_json, pointer, label)?;
+        if actual != expected {
+            return Err(format!("{label} is `{actual}`, expected `{expected}`"));
+        }
+    }
+
+    let consumer_rustc = PathBuf::from(json_string(
+        &toolchain_json,
+        "/artifact_codegen/rustc_path",
+        "codegen rustc path",
+    )?);
+    require_file(&consumer_rustc, "receipt-selected codegen rustc")?;
+    let recorded_consumer_sha = json_string(
+        &toolchain_json,
+        "/artifact_codegen/rustc_sha256",
+        "codegen rustc digest",
+    )?;
+    let consumer_rustc_sha = sha256sum(&consumer_rustc)?;
+    if consumer_rustc_sha != recorded_consumer_sha {
+        return Err(format!(
+            "receipt-selected rustc digest is {consumer_rustc_sha}, expected {recorded_consumer_sha}"
+        ));
+    }
+    let incompatible_rustc = PathBuf::from(json_string(
+        &toolchain_json,
+        "/host_rustc/rustc_path",
+        "ambient host rustc path",
+    )?);
+    require_file(
+        &incompatible_rustc,
+        "receipt-recorded incompatible host rustc",
+    )?;
+    let recorded_incompatible_sha = json_string(
+        &toolchain_json,
+        "/host_rustc/rustc_sha256",
+        "ambient host rustc digest",
+    )?;
+    let incompatible_rustc_sha = sha256sum(&incompatible_rustc)?;
+    if incompatible_rustc_sha != recorded_incompatible_sha {
+        return Err(format!(
+            "receipt-recorded host rustc digest is {incompatible_rustc_sha}, expected {recorded_incompatible_sha}"
+        ));
+    }
 
     let host_consumer = work.join("host-probe-consumer");
     compile_consumer(
@@ -270,11 +371,38 @@ fn m0_forge_probe() -> Result<(), String> {
     )?;
     require_file(&kernel_consumer, "linked no_std consumer")?;
 
+    let incompatible_output_path = work.join("incompatible-host-probe-consumer");
+    let incompatible = run_expect_failure(
+        &mut consumer_command(
+            &incompatible_rustc,
+            &root,
+            &root.join("tests/m0/host_probe_consumer.rs"),
+            &artifact,
+            &deps,
+            &incompatible_output_path,
+            false,
+        ),
+        "reject incompatible receipt-recorded host rustc consumer",
+    )?;
+    let mut incompatible_diagnostic = Vec::new();
+    incompatible_diagnostic.extend_from_slice(&incompatible.stdout);
+    incompatible_diagnostic.extend_from_slice(&incompatible.stderr);
+    require_output_fragments(
+        &incompatible_diagnostic,
+        "incompatible host rustc rejection",
+        &["incompatible version of rustc", "compiled by rustc 1.95.0"],
+    )?;
+    write_combined_output(
+        &work.join("incompatible-rustc-result.txt"),
+        &incompatible,
+        "incompatible receipt-recorded host rustc",
+    )?;
+
     let receipt_sha = sha256sum(&receipt_path)?;
     let artifact_sha = sha256sum(&artifact)?;
     let consumer_sha = sha256sum(&kernel_consumer)?;
     let report = format!(
-        "M0_FORGE_PROBE_OK\nrelease_eligible={release_eligible}\nmutants_killed=4/4\nconsumer_rustc={}\nreceipt_sha256={receipt_sha}\nartifact_sha256={artifact_sha}\nno_std_consumer_sha256={consumer_sha}\nruntime_marker={EXPECTED_RUNTIME_MARKER}\n",
+        "M0_FORGE_PROBE_OK\nrelease_eligible=true\nmutants_killed=4/4\nconsumer_rustc={}\nconsumer_rustc_sha256={consumer_rustc_sha}\ntoolchain_evidence_sha256={toolchain_sha}\nreceipt_sha256={receipt_sha}\nartifact_sha256={artifact_sha}\nno_std_consumer_sha256={consumer_sha}\nincompatible_host_rustc_rejected=true\nruntime_marker={EXPECTED_RUNTIME_MARKER}\n",
         consumer_rustc.display()
     );
     let report_path = work.join("forge-probe-report.txt");
@@ -1811,6 +1939,27 @@ fn compile_consumer(
     output: &Path,
     no_std: bool,
 ) -> Result<(), String> {
+    let mut command = consumer_command(rustc, root, source, artifact, deps, output, no_std);
+    run_checked(
+        &mut command,
+        if no_std {
+            "link separate no_std Forge consumer"
+        } else {
+            "link executable Forge consumer"
+        },
+    )?;
+    Ok(())
+}
+
+fn consumer_command(
+    rustc: &Path,
+    root: &Path,
+    source: &Path,
+    artifact: &Path,
+    deps: &Path,
+    output: &Path,
+    no_std: bool,
+) -> Command {
     let mut command = Command::new(rustc);
     command
         .current_dir(root)
@@ -1825,15 +1974,18 @@ fn compile_consumer(
         command.args(["-C", "link-arg=-nostartfiles"]);
     }
     command.arg("-o").arg(output);
-    run_checked(
-        &mut command,
-        if no_std {
-            "link separate no_std Forge consumer"
-        } else {
-            "link executable Forge consumer"
-        },
-    )?;
-    Ok(())
+    command
+}
+
+fn json_string<'a>(
+    value: &'a serde_json::Value,
+    pointer: &str,
+    label: &str,
+) -> Result<&'a str, String> {
+    value
+        .pointer(pointer)
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| format!("{label} is missing or is not a string at `{pointer}`"))
 }
 
 fn workspace_root() -> Result<PathBuf, String> {
