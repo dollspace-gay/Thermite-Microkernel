@@ -1,5 +1,7 @@
 mod idl;
+mod m0_uefi;
 mod manifest;
+mod uefi;
 
 use std::env;
 use std::ffi::OsStr;
@@ -25,6 +27,7 @@ fn run() -> Result<(), String> {
         }
         Some("m0-idl") if args.next().is_none() => m0_idl(),
         Some("m0-manifest") if args.next().is_none() => m0_manifest(),
+        Some("m0-uefi") if args.next().is_none() => m0_uefi::run(),
         Some("m0-forge-probe") if args.next().is_none() => m0_forge_probe(),
         Some("m0-forge-tamper") if args.next().is_none() => m0_forge_tamper(),
         Some("m0-host-link") if args.next().is_none() => m0_host_link(),
@@ -33,7 +36,7 @@ fn run() -> Result<(), String> {
         Some("m0-verus-capsule") if args.next().is_none() => m0_verus_capsule(),
         Some("toolchain-check") if args.next().is_none() => toolchain_check(),
         _ => Err(
-            "usage: cargo run -p xtask -- <toolchain-check|m0-idl|m0-manifest|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-verus-allocator|m0-verus-byte-allocator|m0-verus-capsule|m0-host-link>"
+            "usage: cargo run -p xtask -- <toolchain-check|m0-idl|m0-manifest|m0-uefi|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-verus-allocator|m0-verus-byte-allocator|m0-verus-capsule|m0-host-link>"
                 .to_string(),
         ),
     }

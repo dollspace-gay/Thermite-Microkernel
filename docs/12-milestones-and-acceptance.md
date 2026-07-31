@@ -39,8 +39,8 @@ The kernel IDL generator deliverable is locally demonstrated: strict schema and
 layout validation, byte-identical three-path C/Rust generation, hosted C/Rust and
 freestanding Rust compilation, cross-language runtime agreement, and five
 negative cases pass. See `evidence/m0/kernel-idl.md`. This does not close M0 while
-the composition, final manifest/link, raw-pointer allocator bridge, and UEFI
-image gates remain open.
+the composition, final manifest/link, and raw-pointer allocator bridge remain
+open.
 
 The release manifest schema deliverable is also locally demonstrated. A clean
 development run binds and replays current M0 artifacts, signs the canonical
@@ -49,6 +49,14 @@ provenance, release-policy, schema, and cryptographic mutations. The committed
 test key is forbidden for release eligibility. See
 `evidence/m0/release-manifest.md`. Final manifest closure still requires the
 composition receipt and reproducible UEFI boot image.
+
+The reproducible empty UEFI image is locally demonstrated by
+`cargo run -p xtask -- m0-uefi`. A no-cheating Verus proof generates the exact
+entry bytes; three model rlibs, PE32+ applications, and FAT16 disk images reproduce
+byte-for-byte; independent parsers bind `EFI/BOOT/BOOTX64.EFI` to those bytes; and
+OVMF emits the exact success marker under both TCG and KVM. Eight structural,
+proof, and real-firmware negative cases pass. See `evidence/m0/uefi-image.md`.
+Manifest binding and rich-state composition remain separate M0 gates.
 
 Exit:
 

@@ -2,9 +2,10 @@
 
 This repository contains the design for a capability-oriented, POSIX-compatible
 microkernel written primarily in Thermite and verified through Forge and Verus.
-Implementation has begun with M0 toolchain and proof-artifact closure; a
-freestanding verified component host now links and executes, but bootable
-kernel/BSP implementation has not started.
+Implementation has begun with M0 toolchain and proof-artifact closure. A
+freestanding verified component host links and executes, and a reproducible M0
+UEFI probe image boots under OVMF with both TCG and KVM. Kernel/BSP implementation
+has not started.
 
 The first platform is x86_64 QEMU/KVM on the `q35` machine, booted as a UEFI
 application through OVMF. The first useful release is single-core but is designed
@@ -112,12 +113,23 @@ transition for `mov rax,rdi; hlt`; the emitted bytes survive object conversion a
 static linking unchanged, with relocation, executable-section, symbol, and
 disassembly audits plus four negative tests.
 
+The reproducible empty-image gate now boots real media rather than a host-only
+fixture. Verus proves a 56-byte EFI entry capsule that preserves the incoming
+non-result registers, emits `TMK_M0_UEFI_OK!` through the QEMU debug port, returns
+`EFI_SUCCESS`, and rejects every other registered encoding. Three rlibs, three
+1 KiB PE32+ applications, and three 32 MiB FAT16 images reproduce byte-for-byte.
+An independent PE/FAT parser checks the fallback path and exact executable bytes;
+OVMF observes the marker under TCG and KVM, while a corrupt PE produces none.
+Eight negative cases pass. This image remains a development probe, not an M1
+loader or a release-eligible composed kernel.
+
 Useful implementation commands:
 
 ```text
 cargo run -p xtask -- toolchain-check
 cargo run -p xtask -- m0-idl
 cargo run -p xtask -- m0-manifest
+cargo run -p xtask -- m0-uefi
 cargo run -p xtask -- m0-forge-probe
 cargo run -p xtask -- m0-forge-tamper
 cargo run -p xtask -- m0-composition-source-check

@@ -51,7 +51,8 @@ here.
 | G-013 | open upstream (#104) | Forge has no exact-source rich-state Thermite/direct-Verus composition build or receipt | implement and replay the M0 rich-state composition probe without a post-verification adapter |
 
 G-005, G-008, G-011, and G-013 block M1. G-006's M0 acceptance instance
-is closed; additional privileged operations are M1 proof work. Closed-upstream
+is closed, including the exact-byte UEFI entry/return probe and real OVMF
+TCG/KVM boot; additional privileged operations are M1 proof work. Closed-upstream
 rows remain pinned TMK regression tests; an upstream capability is not treated
 as locally demonstrated until the M0 replay and negative-test matrix pass.
 

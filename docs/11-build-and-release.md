@@ -303,6 +303,12 @@ The reviewed development manifest binds current M0 evidence but correctly states
 `release_eligible=false`; composition and the final boot-image digest are absent.
 See `evidence/m0/release-manifest.md`.
 
+The independently reproduced M0 UEFI probe image is now implemented and boots
+under OVMF with TCG and KVM; see `evidence/m0/uefi-image.md`. Its digest is not yet
+in the signed development manifest described above. Adding that binding is the
+next schema-consumer checkpoint and does not make the image release-eligible
+without the rich-state composition receipt and final-link allowlist.
+
 ## 11. CI failure policy
 
 No flaky proof, timeout, skipped reachable TV, or intermittent QEMU test is

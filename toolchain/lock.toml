@@ -69,3 +69,18 @@ code_path = "/usr/share/edk2/ovmf/OVMF_CODE.fd"
 code_sha256 = "4e87e4be6bb9cdced848ec0b43adab3c7f15623e36055525d0691d137eb74af9"
 vars_path = "/usr/share/edk2/ovmf/OVMF_VARS.fd"
 vars_sha256 = "6ed987af3a3c155be71665f510eae3e007eda9b8b94afd59d45e91c4a11565cc"
+
+[fat]
+dosfstools_version = "4.2"
+mkfs_fat_path = "/usr/sbin/mkfs.fat"
+mkfs_fat_sha256 = "7075f676c8dd292015f8f72d3574eb024c5ab5e545c3b031b8ef5355a5701093"
+mtools_version = "4.0.49"
+mcopy_path = "/usr/sbin/mcopy"
+mcopy_sha256 = "92d837c9b2ad562e5597a1881b7cdd7828e9c0e8ccfbc874fb396eee22fcebf3"
+
+[process]
+coreutils_version = "9.6"
+timeout_path = "/usr/bin/timeout"
+timeout_sha256 = "350001cc47ad731c4e797532fe46a999477aba359692e2de3e93f316b4021dab"
+touch_path = "/usr/bin/touch"
+touch_sha256 = "22c0c7439c659dff1d88dbe7e096d5f4f6fc12d82673395304815626e240934f"
