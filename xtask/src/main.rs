@@ -23,9 +23,10 @@ fn run() -> Result<(), String> {
         Some("m0-forge-probe") if args.next().is_none() => m0_forge_probe(),
         Some("m0-forge-tamper") if args.next().is_none() => m0_forge_tamper(),
         Some("m0-verus-allocator") if args.next().is_none() => m0_verus_allocator(),
+        Some("m0-verus-capsule") if args.next().is_none() => m0_verus_capsule(),
         Some("toolchain-check") if args.next().is_none() => toolchain_check(),
         _ => Err(
-            "usage: cargo run -p xtask -- <toolchain-check|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-verus-allocator>"
+            "usage: cargo run -p xtask -- <toolchain-check|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-verus-allocator|m0-verus-capsule>"
                 .to_string(),
         ),
     }
@@ -544,7 +545,7 @@ fn m0_verus_allocator() -> Result<(), String> {
     }
 
     let verification = run_checked(
-        &mut verus_allocator_command(&verus, &work, "tmk_allocator.rs", true),
+        &mut direct_verus_command(&verus, &work, "tmk_allocator.rs", true),
         "Verus bounded allocator proof and codegen",
     )?;
     require_output_fragments(
@@ -558,8 +559,11 @@ fn m0_verus_allocator() -> Result<(), String> {
             "\"toolchain\": \"1.95.0-x86_64-unknown-linux-gnu\"",
         ],
     )?;
-    fs::write(work.join("verus-result.json"), &verification.stdout)
-        .map_err(|error| format!("write allocator Verus result: {error}"))?;
+    fs::write(
+        work.join("verus-result.json"),
+        canonical_json(&verification.stdout, "allocator Verus result")?,
+    )
+    .map_err(|error| format!("write allocator Verus result: {error}"))?;
     if sha256sum(&staged_source)? != source_sha {
         return Err("allocator source changed during Verus proof/codegen".to_string());
     }
@@ -575,7 +579,7 @@ fn m0_verus_allocator() -> Result<(), String> {
         fs::copy(&source, repro.join("tmk_allocator.rs"))
             .map_err(|error| format!("stage allocator reproducibility source: {error}"))?;
         run_checked(
-            &mut verus_allocator_command(&verus, &repro, "tmk_allocator.rs", true),
+            &mut direct_verus_command(&verus, &repro, "tmk_allocator.rs", true),
             &format!("Verus allocator clean build in {name}"),
         )?;
         let repro_artifact = repro.join("libtmk_allocator.rlib");
@@ -646,7 +650,7 @@ fn m0_verus_allocator() -> Result<(), String> {
     fs::write(work.join("bad-update.rs"), bad_update)
         .map_err(|error| format!("write bad allocator update mutation: {error}"))?;
     let bad_update_result = run_expect_failure(
-        &mut verus_allocator_command(&verus, &work, "bad-update.rs", false),
+        &mut direct_verus_command(&verus, &work, "bad-update.rs", false),
         "Verus rejects allocator state-update mutation",
     )?;
     let mut bad_update_diagnostic = Vec::new();
@@ -674,7 +678,7 @@ fn m0_verus_allocator() -> Result<(), String> {
     fs::write(work.join("bad-assume.rs"), bad_assume)
         .map_err(|error| format!("write allocator assume mutation: {error}"))?;
     let bad_assume_result = run_expect_failure(
-        &mut verus_allocator_command(&verus, &work, "bad-assume.rs", false),
+        &mut direct_verus_command(&verus, &work, "bad-assume.rs", false),
         "Verus no-cheating rejects allocator assume",
     )?;
     let mut assume_diagnostic = Vec::new();
@@ -703,7 +707,515 @@ fn m0_verus_allocator() -> Result<(), String> {
     Ok(())
 }
 
-fn verus_allocator_command(verus: &Path, work: &Path, source_name: &str, compile: bool) -> Command {
+fn m0_verus_capsule() -> Result<(), String> {
+    let root = workspace_root()?;
+    let verus = PathBuf::from("/opt/verus/0.2026.05.24.ecee80a/verus");
+    let rustc =
+        PathBuf::from("/home/doll/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/rustc");
+    let ld = PathBuf::from("/usr/sbin/ld");
+    let objcopy = PathBuf::from("/usr/sbin/objcopy");
+    let objdump = PathBuf::from("/usr/sbin/objdump");
+    let readelf = PathBuf::from("/usr/sbin/readelf");
+    let nm = PathBuf::from("/usr/sbin/nm");
+    for (path, expected, label) in [
+        (
+            verus.as_path(),
+            "c5911ee43c7a92c49a48d2c8646c604d252a38c71c87bda88ad4d33eb9e7e0fc",
+            "Verus",
+        ),
+        (
+            ld.as_path(),
+            "6cf122245638eb45fd981c75bf3a116675b3f9c7510ae2e3b386aa6738e46505",
+            "GNU ld",
+        ),
+        (
+            objcopy.as_path(),
+            "8f09a5b2d8e2b34aebf269fffef2308492a022dcfedf87b49489592e838129b4",
+            "GNU objcopy",
+        ),
+        (
+            objdump.as_path(),
+            "c7c3f8c5c0ed23b2330e148e58624f8d798f1673f4c9fb126ee81096f05e3653",
+            "GNU objdump",
+        ),
+        (
+            readelf.as_path(),
+            "59d345f2a2b47f5617e8f53c72f6db5169c723c11d3e809a9e6e3c5673f2420c",
+            "GNU readelf",
+        ),
+        (
+            nm.as_path(),
+            "988d8ded768c4e59284a44f641e92db6c0c8dd222547c32ce432577ff3cb9cc6",
+            "GNU nm",
+        ),
+    ] {
+        require_file(path, label)?;
+        let actual = sha256sum(path)?;
+        if actual != expected {
+            return Err(format!("{label} digest is {actual}, expected {expected}"));
+        }
+    }
+
+    let source = root.join("verus/machine-model/hlt_register_capsule.rs");
+    let linker_script = root.join("kernel-host/link/m0_capsule.ld");
+    require_file(&source, "HLT/register capsule Verus source")?;
+    require_file(&linker_script, "M0 capsule linker script")?;
+    let source_sha = sha256sum(&source)?;
+    let linker_sha = sha256sum(&linker_script)?;
+
+    let work = root.join("build/m0-capsule");
+    if work.exists() {
+        fs::remove_dir_all(&work)
+            .map_err(|error| format!("remove stale {}: {error}", work.display()))?;
+    }
+    fs::create_dir_all(&work).map_err(|error| format!("create {}: {error}", work.display()))?;
+    let staged = work.join("tmk_capsule.rs");
+    fs::copy(&source, &staged).map_err(|error| format!("stage capsule Verus source: {error}"))?;
+    if sha256sum(&staged)? != source_sha {
+        return Err("staged capsule source differs from canonical source".to_string());
+    }
+
+    let verification = run_checked(
+        &mut direct_verus_command(&verus, &work, "tmk_capsule.rs", true),
+        "Verus HLT/register capsule proof and codegen",
+    )?;
+    require_output_fragments(
+        &verification.stdout,
+        "Verus HLT/register capsule proof and codegen",
+        &[
+            "\"success\": true",
+            "\"verified\": 7",
+            "\"errors\": 0",
+            "\"version\": \"0.2026.05.24.ecee80a\"",
+            "\"toolchain\": \"1.95.0-x86_64-unknown-linux-gnu\"",
+        ],
+    )?;
+    fs::write(
+        work.join("verus-result.json"),
+        canonical_json(&verification.stdout, "capsule Verus result")?,
+    )
+    .map_err(|error| format!("write capsule Verus result: {error}"))?;
+    if sha256sum(&staged)? != source_sha {
+        return Err("capsule source changed during proof/codegen".to_string());
+    }
+
+    let artifact = work.join("libtmk_capsule.rlib");
+    require_file(&artifact, "compiled capsule model rlib")?;
+    let artifact_sha = sha256sum(&artifact)?;
+    for name in ["repro-a", "repro-b"] {
+        let repro = work.join(name);
+        fs::create_dir(&repro)
+            .map_err(|error| format!("create capsule reproducibility path: {error}"))?;
+        fs::copy(&source, repro.join("tmk_capsule.rs"))
+            .map_err(|error| format!("stage capsule reproducibility source: {error}"))?;
+        run_checked(
+            &mut direct_verus_command(&verus, &repro, "tmk_capsule.rs", true),
+            &format!("Verus capsule clean build in {name}"),
+        )?;
+        let repro_sha = sha256sum(&repro.join("libtmk_capsule.rlib"))?;
+        if repro_sha != artifact_sha {
+            return Err(format!(
+                "capsule model build in {name} produced {repro_sha}, expected {artifact_sha}"
+            ));
+        }
+        fs::remove_dir_all(&repro)
+            .map_err(|error| format!("remove capsule reproducibility path: {error}"))?;
+    }
+
+    let undefined = run_checked(
+        Command::new(&nm).arg("-u").arg(&artifact),
+        "capsule model undefined-symbol audit",
+    )?;
+    let undefined_text = String::from_utf8_lossy(&undefined.stdout);
+    if undefined_text.lines().any(|line| {
+        let trimmed = line.trim_start();
+        trimmed.starts_with("U ") || trimmed.contains(" U ")
+    }) {
+        return Err(format!(
+            "capsule model rlib has undefined symbols:\n{undefined_text}"
+        ));
+    }
+
+    let consumer = work.join("capsule-consumer");
+    run_checked(
+        Command::new(&rustc)
+            .current_dir(&root)
+            .args(["--edition=2021"])
+            .arg(root.join("tests/m0/capsule_consumer.rs"))
+            .arg("--extern")
+            .arg(format!("tmk_capsule={}", artifact.display()))
+            .arg("-L")
+            .arg("dependency=/opt/verus/0.2026.05.24.ecee80a")
+            .args(["-C", "panic=abort"])
+            .arg("-o")
+            .arg(&consumer),
+        "link capsule model host consumer",
+    )?;
+    let capsule_bin = work.join("capsule.bin");
+    let runtime = run_checked(
+        Command::new(&consumer).current_dir(&root).arg(&capsule_bin),
+        "execute capsule model and emit proved bytes",
+    )?;
+    require_output_fragments(
+        &runtime.stdout,
+        "capsule model runtime",
+        &["M0_CAPSULE_OK:4889f8f4:5aa512348765cdef:1004"],
+    )?;
+    require_exact_bytes(&capsule_bin, &[0x48, 0x89, 0xf8, 0xf4], "emitted capsule")?;
+
+    run_checked(
+        Command::new(&ld).current_dir(&work).args([
+            "-r",
+            "-b",
+            "binary",
+            "-o",
+            "capsule-raw.o",
+            "capsule.bin",
+        ]),
+        "wrap capsule bytes in relocatable object",
+    )?;
+    run_checked(
+        Command::new(&objcopy).current_dir(&work).args([
+            "--rename-section",
+            ".data=.text.tmk_capsule,alloc,contents,load,readonly,code",
+            "--redefine-sym",
+            "_binary_capsule_bin_start=tmk_hlt_register_capsule",
+            "--redefine-sym",
+            "_binary_capsule_bin_end=tmk_hlt_register_capsule_end",
+            "--redefine-sym",
+            "_binary_capsule_bin_size=tmk_hlt_register_capsule_size",
+            "capsule-raw.o",
+            "capsule.o",
+        ]),
+        "name and classify capsule object section",
+    )?;
+    run_checked(
+        Command::new(&ld)
+            .current_dir(&work)
+            .args([
+                "-m",
+                "elf_x86_64",
+                "--build-id=none",
+                "-nostdlib",
+                "-static",
+            ])
+            .arg("-T")
+            .arg(&linker_script)
+            .args(["-o", "capsule.elf", "capsule.o"]),
+        "link registered capsule ELF",
+    )?;
+    run_checked(
+        Command::new(&objcopy).current_dir(&work).args([
+            "--dump-section",
+            ".text.tmk_capsule=linked-capsule.bin",
+            "capsule.elf",
+        ]),
+        "extract linked capsule bytes",
+    )?;
+    let linked_bin = work.join("linked-capsule.bin");
+    require_exact_bytes(&linked_bin, &[0x48, 0x89, 0xf8, 0xf4], "linked capsule")?;
+
+    let relocations = run_checked(
+        Command::new(&readelf)
+            .current_dir(&work)
+            .args(["-rW", "capsule.elf"]),
+        "capsule relocation audit",
+    )?;
+    require_output_fragments(
+        &relocations.stdout,
+        "capsule relocation audit",
+        &["There are no relocations in this file"],
+    )?;
+    fs::write(work.join("relocations.txt"), &relocations.stdout)
+        .map_err(|error| format!("write capsule relocation evidence: {error}"))?;
+
+    let sections = run_checked(
+        Command::new(&readelf)
+            .current_dir(&work)
+            .args(["-SW", "capsule.elf"]),
+        "capsule executable-section audit",
+    )?;
+    audit_executable_sections(&sections.stdout)?;
+    fs::write(work.join("sections.txt"), &sections.stdout)
+        .map_err(|error| format!("write capsule section evidence: {error}"))?;
+
+    let symbols = run_checked(
+        Command::new(&readelf)
+            .current_dir(&work)
+            .args(["-sW", "capsule.elf"]),
+        "capsule symbol audit",
+    )?;
+    require_output_fragments(
+        &symbols.stdout,
+        "capsule symbol audit",
+        &[
+            "tmk_hlt_register_capsule_link_start",
+            "tmk_hlt_register_capsule_link_end",
+            "tmk_hlt_register_capsule",
+        ],
+    )?;
+    fs::write(work.join("symbols.txt"), &symbols.stdout)
+        .map_err(|error| format!("write capsule symbol evidence: {error}"))?;
+
+    let disassembly = run_checked(
+        Command::new(&objdump)
+            .current_dir(&work)
+            .args(["-d", "-Mintel", "capsule.elf"]),
+        "capsule disassembly",
+    )?;
+    require_output_fragments(
+        &disassembly.stdout,
+        "capsule disassembly",
+        &["mov    rax,rdi", "hlt"],
+    )?;
+    fs::write(work.join("disassembly.txt"), &disassembly.stdout)
+        .map_err(|error| format!("write capsule disassembly: {error}"))?;
+
+    let mut mutated_bytes = vec![0x48, 0x89, 0xf8, 0xf4];
+    mutated_bytes[0] ^= 1;
+    fs::write(work.join("mutated.bin"), mutated_bytes)
+        .map_err(|error| format!("write mutated capsule bytes: {error}"))?;
+    run_checked(
+        Command::new(&ld).current_dir(&work).args([
+            "-r",
+            "-b",
+            "binary",
+            "-o",
+            "mutated-raw.o",
+            "mutated.bin",
+        ]),
+        "wrap mutated capsule bytes",
+    )?;
+    run_checked(
+        Command::new(&objcopy).current_dir(&work).args([
+            "--rename-section",
+            ".data=.text.tmk_capsule,alloc,contents,load,readonly,code",
+            "--redefine-sym",
+            "_binary_mutated_bin_start=tmk_hlt_register_capsule",
+            "--redefine-sym",
+            "_binary_mutated_bin_end=tmk_hlt_register_capsule_end",
+            "--redefine-sym",
+            "_binary_mutated_bin_size=tmk_hlt_register_capsule_size",
+            "mutated-raw.o",
+            "mutated.o",
+        ]),
+        "name mutated capsule object",
+    )?;
+    run_checked(
+        Command::new(&ld)
+            .current_dir(&work)
+            .args([
+                "-m",
+                "elf_x86_64",
+                "--build-id=none",
+                "-nostdlib",
+                "-static",
+            ])
+            .arg("-T")
+            .arg(&linker_script)
+            .args(["-o", "mutated.elf", "mutated.o"]),
+        "link mutated capsule ELF",
+    )?;
+    run_checked(
+        Command::new(&objcopy).current_dir(&work).args([
+            "--dump-section",
+            ".text.tmk_capsule=mutated-linked.bin",
+            "mutated.elf",
+        ]),
+        "extract mutated linked capsule",
+    )?;
+    let byte_mutation_diagnostic = match require_exact_bytes(
+        &work.join("mutated-linked.bin"),
+        &[0x48, 0x89, 0xf8, 0xf4],
+        "mutated linked capsule",
+    ) {
+        Ok(()) => return Err("capsule byte mutation passed the post-link audit".to_string()),
+        Err(diagnostic) => diagnostic,
+    };
+    fs::write(
+        work.join("byte-mutation-result.txt"),
+        format!("{byte_mutation_diagnostic}\n"),
+    )
+    .map_err(|error| format!("write capsule byte-mutation evidence: {error}"))?;
+
+    fs::write(work.join("extra.bin"), [0xf4])
+        .map_err(|error| format!("write unregistered executable byte: {error}"))?;
+    run_checked(
+        Command::new(&ld).current_dir(&work).args([
+            "-r",
+            "-b",
+            "binary",
+            "-o",
+            "extra-raw.o",
+            "extra.bin",
+        ]),
+        "wrap unregistered executable byte",
+    )?;
+    run_checked(
+        Command::new(&objcopy).current_dir(&work).args([
+            "--rename-section",
+            ".data=.text.unregistered,alloc,contents,load,readonly,code",
+            "extra-raw.o",
+            "extra.o",
+        ]),
+        "classify unregistered executable section",
+    )?;
+    run_checked(
+        Command::new(&ld)
+            .current_dir(&work)
+            .args([
+                "-m",
+                "elf_x86_64",
+                "--build-id=none",
+                "-nostdlib",
+                "-static",
+            ])
+            .arg("-T")
+            .arg(&linker_script)
+            .args(["-o", "extra.elf", "capsule.o", "extra.o"]),
+        "link ELF with unregistered executable section",
+    )?;
+    let extra_sections = run_checked(
+        Command::new(&readelf)
+            .current_dir(&work)
+            .args(["-SW", "extra.elf"]),
+        "inspect unregistered executable section",
+    )?;
+    let extra_diagnostic = match audit_executable_sections(&extra_sections.stdout) {
+        Ok(()) => {
+            return Err("unregistered executable section passed the post-link audit".to_string());
+        }
+        Err(diagnostic) => diagnostic,
+    };
+    fs::write(
+        work.join("unregistered-section-result.txt"),
+        format!("{extra_diagnostic}\n"),
+    )
+    .map_err(|error| format!("write unregistered-section evidence: {error}"))?;
+
+    let canonical = fs::read_to_string(&source)
+        .map_err(|error| format!("read {}: {error}", source.display()))?;
+    let bad_semantics = canonical.replacen("rax: state.rdi,", "rax: state.rax,", 1);
+    if bad_semantics == canonical {
+        return Err("capsule semantic mutation target was not found".to_string());
+    }
+    fs::write(work.join("bad-semantics.rs"), bad_semantics)
+        .map_err(|error| format!("write capsule semantic mutation: {error}"))?;
+    let bad_semantics_result = run_expect_failure(
+        &mut direct_verus_command(&verus, &work, "bad-semantics.rs", false),
+        "Verus rejects capsule semantic mutation",
+    )?;
+    let mut bad_semantics_diagnostic = Vec::new();
+    bad_semantics_diagnostic.extend_from_slice(&bad_semantics_result.stdout);
+    bad_semantics_diagnostic.extend_from_slice(&bad_semantics_result.stderr);
+    require_output_fragments(
+        &bad_semantics_diagnostic,
+        "Verus capsule semantic rejection",
+        &["postcondition not satisfied"],
+    )?;
+    write_combined_output(
+        &work.join("bad-semantics-result.txt"),
+        &bad_semantics_result,
+        "capsule semantic mutation",
+    )?;
+
+    let bad_assume = canonical.replacen(
+        "    if word == 0xf4f88948u32",
+        "    assume(false);\n    if word == 0xf4f88948u32",
+        1,
+    );
+    if bad_assume == canonical {
+        return Err("capsule assume mutation target was not found".to_string());
+    }
+    fs::write(work.join("bad-assume.rs"), bad_assume)
+        .map_err(|error| format!("write capsule assume mutation: {error}"))?;
+    let bad_assume_result = run_expect_failure(
+        &mut direct_verus_command(&verus, &work, "bad-assume.rs", false),
+        "Verus no-cheating rejects capsule assume",
+    )?;
+    let mut bad_assume_diagnostic = Vec::new();
+    bad_assume_diagnostic.extend_from_slice(&bad_assume_result.stdout);
+    bad_assume_diagnostic.extend_from_slice(&bad_assume_result.stderr);
+    require_output_fragments(
+        &bad_assume_diagnostic,
+        "Verus capsule assume rejection",
+        &["assume/admit not allowed with --no-cheating"],
+    )?;
+    write_combined_output(
+        &work.join("bad-assume-result.txt"),
+        &bad_assume_result,
+        "capsule assume mutation",
+    )?;
+
+    let linked_sha = sha256sum(&linked_bin)?;
+    let elf_sha = sha256sum(&work.join("capsule.elf"))?;
+    let verification_sha = sha256sum(&work.join("verus-result.json"))?;
+    let consumer_sha = sha256sum(&consumer)?;
+    let report = format!(
+        "M0_VERUS_CAPSULE_OK\ncomponent_verified=true\nrelease_eligible=false\nsource_sha256={source_sha}\nlinker_script_sha256={linker_sha}\nmodel_artifact_sha256={artifact_sha}\nreproducibility_builds=3\nverus_result_sha256={verification_sha}\nconsumer_sha256={consumer_sha}\nlinked_capsule_sha256={linked_sha}\nlinked_elf_sha256={elf_sha}\nruntime_marker=M0_CAPSULE_OK:4889f8f4:5aa512348765cdef:1004\nnegative_cases=byte-mutation,unregistered-executable,bad-semantics,bad-assume\n"
+    );
+    fs::write(work.join("report.txt"), &report)
+        .map_err(|error| format!("write capsule report: {error}"))?;
+    print!("{report}");
+    println!("evidence={}", work.display());
+    Ok(())
+}
+
+fn require_exact_bytes(path: &Path, expected: &[u8], label: &str) -> Result<(), String> {
+    let actual =
+        fs::read(path).map_err(|error| format!("read {label} {}: {error}", path.display()))?;
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(format!(
+            "{label} byte mismatch: actual={actual:02x?} expected={expected:02x?}"
+        ))
+    }
+}
+
+fn audit_executable_sections(readelf_output: &[u8]) -> Result<(), String> {
+    let output = String::from_utf8_lossy(readelf_output);
+    let executable: Vec<_> = output
+        .lines()
+        .filter(|line| line.contains(" AX "))
+        .collect();
+    if executable.len() == 1 && executable[0].contains(".text.tmk_capsule") {
+        Ok(())
+    } else {
+        Err(format!(
+            "executable section allowlist mismatch: expected only .text.tmk_capsule, found {executable:?}"
+        ))
+    }
+}
+
+fn canonical_json(bytes: &[u8], label: &str) -> Result<Vec<u8>, String> {
+    fn sort(value: serde_json::Value) -> serde_json::Value {
+        match value {
+            serde_json::Value::Object(object) => {
+                let mut entries: Vec<_> = object.into_iter().collect();
+                entries.sort_by(|left, right| left.0.cmp(&right.0));
+                let mut sorted = serde_json::Map::new();
+                for (key, value) in entries {
+                    sorted.insert(key, sort(value));
+                }
+                serde_json::Value::Object(sorted)
+            }
+            serde_json::Value::Array(values) => {
+                serde_json::Value::Array(values.into_iter().map(sort).collect())
+            }
+            other => other,
+        }
+    }
+
+    let parsed: serde_json::Value =
+        serde_json::from_slice(bytes).map_err(|error| format!("parse {label} JSON: {error}"))?;
+    let mut canonical = serde_json::to_vec_pretty(&sort(parsed))
+        .map_err(|error| format!("serialize canonical {label}: {error}"))?;
+    canonical.push(b'\n');
+    Ok(canonical)
+}
+
+fn direct_verus_command(verus: &Path, work: &Path, source_name: &str, compile: bool) -> Command {
     let mut command = Command::new(verus);
     command
         .current_dir(work)

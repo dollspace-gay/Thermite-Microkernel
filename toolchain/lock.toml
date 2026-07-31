@@ -41,6 +41,19 @@ path = "/usr/bin/qemu-system-x86_64"
 sha256 = "8294f7d61d86167076194e834c3e4c592923f1812709a46edf4bb8f76e55ec7e"
 machine = "q35"
 
+[binutils]
+version = "2.44-12.fc42"
+ld_path = "/usr/sbin/ld"
+ld_sha256 = "6cf122245638eb45fd981c75bf3a116675b3f9c7510ae2e3b386aa6738e46505"
+objcopy_path = "/usr/sbin/objcopy"
+objcopy_sha256 = "8f09a5b2d8e2b34aebf269fffef2308492a022dcfedf87b49489592e838129b4"
+objdump_path = "/usr/sbin/objdump"
+objdump_sha256 = "c7c3f8c5c0ed23b2330e148e58624f8d798f1673f4c9fb126ee81096f05e3653"
+readelf_path = "/usr/sbin/readelf"
+readelf_sha256 = "59d345f2a2b47f5617e8f53c72f6db5169c723c11d3e809a9e6e3c5673f2420c"
+nm_path = "/usr/sbin/nm"
+nm_sha256 = "988d8ded768c4e59284a44f641e92db6c0c8dd222547c32ce432577ff3cb9cc6"
+
 [ovmf]
 code_path = "/usr/share/edk2/ovmf/OVMF_CODE.fd"
 code_sha256 = "4e87e4be6bb9cdced848ec0b43adab3c7f15623e36055525d0691d137eb74af9"

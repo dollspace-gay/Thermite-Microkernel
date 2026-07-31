@@ -39,6 +39,7 @@ The current design baseline is:
 - host rustc `1.96.0`;
 - Verus artifact-codegen rustc `1.95.0` (the current Forge receipt records this
   incorrectly as the host compiler; Thermite issue #103 blocks M0 acceptance);
+- GNU binutils `2.44-12.fc42` for capsule object/link/post-link inspection;
 - QEMU `9.2.4`; and
 - locally available OVMF x86_64 firmware.
 

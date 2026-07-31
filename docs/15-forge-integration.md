@@ -341,7 +341,7 @@ test.
 | Actual codegen-rustc receipt binding | upstream issue #103 open | receipt-selected consumer links; mismatched compiler rejected |
 | Rich-state same-crate composition | source probe L3-checks; Thermite issue #104 open | same-crate shell proof, rlib, receipt validation, and replay |
 | Verified bounded allocator and panic host | allocation policy proved, compiled, reproduced, and executed | `GlobalAlloc`/panic-host integration and final link |
-| Exact-byte instruction capsules | not implemented | model, emitter, relocation proof, post-link equality |
+| Exact-byte instruction capsules | M0 `mov rax,rdi; hlt` model/emitter/post-link probe passes | bind probe receipt into empty UEFI image; extend per platform operation |
 | Final receipted link/image | not implemented | allowlist audit and reproducible UEFI image |
 
 M1 cannot begin until every row is demonstrated locally, even when an upstream

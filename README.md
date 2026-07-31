@@ -79,6 +79,11 @@ policy over fixed-size units. Its proof/codegen, three-path reproducibility,
 separate runtime consumer, symbol audit, and two negative proof tests pass. The
 `GlobalAlloc`/panic-host integration remains an M0 task.
 
+The M0 x86 capsule is also live: Verus proves the exact encoding and machine-state
+transition for `mov rax,rdi; hlt`; the emitted bytes survive object conversion and
+static linking unchanged, with relocation, executable-section, symbol, and
+disassembly audits plus four negative tests.
+
 Useful implementation commands:
 
 ```text
@@ -87,6 +92,7 @@ cargo run -p xtask -- m0-forge-probe
 cargo run -p xtask -- m0-forge-tamper
 cargo run -p xtask -- m0-composition-source-check
 cargo run -p xtask -- m0-verus-allocator
+cargo run -p xtask -- m0-verus-capsule
 ```
 
 The second command is the strict release gate. A temporary
