@@ -1,0 +1,161 @@
+{
+  "schema": "tmk.kernel-idl.v1",
+  "abi": {
+    "major": 1,
+    "minor": 0,
+    "endian": "little",
+    "word_bits": 64,
+    "utcb_magic": 827018580
+  },
+  "limits": {
+    "utcb_bytes": 1024,
+    "utcb_page_alignment": 4096,
+    "message_words": 64,
+    "send_caps": 2,
+    "receive_slots": 2,
+    "fast_words": 4
+  },
+  "syscalls": [
+    { "name": "TMK_SYSCALL_INVOKE", "number": 0 },
+    { "name": "TMK_SYSCALL_SEND", "number": 1 },
+    { "name": "TMK_SYSCALL_RECV", "number": 2 },
+    { "name": "TMK_SYSCALL_CALL", "number": 3 },
+    { "name": "TMK_SYSCALL_REPLY", "number": 4 },
+    { "name": "TMK_SYSCALL_REPLY_RECV", "number": 5 },
+    { "name": "TMK_SYSCALL_YIELD", "number": 6 },
+    { "name": "TMK_SYSCALL_ABI_QUERY", "number": 7 }
+  ],
+  "statuses": [
+    { "name": "TMK_K_OK", "number": 0 },
+    { "name": "TMK_K_E_CAP", "number": 1 },
+    { "name": "TMK_K_E_ARG", "number": 2 },
+    { "name": "TMK_K_E_STATE", "number": 3 },
+    { "name": "TMK_K_E_EMPTY", "number": 4 },
+    { "name": "TMK_K_E_FULL", "number": 5 },
+    { "name": "TMK_K_E_QUOTA", "number": 6 },
+    { "name": "TMK_K_E_TIMEOUT", "number": 7 },
+    { "name": "TMK_K_E_CANCELLED", "number": 8 },
+    { "name": "TMK_K_E_DEPTH", "number": 9 },
+    { "name": "TMK_K_E_FAULT", "number": 10 },
+    { "name": "TMK_K_E_VERSION", "number": 11 },
+    { "name": "TMK_K_E_UNSUPPORTED", "number": 12 },
+    { "name": "TMK_K_E_HARDWARE", "number": 13 }
+  ],
+  "operations": [
+    { "namespace": "CNODE", "name": "COPY", "number": 0 },
+    { "namespace": "CNODE", "name": "MINT", "number": 1 },
+    { "namespace": "CNODE", "name": "MOVE", "number": 2 },
+    { "namespace": "CNODE", "name": "DELETE", "number": 3 },
+    { "namespace": "CNODE", "name": "REVOKE", "number": 4 },
+    { "namespace": "UNTYPED", "name": "RETYPE", "number": 0 },
+    { "namespace": "UNTYPED", "name": "RESET", "number": 1 },
+    { "namespace": "VSPACE", "name": "MAP_TABLE", "number": 0 },
+    { "namespace": "VSPACE", "name": "MAP_FRAME", "number": 1 },
+    { "namespace": "VSPACE", "name": "UNMAP", "number": 2 },
+    { "namespace": "VSPACE", "name": "PROTECT", "number": 3 },
+    { "namespace": "VSPACE", "name": "QUERY", "number": 4 },
+    { "namespace": "THREAD", "name": "CONFIGURE", "number": 0 },
+    { "namespace": "THREAD", "name": "READ_REGISTERS", "number": 1 },
+    { "namespace": "THREAD", "name": "WRITE_REGISTERS", "number": 2 },
+    { "namespace": "THREAD", "name": "START", "number": 3 },
+    { "namespace": "THREAD", "name": "SUSPEND", "number": 4 },
+    { "namespace": "THREAD", "name": "RESUME", "number": 5 },
+    { "namespace": "THREAD", "name": "SET_PRIORITY", "number": 6 },
+    { "namespace": "THREAD", "name": "SET_AFFINITY", "number": 7 },
+    { "namespace": "THREAD", "name": "DESTROY", "number": 8 },
+    { "namespace": "DOMAIN", "name": "SET_QUOTA", "number": 0 },
+    { "namespace": "DOMAIN", "name": "QUERY_USAGE", "number": 1 },
+    { "namespace": "DOMAIN", "name": "BIND_OBJECT", "number": 2 },
+    { "namespace": "DOMAIN", "name": "DESTROY", "number": 3 },
+    { "namespace": "NOTIFICATION", "name": "SIGNAL", "number": 0 },
+    { "namespace": "NOTIFICATION", "name": "WAIT", "number": 1 },
+    { "namespace": "TIMER", "name": "ARM", "number": 0 },
+    { "namespace": "TIMER", "name": "CANCEL", "number": 1 },
+    { "namespace": "IRQ", "name": "BIND", "number": 0 },
+    { "namespace": "IRQ", "name": "MASK", "number": 1 },
+    { "namespace": "IRQ", "name": "ACK", "number": 2 },
+    { "namespace": "IRQ", "name": "UNBIND", "number": 3 },
+    { "namespace": "DEVICE", "name": "READ_CONFIG", "number": 0 },
+    { "namespace": "DEVICE", "name": "WRITE_CONFIG", "number": 1 },
+    { "namespace": "DEVICE", "name": "CREATE_BAR_REGION", "number": 2 },
+    { "namespace": "DEVICE", "name": "CONFIGURE_MSIX", "number": 3 },
+    { "namespace": "IOMMU", "name": "ATTACH_DEVICE", "number": 0 },
+    { "namespace": "IOMMU", "name": "DETACH_DEVICE", "number": 1 },
+    { "namespace": "IOMMU", "name": "MAP_DMA", "number": 2 },
+    { "namespace": "IOMMU", "name": "UNMAP_DMA", "number": 3 },
+    { "namespace": "IOMMU", "name": "RESET_DEVICE", "number": 4 },
+    { "namespace": "IOMMU", "name": "QUERY_FAULT", "number": 5 },
+    { "namespace": "IO_REGION", "name": "READ", "number": 0 },
+    { "namespace": "IO_REGION", "name": "WRITE", "number": 1 },
+    { "namespace": "IO_REGION", "name": "MAP_MMIO", "number": 2 },
+    { "namespace": "IO_REGION", "name": "UNMAP_MMIO", "number": 3 }
+  ],
+  "bitfields": [
+    {
+      "name": "message_tag_v1",
+      "bits": 64,
+      "fields": [
+        { "name": "word_count", "lsb": 0, "width": 8 },
+        { "name": "cap_count", "lsb": 8, "width": 8 },
+        { "name": "operation", "lsb": 16, "width": 16 },
+        { "name": "protocol_id", "lsb": 32, "width": 16 },
+        { "name": "protocol_major", "lsb": 48, "width": 16 }
+      ]
+    },
+    {
+      "name": "cap_ptr_v1",
+      "bits": 64,
+      "fields": [
+        { "name": "reserved", "lsb": 0, "width": 16, "reserved": true },
+        { "name": "level_2_slot", "lsb": 16, "width": 16 },
+        { "name": "level_1_slot", "lsb": 32, "width": 16 },
+        { "name": "root_guard", "lsb": 48, "width": 16 }
+      ]
+    }
+  ],
+  "structs": [
+    {
+      "name": "TmkSendCapV1",
+      "size": 24,
+      "align": 8,
+      "fields": [
+        { "name": "cap_ptr", "type": "u64", "offset": 0 },
+        { "name": "rights", "type": "u32", "offset": 8 },
+        { "name": "flags", "type": "u16", "offset": 12 },
+        { "name": "reserved", "type": "u16", "offset": 14 },
+        { "name": "badge", "type": "u64", "offset": 16 }
+      ]
+    },
+    {
+      "name": "TmkUtcbV1",
+      "size": 1024,
+      "align": 8,
+      "fields": [
+        { "name": "magic", "type": "u32", "offset": 0 },
+        { "name": "abi_major", "type": "u16", "offset": 4 },
+        { "name": "abi_minor", "type": "u16", "offset": 6 },
+        { "name": "total_length", "type": "u32", "offset": 8 },
+        { "name": "message_length", "type": "u16", "offset": 12 },
+        { "name": "flags", "type": "u16", "offset": 14 },
+        { "name": "protocol_tag", "type": "u64", "offset": 16 },
+        { "name": "words", "type": "u64", "count": 64, "offset": 24 },
+        { "name": "send_caps", "type": "TmkSendCapV1", "count": 2, "offset": 536 },
+        { "name": "receive_slots", "type": "u64", "count": 2, "offset": 584 },
+        { "name": "fault_generation", "type": "u64", "offset": 600 },
+        { "name": "fault_class", "type": "u16", "offset": 608 },
+        { "name": "fault_vector", "type": "u16", "offset": 610 },
+        { "name": "fault_access", "type": "u32", "offset": 612 },
+        { "name": "fault_error_code", "type": "u64", "offset": 616 },
+        { "name": "fault_address", "type": "u64", "offset": 624 },
+        { "name": "fault_vspace_epoch", "type": "u64", "offset": 632 },
+        { "name": "fault_reply_token", "type": "u64", "offset": 640 },
+        { "name": "deadline", "type": "u64", "offset": 648 },
+        { "name": "timeout_flags", "type": "u32", "offset": 656 },
+        { "name": "reserved0", "type": "u32", "offset": 660 },
+        { "name": "sender_badge", "type": "u64", "offset": 664 },
+        { "name": "status_detail", "type": "u64", "offset": 672 },
+        { "name": "reserved_extension", "type": "u64", "count": 43, "offset": 680 }
+      ]
+    }
+  ]
+}

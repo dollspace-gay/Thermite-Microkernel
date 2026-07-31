@@ -1,3 +1,5 @@
+mod idl;
+
 use std::env;
 use std::ffi::OsStr;
 use std::fs;
@@ -20,6 +22,7 @@ fn run() -> Result<(), String> {
         Some("m0-composition-source-check") if args.next().is_none() => {
             m0_composition_source_check()
         }
+        Some("m0-idl") if args.next().is_none() => m0_idl(),
         Some("m0-forge-probe") if args.next().is_none() => m0_forge_probe(),
         Some("m0-forge-tamper") if args.next().is_none() => m0_forge_tamper(),
         Some("m0-host-link") if args.next().is_none() => m0_host_link(),
@@ -28,7 +31,7 @@ fn run() -> Result<(), String> {
         Some("m0-verus-capsule") if args.next().is_none() => m0_verus_capsule(),
         Some("toolchain-check") if args.next().is_none() => toolchain_check(),
         _ => Err(
-            "usage: cargo run -p xtask -- <toolchain-check|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-verus-allocator|m0-verus-byte-allocator|m0-verus-capsule|m0-host-link>"
+            "usage: cargo run -p xtask -- <toolchain-check|m0-idl|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-verus-allocator|m0-verus-byte-allocator|m0-verus-capsule|m0-host-link>"
                 .to_string(),
         ),
     }
@@ -106,6 +109,240 @@ fn toolchain_check() -> Result<(), String> {
 
     println!("M0_TOOLCHAIN_OK");
     Ok(())
+}
+
+fn m0_idl() -> Result<(), String> {
+    let root = workspace_root()?;
+    let rustc =
+        PathBuf::from("/home/doll/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/rustc");
+    let cc = PathBuf::from("/usr/sbin/cc");
+    for (path, expected, label) in [
+        (
+            rustc.as_path(),
+            "bff349e72704ff70bc08a234a3847338e797065bbedde5e556808bc87b7bf7c6",
+            "IDL Rust compiler",
+        ),
+        (
+            cc.as_path(),
+            "1ce580ecfabf35747bc550481621e2f2c04fd8fc23b8182779f33b82d07856d0",
+            "IDL C compiler",
+        ),
+    ] {
+        require_file(path, label)?;
+        let actual = sha256sum(path)?;
+        if actual != expected {
+            return Err(format!("{label} digest is {actual}, expected {expected}"));
+        }
+    }
+
+    let source = root.join("abi/kernel.idl");
+    let rust_consumer_source = root.join("tests/m0/idl_rust_consumer.rs");
+    let nostd_consumer_source = root.join("tests/m0/idl_nostd_consumer.rs");
+    let c_consumer_source = root.join("tests/m0/idl_c_consumer.c");
+    for (path, label) in [
+        (&source, "kernel IDL"),
+        (&rust_consumer_source, "IDL Rust consumer"),
+        (&nostd_consumer_source, "IDL no-std consumer"),
+        (&c_consumer_source, "IDL C consumer"),
+    ] {
+        require_file(path, label)?;
+    }
+    let source_text = fs::read_to_string(&source)
+        .map_err(|error| format!("read kernel IDL {}: {error}", source.display()))?;
+    let source_value: serde_json::Value = serde_json::from_str(&source_text)
+        .map_err(|error| format!("parse kernel IDL {}: {error}", source.display()))?;
+    let source_sha = sha256sum(&source)?;
+    let generator_sha = sha256sum(&root.join("xtask/src/idl.rs"))?;
+
+    let work = root.join("build/m0-idl");
+    if work.exists() {
+        fs::remove_dir_all(&work)
+            .map_err(|error| format!("remove stale {}: {error}", work.display()))?;
+    }
+    fs::create_dir_all(&work).map_err(|error| format!("create {}: {error}", work.display()))?;
+
+    let generated_dir = work.join("generated");
+    let generated = idl::generate_file(&source, &generated_dir)?;
+    idl::check_outputs(&generated, &generated_dir)?;
+
+    let rust_sha = sha256sum(&generated_dir.join("kernel_abi.rs"))?;
+    let c_sha = sha256sum(&generated_dir.join("kernel_abi.h"))?;
+    let canonical_sha = sha256sum(&generated_dir.join("kernel_abi.canonical.json"))?;
+    for name in ["repro-a", "repro-b"] {
+        let repro_dir = work.join(name);
+        let reproduced = idl::generate_file(&source, &repro_dir)?;
+        idl::check_outputs(&reproduced, &repro_dir)?;
+        for (file, expected) in [
+            ("kernel_abi.rs", rust_sha.as_str()),
+            ("kernel_abi.h", c_sha.as_str()),
+            ("kernel_abi.canonical.json", canonical_sha.as_str()),
+        ] {
+            let actual = sha256sum(&repro_dir.join(file))?;
+            if actual != expected {
+                return Err(format!(
+                    "IDL generation in {name} produced {file} digest {actual}, expected {expected}"
+                ));
+            }
+        }
+    }
+
+    let generated_rust = generated_dir.join("kernel_abi.rs");
+    let rust_consumer = work.join("idl-rust-consumer");
+    run_checked(
+        Command::new(&rustc)
+            .current_dir(&root)
+            .env("TMK_IDL_RS", &generated_rust)
+            .args(["--edition=2021"])
+            .arg(&rust_consumer_source)
+            .args(["-C", "panic=abort"])
+            .arg("-o")
+            .arg(&rust_consumer),
+        "compile generated Rust ABI consumer",
+    )?;
+    let rust_runtime = run_checked(
+        Command::new(&rust_consumer).current_dir(&root),
+        "execute generated Rust ABI consumer",
+    )?;
+    let expected_rust_marker = "M0_IDL_RUST_OK:1024:536:680:0001123400560204";
+    require_output_fragments(
+        &rust_runtime.stdout,
+        "generated Rust ABI runtime",
+        &[expected_rust_marker],
+    )?;
+    write_combined_output(
+        &work.join("rust-runtime.txt"),
+        &rust_runtime,
+        "generated Rust ABI runtime",
+    )?;
+
+    let nostd_consumer = work.join("libtmk_idl_nostd.rlib");
+    run_checked(
+        Command::new(&rustc)
+            .current_dir(&root)
+            .env("TMK_IDL_RS", &generated_rust)
+            .args([
+                "--edition=2021",
+                "--crate-name",
+                "tmk_idl_nostd",
+                "--crate-type",
+                "rlib",
+            ])
+            .arg(&nostd_consumer_source)
+            .args(["-C", "panic=abort"])
+            .arg("-o")
+            .arg(&nostd_consumer),
+        "compile generated ABI in no-std consumer",
+    )?;
+
+    let c_consumer = work.join("idl-c-consumer");
+    run_checked(
+        Command::new(&cc)
+            .current_dir(&root)
+            .args(["-std=c11", "-Wall", "-Wextra", "-Werror", "-I"])
+            .arg(&generated_dir)
+            .arg(&c_consumer_source)
+            .arg("-o")
+            .arg(&c_consumer),
+        "compile generated C ABI consumer",
+    )?;
+    let c_runtime = run_checked(
+        Command::new(&c_consumer).current_dir(&root),
+        "execute generated C ABI consumer",
+    )?;
+    let expected_c_marker = "M0_IDL_C_OK:1024:536:680:0001123400560204";
+    require_output_fragments(
+        &c_runtime.stdout,
+        "generated C ABI runtime",
+        &[expected_c_marker],
+    )?;
+    write_combined_output(
+        &work.join("c-runtime.txt"),
+        &c_runtime,
+        "generated C ABI runtime",
+    )?;
+
+    let mut negative_results = String::new();
+    for (label, pointer, replacement, expected) in [
+        (
+            "duplicate-syscall-number",
+            "/syscalls/1/number",
+            serde_json::json!(0),
+            "duplicate name or number",
+        ),
+        (
+            "bad-struct-offset",
+            "/structs/1/fields/7/offset",
+            serde_json::json!(25),
+            "offset is 25, expected 24",
+        ),
+        (
+            "overlapping-bitfield",
+            "/bitfields/0/fields/1/lsb",
+            serde_json::json!(7),
+            "overlaps, leaves a gap",
+        ),
+        (
+            "unknown-wire-type",
+            "/structs/0/fields/0/type",
+            serde_json::json!("u128"),
+            "unknown or forward type `u128`",
+        ),
+    ] {
+        let diagnostic = reject_idl_mutation(&source_value, pointer, replacement, label, expected)?;
+        negative_results.push_str(&format!("{label}: {diagnostic}\n"));
+    }
+
+    let tampered_dir = work.join("tampered-generated");
+    copy_tree(&generated_dir, &tampered_dir)?;
+    append_tamper_byte(&tampered_dir.join("kernel_abi.rs"))?;
+    let tamper_diagnostic = match idl::check_outputs(&generated, &tampered_dir) {
+        Ok(()) => return Err("tampered generated Rust ABI was accepted".to_string()),
+        Err(diagnostic) => diagnostic,
+    };
+    if !tamper_diagnostic.contains("kernel_abi.rs differs") {
+        return Err(format!(
+            "generated-output tamper rejection had unexpected diagnostic: {tamper_diagnostic}"
+        ));
+    }
+    negative_results.push_str(&format!("generated-output-tamper: {tamper_diagnostic}\n"));
+    fs::write(work.join("negative-results.txt"), &negative_results)
+        .map_err(|error| format!("write IDL negative-case results: {error}"))?;
+
+    let rust_consumer_sha = sha256sum(&rust_consumer)?;
+    let nostd_consumer_sha = sha256sum(&nostd_consumer)?;
+    let c_consumer_sha = sha256sum(&c_consumer)?;
+    let negative_sha = sha256sum(&work.join("negative-results.txt"))?;
+    let report = format!(
+        "M0_IDL_OK\ngenerator_validated=true\nrelease_eligible=false\nsource_sha256={source_sha}\ngenerator_sha256={generator_sha}\nrust_output_sha256={rust_sha}\nc_output_sha256={c_sha}\ncanonical_output_sha256={canonical_sha}\nreproducibility_builds=3\nrust_consumer_sha256={rust_consumer_sha}\nnostd_consumer_sha256={nostd_consumer_sha}\nc_consumer_sha256={c_consumer_sha}\nnegative_results_sha256={negative_sha}\nrust_runtime_marker={expected_rust_marker}\nc_runtime_marker={expected_c_marker}\nnegative_cases=duplicate-syscall-number,bad-struct-offset,overlapping-bitfield,unknown-wire-type,generated-output-tamper\n"
+    );
+    fs::write(work.join("report.txt"), &report)
+        .map_err(|error| format!("write IDL report: {error}"))?;
+    print!("{report}");
+    println!("evidence={}", work.display());
+    Ok(())
+}
+
+fn reject_idl_mutation(
+    source: &serde_json::Value,
+    pointer: &str,
+    replacement: serde_json::Value,
+    label: &str,
+    expected: &str,
+) -> Result<String, String> {
+    let mut mutated = source.clone();
+    let target = mutated
+        .pointer_mut(pointer)
+        .ok_or_else(|| format!("IDL mutation `{label}` target `{pointer}` was not found"))?;
+    *target = replacement;
+    let diagnostic = idl::generate_value(&mutated)
+        .err()
+        .ok_or_else(|| format!("IDL mutation `{label}` unexpectedly generated outputs"))?;
+    if !diagnostic.contains(expected) {
+        return Err(format!(
+            "IDL mutation `{label}` diagnostic `{diagnostic}` does not contain `{expected}`"
+        ));
+    }
+    Ok(diagnostic)
 }
 
 fn m0_forge_probe() -> Result<(), String> {

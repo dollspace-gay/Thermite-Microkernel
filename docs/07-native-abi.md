@@ -281,3 +281,22 @@ The ABI test suite:
 - checks failure atomicity for each operation;
 - replays golden register/UTCB vectors; and
 - runs old-minor clients against newer-minor kernels.
+
+## 13. M0 executable IDL status
+
+`abi/kernel.idl` is the implemented ABI v1 numeric and layout source of truth.
+`cargo run -p xtask -- m0-idl` strictly validates it and generates transient
+C11 and `repr(C)` Rust interfaces. Both interfaces contain compile-time size,
+alignment, and offset assertions; the Rust interface is also compiled in a
+`no_std` crate. Hosted C and Rust consumers execute the same tag and capability
+path decodes and agree on the 1024-byte UTCB layout.
+
+Three independent generation paths are byte-identical. Duplicate numbers, a bad
+struct offset, an overlapping bitfield, an unknown wire type, and post-generation
+tampering are rejected. The reviewed run is recorded in
+`evidence/m0/kernel-idl.md`.
+
+This is the M0 generator checkpoint only. The Thermite/Verus bounds and decoder
+proofs, decoder fuzzing, operation failure-atomicity checks, golden syscall
+vectors, and old-minor compatibility runs remain required before the complete
+ABI verification section is satisfied.

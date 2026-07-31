@@ -346,6 +346,7 @@ and the TMK case remains as an integration test.
 | Rich-state same-crate composition | source probe L3-checks; Thermite issue #104 open | same-crate shell proof, rlib, receipt validation, and replay |
 | Verified bounded allocator and panic host | unit and byte/layout policies plus panic code prove/reproduce; component ELF links and runs fail-stop with exact HLT bytes and one RX segment | close raw-pointer `GlobalAlloc` bridge without assumptions; bind the receipted final image |
 | Exact-byte instruction capsules | M0 `mov rax,rdi; hlt` model/emitter/post-link probe passes | bind probe receipt into empty UEFI image; extend per platform operation |
+| Native ABI IDL generator | three-path C/Rust generation, hosted runtimes, `no_std` compile, and five negative cases pass | add verified decoders, fuzz/property tests, golden vectors, and manifest binding |
 | Final receipted link/image | unreceipted direct-Verus component-link gate passes | allowlist audit and reproducible manifest-bound UEFI image |
 
 M1 cannot begin until every row is demonstrated locally, even when an upstream

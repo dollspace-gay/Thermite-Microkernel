@@ -54,6 +54,11 @@ readelf_sha256 = "59d345f2a2b47f5617e8f53c72f6db5169c723c11d3e809a9e6e3c5673f242
 nm_path = "/usr/sbin/nm"
 nm_sha256 = "988d8ded768c4e59284a44f641e92db6c0c8dd222547c32ce432577ff3cb9cc6"
 
+[c]
+version = "GCC 15.2.1 20260123 (Red Hat 15.2.1-7)"
+cc_path = "/usr/sbin/cc"
+cc_sha256 = "1ce580ecfabf35747bc550481621e2f2c04fd8fc23b8182779f33b82d07856d0"
+
 [ovmf]
 code_path = "/usr/share/edk2/ovmf/OVMF_CODE.fd"
 code_sha256 = "4e87e4be6bb9cdced848ec0b43adab3c7f15623e36055525d0691d137eb74af9"

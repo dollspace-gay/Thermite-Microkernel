@@ -40,6 +40,7 @@ The current design baseline is:
 - Verus artifact-codegen rustc `1.95.0`, selected from Verus's authoritative
   `Toolchain:` identity and bound independently from the host compiler;
 - GNU binutils `2.44-12.fc42` for capsule object/link/post-link inspection;
+- GCC `15.2.1-7` for generated C ABI compilation;
 - QEMU `9.2.4`; and
 - locally available OVMF x86_64 firmware.
 
@@ -208,6 +209,13 @@ The image builder creates:
 - service protocol tests;
 - filesystem/network unit tests;
 - fuzz harnesses with sanitizers.
+
+The M0 IDL acceptance command already generates its C and Rust interfaces three
+times, compiles the C interface with warnings as errors, compiles the Rust
+interface both hosted and `no_std`, executes equivalent tag/path/layout cases in
+both languages, and rejects five schema/output mutations. This validates the
+generator and generated layout surface; it does not substitute for later decoder
+fuzzing or formal decoder/state-transition proofs.
 
 ### 8.3 QEMU deterministic
 

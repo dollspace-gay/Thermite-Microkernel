@@ -92,6 +92,14 @@ negative divergence, executable-`external_body`, and writable-data tests. The
 remaining `GlobalAlloc` raw-pointer ABI needs either verifier support or an
 exact-byte refined capsule; it will not be supplied by an unverified Rust shim.
 
+The native ABI now has a strict single-source IDL generator. It emits C11 and
+`repr(C)` Rust definitions with compile-time layout assertions, reproduces all
+outputs in three independent directories, compiles in hosted C/Rust and
+freestanding `no_std` Rust contexts, and runs cross-language tag, capability-path,
+and UTCB layout checks. Five malformed-schema/generated-output mutations are
+rejected. This closes the M0 generator deliverable, not the later decoder-proof,
+fuzzing, or failure-atomicity gates.
+
 The M0 x86 capsule is also live: Verus proves the exact encoding and machine-state
 transition for `mov rax,rdi; hlt`; the emitted bytes survive object conversion and
 static linking unchanged, with relocation, executable-section, symbol, and
@@ -101,6 +109,7 @@ Useful implementation commands:
 
 ```text
 cargo run -p xtask -- toolchain-check
+cargo run -p xtask -- m0-idl
 cargo run -p xtask -- m0-forge-probe
 cargo run -p xtask -- m0-forge-tamper
 cargo run -p xtask -- m0-composition-source-check

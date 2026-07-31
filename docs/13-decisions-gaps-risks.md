@@ -25,6 +25,7 @@
 | D-019 | Forge Option A: compile the exact canonical Verus body | removes the independent L1 executable lowering from the L3 artifact claim |
 | D-020 | rich Thermite state crosses into the platform shell through same-crate verified composition | avoids an unproved FFI/layout boundary |
 | D-021 | permit an exact opaque `PanicInfo` type specification, never an executable `external_body` | Verus must name the foreign lang-item parameter type while still verifying the panic implementation |
+| D-022 | one strict JSON IDL generates transient C11 and `repr(C)` Rust ABI definitions | prevents numeric/layout drift while keeping generated files out of the authored source set |
 
 No architecture-significant user choice remains open for implementation kickoff.
 Numeric limits may be tuned only within the invariants and ABI rules documented

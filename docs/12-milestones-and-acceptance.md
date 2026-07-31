@@ -35,6 +35,13 @@ TMK delivers:
 - release manifest schema; and
 - reproducible empty UEFI image build.
 
+The kernel IDL generator deliverable is locally demonstrated: strict schema and
+layout validation, byte-identical three-path C/Rust generation, hosted C/Rust and
+freestanding Rust compilation, cross-language runtime agreement, and five
+negative cases pass. See `evidence/m0/kernel-idl.md`. This does not close M0 while
+the composition, final manifest/link, raw-pointer allocator bridge, and UEFI
+image gates remain open.
+
 Exit:
 
 - a primitive Thermite probe is L3-built, receipt-validated, replayed, and linked
