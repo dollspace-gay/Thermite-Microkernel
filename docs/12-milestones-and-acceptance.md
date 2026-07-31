@@ -119,11 +119,19 @@ second accepted M1 subcomponent. Both Thermite transitions are L3/end-to-end wit
 runtime execution pass, and fourteen malformed-state/proof/receipt cases pass.
 See [M1 firmware policy](../evidence/m1/firmware-policy.md).
 
+The alias-aware kernel address-plan policy is a third accepted M1 subcomponent.
+Its Thermite transition is L3/end-to-end with 64/64 mutants killed; three
+composition builds reproduce; validation/replay and separate runtime execution
+pass; and fourteen malformed-plan/proof/receipt cases pass. The policy enforces
+the fixed windows and direct-map offset, low guard, virtual non-overlap, guarded
+stacks, W^X, physical alias exclusion, and exact text/rodata/data image coverage.
+See [M1 address-space policy](../evidence/m1/address-space-policy.md).
+
 This status does not close M1. The raw `BootInfo` decoder remains fail-closed
 pending Thermite [#108](https://github.com/dollspace-gay/Thermite/issues/108), and
 the UEFI call gateway, raw map decoding and real `ExitBootServices` execution,
-page installation, BSP entry state, interrupt/timer path, QEMU boots, and final
-signed `M1_OK` gate remain to be implemented.
+page-table construction/CR3 installation, BSP entry state, interrupt/timer path,
+QEMU boots, and final signed `M1_OK` gate remain to be implemented.
 
 Deliver:
 

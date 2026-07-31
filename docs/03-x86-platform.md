@@ -170,6 +170,26 @@ not claimed initially.
 Kernel text is RX, rodata is R/NX, data is RW/NX, stacks are RW/NX with guard
 pages, and no page is both writable and executable after relocation.
 
+### 5.1 Implemented address-plan policy checkpoint
+
+The scalar kernel address-plan transition is implemented and accepted as an
+L3/end-to-end Thermite/direct-Verus composition. It fixes the windows and direct
+physical offset above, requires the low guard and absence of a recursive mapping,
+checks page alignment and global virtual non-overlap, rejects W+X, and requires
+guards around every modeled per-CPU stack mapping. Direct-RAM, heap/MMIO, and
+stack mappings may not alias any physical page in the kernel image. Image mappings must appear as
+contiguous RX text, R/NX rodata, and RW/NX data and must cover the physical image
+exactly.
+
+`cargo run -p xtask -- m1-address` performs three reproducible builds, receipt
+validation/replay, separate runtime execution, a 64/64 mutation battery, and
+fourteen malformed-plan/proof/receipt rejection cases. See
+[M1 address-space policy](../evidence/m1/address-space-policy.md).
+
+This checkpoint consumes scalar mapping observations. Real page-table page
+ownership and writes, translation correspondence, CR3 installation, invalidation
+capsules, and live QEMU translation probes remain open M1 gates.
+
 ## 6. Descriptor and entry state
 
 Each CPU has:

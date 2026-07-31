@@ -6,7 +6,8 @@ M0 toolchain and proof-artifact closure is complete. A freestanding verified
 composition final-links at the higher-half address, and a reproducible M0 UEFI
 probe image boots under OVMF with both TCG and KVM. M1 kernel/BSP implementation
 is in progress; accepted components now include the verified static-kernel ELF
-load policy and the normalized memory-map/`ExitBootServices` retry policy.
+load policy, normalized memory-map/`ExitBootServices` retry policy, and
+alias-aware kernel address-plan policy.
 
 The first platform is x86_64 QEMU/KVM on the `q35` machine, booted as a UEFI
 application through OVMF. The first useful release is single-core but is designed
@@ -93,6 +94,15 @@ reacquires a fresh map, and exits successfully. Three builds, validation/replay,
 the separate runtime consumer, fourteen rejection/proof/receipt cases, and both
 64/64 mutation batteries pass. This is the firmware-response policy, not yet the
 verified indirect UEFI call capsule or raw descriptor decoder.
+
+The M1 address-space policy is accepted as a third same-crate kernel
+composition. It checks the fixed LA48 windows, low guard, absence of recursive
+mapping, page alignment, global virtual non-overlap, guarded stacks, W^X, and
+physical-alias exclusion for the kernel image. Text, rodata, and data must cover
+the physical image contiguously with RX, R/NX, and RW/NX permissions. Three
+builds reproduce; receipt validation/replay, a real compiled consumer, 64/64
+mutation battery, and fourteen malformed/proof/receipt cases pass. This proves a
+scalar mapping plan, not page-table memory or CR3 installation.
 
 The standalone probe's toolchain-binding gate is locally closed by pinned
 Thermite `v0.0.2` commit `845d684f00e829491ee4c537818fba2689bcaefc`. Forge records both
@@ -184,6 +194,7 @@ cargo run -p xtask -- m0-platform-primitives
 cargo run -p xtask -- m0-host-link
 cargo run -p xtask -- m1-elf
 cargo run -p xtask -- m1-firmware
+cargo run -p xtask -- m1-address
 ```
 
 The `m0-forge-probe` command is the strict standalone release gate. It accepts no
