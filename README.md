@@ -5,8 +5,8 @@ microkernel written primarily in Thermite and verified through Forge and Verus.
 M0 toolchain and proof-artifact closure is complete. A freestanding verified
 composition final-links at the higher-half address, and a reproducible M0 UEFI
 probe image boots under OVMF with both TCG and KVM. M1 kernel/BSP implementation
-is in progress; its first accepted component is the verified static-kernel ELF
-and load-plan policy.
+is in progress; accepted components now include the verified static-kernel ELF
+load policy and the normalized memory-map/`ExitBootServices` retry policy.
 
 The first platform is x86_64 QEMU/KVM on the `q35` machine, booted as a UEFI
 application through OVMF. The first useful release is single-core but is designed
@@ -83,6 +83,16 @@ adversarial/proof/receipt cases fail as intended. The raw `BootInfo` byte decode
 remains fail-closed on Thermite
 [#108](https://github.com/dollspace-gay/Thermite/issues/108), which tracks a
 verified no-`vstd` byte-slice view for kernel compositions.
+
+The M1 firmware policy is also accepted as a same-crate kernel composition. It
+normalizes bounded, sorted UEFI descriptors into nine kernel range classes,
+requires at least one usable range, constrains runtime/cache metadata, bounds map
+buffer growth, and permits at most eight map acquisitions and four stale-key exit
+retries. The executable trace grows the map buffer, observes a stale key,
+reacquires a fresh map, and exits successfully. Three builds, validation/replay,
+the separate runtime consumer, fourteen rejection/proof/receipt cases, and both
+64/64 mutation batteries pass. This is the firmware-response policy, not yet the
+verified indirect UEFI call capsule or raw descriptor decoder.
 
 The standalone probe's toolchain-binding gate is locally closed by pinned
 Thermite `v0.0.2` commit `845d684f00e829491ee4c537818fba2689bcaefc`. Forge records both
@@ -173,6 +183,7 @@ cargo run -p xtask -- m0-verus-capsule
 cargo run -p xtask -- m0-platform-primitives
 cargo run -p xtask -- m0-host-link
 cargo run -p xtask -- m1-elf
+cargo run -p xtask -- m1-firmware
 ```
 
 The `m0-forge-probe` command is the strict standalone release gate. It accepts no

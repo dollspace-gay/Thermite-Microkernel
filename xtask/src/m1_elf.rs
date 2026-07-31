@@ -265,7 +265,12 @@ fn validate_receipt(root: &Path, bundle: &Path, receipt: &Value) -> Result<(), S
     Ok(())
 }
 
-fn verify_bundle(forge: &Path, root: &Path, bundle: &Path, replay: bool) -> Result<Value, String> {
+pub(super) fn verify_bundle(
+    forge: &Path,
+    root: &Path,
+    bundle: &Path,
+    replay: bool,
+) -> Result<Value, String> {
     let mut command = Command::new(forge);
     command.current_dir(root).arg("verify-build").arg(bundle);
     if replay {
@@ -275,9 +280,9 @@ fn verify_bundle(forge: &Path, root: &Path, bundle: &Path, replay: bool) -> Resu
     let output = run_checked(
         &mut command,
         if replay {
-            "M1 ELF receipt replay"
+            "verified composition receipt replay"
         } else {
-            "M1 ELF receipt validation"
+            "verified composition receipt validation"
         },
     )?;
     serde_json::from_slice(&output.stdout)
@@ -423,7 +428,12 @@ fn run_tamper_negative(
     )
 }
 
-fn compare_file(bundle: &Path, relative: &str, expected: &[u8], label: &str) -> Result<(), String> {
+pub(super) fn compare_file(
+    bundle: &Path,
+    relative: &str,
+    expected: &[u8],
+    label: &str,
+) -> Result<(), String> {
     let actual = fs::read(bundle.join(relative))
         .map_err(|error| format!("read reproduced M1 ELF {label}: {error}"))?;
     if actual != expected {
@@ -432,20 +442,20 @@ fn compare_file(bundle: &Path, relative: &str, expected: &[u8], label: &str) -> 
     Ok(())
 }
 
-fn read_json(path: &Path, label: &str) -> Result<Value, String> {
+pub(super) fn read_json(path: &Path, label: &str) -> Result<Value, String> {
     let bytes =
         fs::read(path).map_err(|error| format!("read {label} {}: {error}", path.display()))?;
     serde_json::from_slice(&bytes).map_err(|error| format!("parse {label}: {error}"))
 }
 
-fn require_file(path: &Path, label: &str) -> Result<(), String> {
+pub(super) fn require_file(path: &Path, label: &str) -> Result<(), String> {
     if !path.is_file() {
         return Err(format!("{label} is missing: {}", path.display()));
     }
     Ok(())
 }
 
-fn write_output(path: &Path, output: &Output, label: &str) -> Result<(), String> {
+pub(super) fn write_output(path: &Path, output: &Output, label: &str) -> Result<(), String> {
     let mut bytes = output.stdout.clone();
     bytes.extend_from_slice(&output.stderr);
     fs::write(path, bytes).map_err(|error| format!("write {label} {}: {error}", path.display()))

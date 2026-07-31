@@ -98,6 +98,30 @@ and receipt tests. See [M1 ELF validation](../evidence/m1/elf-validation.md).
 This closes the policy transition, not byte decoding, UEFI loading, relocation,
 page installation, or the M1 exit gate.
 
+### 3.2 Implemented memory-map and exit policy checkpoint
+
+The M1 firmware-response policy is implemented as two L3/end-to-end Thermite
+transitions composed with one direct-Verus shell:
+
+- `memory_map_step` validates descriptor geometry, bounded counts and physical
+  ranges, sorted non-overlap, known attributes, cache/runtime consistency, and
+  deterministic conversion of UEFI types into nine kernel range classes. A map
+  with no conventional usable pages is rejected.
+- `firmware_exit_step` bounds map acquisition to eight attempts, grows a
+  too-small buffer by a fixed 512-byte/two-maximum-descriptor margin, binds the
+  accepted map key and descriptor count, and permits at most four stale-key
+  reacquisitions before failing boot.
+
+`cargo run -p xtask -- m1-firmware` performs three reproducible composition
+builds, receipt validation/replay, separate runtime execution, and fourteen
+malformed-state/proof/receipt rejection cases. The positive runtime trace
+observes a stale key, reacquires key 78, exits boot services, and reaches the
+terminal state. See [M1 firmware policy](../evidence/m1/firmware-policy.md).
+
+This checkpoint proves policy over normalized call observations. The indirect
+UEFI gateway capsule, raw `EFI_STATUS` conversion, raw descriptor reads, physical
+copying, and real OVMF `ExitBootServices` execution remain separate gates.
+
 ## 4. Boot information
 
 `BootInfoV1` is a versioned, length-delimited, read-only structure containing:

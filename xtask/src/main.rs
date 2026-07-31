@@ -2,6 +2,7 @@ mod composition;
 mod idl;
 mod m0_uefi;
 mod m1_elf;
+mod m1_firmware;
 mod manifest;
 mod platform_primitives;
 mod uefi;
@@ -39,10 +40,11 @@ fn run() -> Result<(), String> {
         Some("m0-verus-allocator") if args.next().is_none() => m0_verus_allocator(),
         Some("m0-verus-byte-allocator") if args.next().is_none() => m0_verus_byte_allocator(),
         Some("m1-elf") if args.next().is_none() => m1_elf::run(),
+        Some("m1-firmware") if args.next().is_none() => m1_firmware::run(),
         Some("m0-verus-capsule") if args.next().is_none() => m0_verus_capsule(),
         Some("toolchain-check") if args.next().is_none() => toolchain_check(),
         _ => Err(
-            "usage: cargo run -p xtask -- <toolchain-check|m0-idl|m0-manifest|m0-uefi|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-composition|m0-verus-allocator|m0-verus-byte-allocator|m0-verus-capsule|m0-platform-primitives|m0-host-link|m1-elf>"
+            "usage: cargo run -p xtask -- <toolchain-check|m0-idl|m0-manifest|m0-uefi|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-composition|m0-verus-allocator|m0-verus-byte-allocator|m0-verus-capsule|m0-platform-primitives|m0-host-link|m1-elf|m1-firmware>"
                 .to_string(),
         ),
     }

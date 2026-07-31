@@ -113,11 +113,17 @@ receipt validation and replay pass, and a separate consumer executes the verifie
 positive and rejection observations. Ten adversarial/proof/receipt cases pass.
 See [M1 ELF validation](../evidence/m1/elf-validation.md).
 
+The memory-map normalization and bounded `ExitBootServices` response policy is a
+second accepted M1 subcomponent. Both Thermite transitions are L3/end-to-end with
+64/64 mutants killed, three composition builds reproduce, validation/replay and
+runtime execution pass, and fourteen malformed-state/proof/receipt cases pass.
+See [M1 firmware policy](../evidence/m1/firmware-policy.md).
+
 This status does not close M1. The raw `BootInfo` decoder remains fail-closed
 pending Thermite [#108](https://github.com/dollspace-gay/Thermite/issues/108), and
-the UEFI call gateway, memory-map/`ExitBootServices` sequence, page installation,
-BSP entry state, interrupt/timer path, QEMU boots, and final signed `M1_OK` gate
-remain to be implemented.
+the UEFI call gateway, raw map decoding and real `ExitBootServices` execution,
+page installation, BSP entry state, interrupt/timer path, QEMU boots, and final
+signed `M1_OK` gate remain to be implemented.
 
 Deliver:
 
