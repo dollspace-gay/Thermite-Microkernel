@@ -218,7 +218,7 @@ assumption.” Calling all three “verified” is forbidden.
 
 ## 10. Forge L3 artifact integration
 
-Thermite commit `4fa63cb1a6d707e501d99a1da57b5a53f8346efa` closes the
+Thermite `v0.0.2` commit `845d684f00e829491ee4c537818fba2689bcaefc` closes the
 standalone proof-to-executable gap through an explicit strict build:
 
 ```text

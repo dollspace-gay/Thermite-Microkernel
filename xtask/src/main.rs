@@ -66,7 +66,7 @@ fn toolchain_check() -> Result<(), String> {
         "Thermite source revision check",
     )?;
     let actual = String::from_utf8_lossy(&output.stdout);
-    let expected = "4fa63cb1a6d707e501d99a1da57b5a53f8346efa";
+    let expected = "845d684f00e829491ee4c537818fba2689bcaefc";
     if actual.trim() != expected {
         return Err(format!(
             "Thermite revision is {}, expected {expected}",
@@ -407,6 +407,16 @@ fn m0_manifest() -> Result<(), String> {
         "build/m0-capsule/capsule.elf",
         "build/m0-capsule/capsule.bin",
         "build/m0-capsule/linked-capsule.bin",
+        "build/m0-composition/composition-kernel-high-half",
+        "build/m0-composition/composition-kernel-low",
+        "build/m0-composition/composition-consumer",
+        "build/m0-composition/final-link-receipt.json",
+        "build/m0-composition/linked-primitives/memcpy.bin",
+        "build/m0-composition/primary.verified/artifact/libtmk_composition_probe.rlib",
+        "build/m0-composition/primary.verified/evidence/direct-verus/00-composition_shell.rs",
+        "build/m0-composition/primary.verified/evidence/source.verus.rs",
+        "build/m0-composition/primary.verified/receipt.json",
+        "build/m0-composition/report.txt",
         "build/m0-host/host.elf",
         "build/m0-host/libtmk_panic_host.rlib",
         "build/m0-platform-primitives/adapter-primary/libtmk_global_allocator.rlib",
@@ -475,6 +485,8 @@ fn m0_manifest() -> Result<(), String> {
             "standalone receipt binds artifact {bound_probe_artifact}, staged artifact is {probe_artifact_sha}"
         ));
     }
+
+    let composition = validate_m0_composition_inputs(&root)?;
 
     let byte_result = sha256sum(&root.join("build/m0-byte-allocator/verus-result.json"))?;
     let panic_result = sha256sum(&root.join("build/m0-host/verus-result.json"))?;
@@ -636,7 +648,7 @@ fn m0_manifest() -> Result<(), String> {
             {
                 "name": "thermite",
                 "url": "https://github.com/dollspace-gay/Thermite",
-                "revision": "902f29242c068190320c1e1e1f702fb933e0dda6",
+                "revision": "845d684f00e829491ee4c537818fba2689bcaefc",
                 "dirty": false
             },
             {
@@ -655,10 +667,17 @@ fn m0_manifest() -> Result<(), String> {
                 "classification": "trusted_tool"
             },
             {
+                "name": "cc",
+                "version": "15.2.1",
+                "path": "/usr/sbin/cc",
+                "sha256": "1ce580ecfabf35747bc550481621e2f2c04fd8fc23b8182779f33b82d07856d0",
+                "classification": "trusted_tool"
+            },
+            {
                 "name": "forge",
-                "version": "thermite-902f2924",
+                "version": "thermite-v0.0.2-845d684f",
                 "path": "/home/doll/Thermite/target/debug/forge",
-                "sha256": "c1cc11e39afd9b5a534d6ca30f5692b86d34c2ccaa5dbbc35227648acb8bb229",
+                "sha256": "3fad9e2b328367ad0169b297ea03165664edc854f6a026fcb08bcfcb814f35d4",
                 "classification": "trusted_tool"
             },
             {
@@ -825,6 +844,14 @@ fn m0_manifest() -> Result<(), String> {
                 "artifact_name": "m0-uefi-loader"
             },
             {
+                "semantic_address": "thermite::composition_step",
+                "origin": "thermite",
+                "assurance": "l3",
+                "scope": "end_to_end",
+                "source_sha256": sha256sum(&root.join("thermite/core/composition_probe.th"))?,
+                "artifact_name": "m0-composition-core"
+            },
+            {
                 "semantic_address": "thermite::transition_probe",
                 "origin": "thermite",
                 "assurance": "l3",
@@ -841,6 +868,14 @@ fn m0_manifest() -> Result<(), String> {
                 "artifact_name": "m0-byte-allocator"
             },
             {
+                "semantic_address": "verus::composition_shell",
+                "origin": "direct_verus",
+                "assurance": "direct_verus",
+                "scope": "whole_body",
+                "source_sha256": sha256sum(&root.join("tests/m0/composition_shell.rs"))?,
+                "artifact_name": "m0-composition-core"
+            },
+            {
                 "semantic_address": "verus::panic_fail_stop",
                 "origin": "direct_verus",
                 "assurance": "direct_verus",
@@ -850,6 +885,17 @@ fn m0_manifest() -> Result<(), String> {
             }
         ],
         "forge_receipts": [
+            {
+                "name": "composition-probe",
+                "kind": "composition",
+                "schema": composition.receipt_schema,
+                "binding_sha256": composition.binding_sha.clone(),
+                "receipt_sha256": composition.receipt_sha.clone(),
+                "artifact_name": "m0-composition-core",
+                "assurance": "l3",
+                "scope": "end_to_end",
+                "replay_passed": true
+            },
             {
                 "name": "standalone-probe",
                 "kind": "standalone",
@@ -905,6 +951,15 @@ fn m0_manifest() -> Result<(), String> {
             }
         ],
         "capsules": [
+            {
+                "name": "composition-memcpy",
+                "model_source_sha256": sha256sum(&root.join("verus/machine-model/platform_primitives_capsule.rs"))?,
+                "proof_result_sha256": platform_result.clone(),
+                "emitted_sha256": sha256sum(&root.join("build/m0-platform-primitives/emitted/memcpy.bin"))?,
+                "linked_sha256": sha256sum(&root.join("build/m0-composition/linked-primitives/memcpy.bin"))?,
+                "semantic_claim": "the composition final link selects the exact registered memcpy bytes and discards the unselected platform primitives",
+                "artifact_name": "m0-composition-final-link"
+            },
             {
                 "name": "hlt-register",
                 "model_source_sha256": sha256sum(&root.join("verus/machine-model/hlt_register_capsule.rs"))?,
@@ -964,6 +1019,9 @@ fn m0_manifest() -> Result<(), String> {
             manifest_artifact(&root, "kernel-abi-rust", "generated_source", "build/m0-idl/generated/kernel_abi.rs", vec![idl_result.clone()], false)?,
             manifest_artifact(&root, "m0-byte-allocator", "kernel_rlib", "build/m0-byte-allocator/libtmk_byte_allocator.rlib", vec![byte_result.clone()], false)?,
             manifest_artifact(&root, "m0-capsule", "capsule_elf", "build/m0-capsule/capsule.elf", vec![capsule_result.clone()], true)?,
+            manifest_artifact(&root, "m0-composition-core", "kernel_rlib", "build/m0-composition/primary.verified/artifact/libtmk_composition_probe.rlib", vec![composition.binding_sha.clone()], false)?,
+            manifest_artifact(&root, "m0-composition-final-link", "kernel_elf", "build/m0-composition/composition-kernel-high-half", vec![composition.binding_sha.clone(), composition.report_sha.clone(), platform_result.clone(), platform_report.clone()], true)?,
+            manifest_artifact(&root, "m0-final-link-receipt", "link_receipt", "build/m0-composition/final-link-receipt.json", vec![composition.binding_sha.clone(), composition.report_sha.clone(), platform_result.clone(), platform_report.clone()], false)?,
             manifest_artifact(&root, "m0-global-allocator-adapter", "kernel_rlib", "build/m0-platform-primitives/adapter-primary/libtmk_global_allocator.rlib", vec![platform_result.clone(), platform_report.clone()], false)?,
             manifest_artifact(&root, "m0-global-allocator-high-half", "kernel_elf", "build/m0-platform-primitives/global-allocator-high-half", vec![platform_result.clone(), platform_report.clone()], true)?,
             manifest_artifact(&root, "m0-host", "kernel_elf", "build/m0-host/host.elf", host_bindings, true)?,
@@ -977,6 +1035,7 @@ fn m0_manifest() -> Result<(), String> {
         "tests": [
             { "name": "byte-allocator", "status": "pass", "result_sha256": byte_report, "passed": 4, "failed": 0, "skipped": 0 },
             { "name": "capsule", "status": "pass", "result_sha256": capsule_report, "passed": 5, "failed": 0, "skipped": 0 },
+            { "name": "composition", "status": "pass", "result_sha256": composition.report_sha.clone(), "passed": 23, "failed": 0, "skipped": 0 },
             { "name": "forge-probe", "status": "pass", "result_sha256": forge_report, "passed": 6, "failed": 0, "skipped": 0 },
             { "name": "host-link", "status": "pass", "result_sha256": host_report, "passed": 4, "failed": 0, "skipped": 0 },
             { "name": "kernel-idl", "status": "pass", "result_sha256": idl_result, "passed": 8, "failed": 0, "skipped": 0 },
@@ -996,9 +1055,8 @@ fn m0_manifest() -> Result<(), String> {
             "filesystem_format_major": 1
         },
         "known_limitations": [
-            "M0 UEFI image is only a debug-return probe, not the M1 loader.",
-            "M0 platform primitives are component-bound but not selected by an accepted composition/final-link receipt.",
-            "Rich-state composition receipt is unavailable while Thermite issue #104 is in progress."
+            "M0 UEFI image remains a separate debug-return probe; it is not the M1 loader or the composed kernel ELF.",
+            "Production release signing requires an external key and a complete release input set."
         ],
         "signing": {
             "algorithm": "ed25519",
@@ -1182,6 +1240,68 @@ fn m0_manifest() -> Result<(), String> {
         "platform-primitives-file-drift: {platform_file_diagnostic}\n"
     ));
 
+    let mut composition_file_drift = manifest_value.clone();
+    let composition_artifact = composition_file_drift
+        .pointer_mut("/artifacts")
+        .and_then(serde_json::Value::as_array_mut)
+        .and_then(|artifacts| {
+            artifacts.iter_mut().find(|artifact| {
+                artifact.get("name").and_then(serde_json::Value::as_str)
+                    == Some("m0-composition-core")
+            })
+        })
+        .ok_or_else(|| "composition artifact file mutation target missing".to_string())?;
+    *composition_artifact
+        .get_mut("sha256")
+        .ok_or_else(|| "composition artifact digest mutation target missing".to_string())? =
+        serde_json::json!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    manifest::validate(&schema, &composition_file_drift)?;
+    let composition_file_diagnostic =
+        validate_manifest_artifact_files(&root, &composition_file_drift)
+            .err()
+            .ok_or_else(|| "composition artifact file drift unexpectedly passed".to_string())?;
+    if !composition_file_diagnostic.contains("m0-composition-core")
+        || !composition_file_diagnostic.contains("file digest")
+    {
+        return Err(format!(
+            "composition-artifact-file-drift diagnostic `{composition_file_diagnostic}` is unexpected"
+        ));
+    }
+    negative_results.push_str(&format!(
+        "composition-artifact-file-drift: {composition_file_diagnostic}\n"
+    ));
+
+    let mut final_link_receipt_file_drift = manifest_value.clone();
+    let final_link_receipt_artifact = final_link_receipt_file_drift
+        .pointer_mut("/artifacts")
+        .and_then(serde_json::Value::as_array_mut)
+        .and_then(|artifacts| {
+            artifacts.iter_mut().find(|artifact| {
+                artifact.get("name").and_then(serde_json::Value::as_str)
+                    == Some("m0-final-link-receipt")
+            })
+        })
+        .ok_or_else(|| "final-link receipt file mutation target missing".to_string())?;
+    *final_link_receipt_artifact
+        .get_mut("sha256")
+        .ok_or_else(|| "final-link receipt digest mutation target missing".to_string())? =
+        serde_json::json!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    manifest::validate(&schema, &final_link_receipt_file_drift)?;
+    let final_link_receipt_diagnostic =
+        validate_manifest_artifact_files(&root, &final_link_receipt_file_drift)
+            .err()
+            .ok_or_else(|| "final-link receipt file drift unexpectedly passed".to_string())?;
+    if !final_link_receipt_diagnostic.contains("m0-final-link-receipt")
+        || !final_link_receipt_diagnostic.contains("file digest")
+    {
+        return Err(format!(
+            "final-link-receipt-file-drift diagnostic `{final_link_receipt_diagnostic}` is unexpected"
+        ));
+    }
+    negative_results.push_str(&format!(
+        "final-link-receipt-file-drift: {final_link_receipt_diagnostic}\n"
+    ));
+
     let mut boot_image_file_drift = manifest_value.clone();
     let boot_artifact = boot_image_file_drift
         .pointer_mut("/artifacts")
@@ -1259,6 +1379,23 @@ fn m0_manifest() -> Result<(), String> {
             .ok_or_else(|| "repository dirty field missing".to_string())? =
             serde_json::json!(false);
     }
+    let composition_receipt = missing_composition
+        .pointer_mut("/forge_receipts")
+        .and_then(serde_json::Value::as_array_mut)
+        .and_then(|receipts| {
+            receipts.iter_mut().find(|receipt| {
+                receipt.get("kind").and_then(serde_json::Value::as_str) == Some("composition")
+            })
+        })
+        .ok_or_else(|| "missing-composition mutation target missing".to_string())?;
+    *composition_receipt
+        .get_mut("kind")
+        .ok_or_else(|| "composition receipt kind disappeared".to_string())? =
+        serde_json::json!("standalone");
+    *composition_receipt
+        .get_mut("schema")
+        .ok_or_else(|| "composition receipt schema disappeared".to_string())? =
+        serde_json::json!("thermite.verified-build-receipt.v1");
     record_manifest_rejection(
         &schema,
         &missing_composition,
@@ -1290,24 +1427,6 @@ fn m0_manifest() -> Result<(), String> {
             .ok_or_else(|| "boot-image release repository dirty field missing".to_string())? =
             serde_json::json!(false);
     }
-    missing_boot_image
-        .pointer_mut("/forge_receipts")
-        .and_then(serde_json::Value::as_array_mut)
-        .ok_or_else(|| "boot-image release receipt target missing".to_string())?
-        .insert(
-            0,
-            serde_json::json!({
-                "name": "composition-probe",
-                "kind": "composition",
-                "schema": "thermite.verified-composition-receipt.v1",
-                "binding_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "receipt_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-                "artifact_name": "thermite-probe",
-                "assurance": "l3",
-                "scope": "end_to_end",
-                "replay_passed": true
-            }),
-        );
     let boot_artifact = missing_boot_image
         .pointer_mut("/artifacts")
         .and_then(serde_json::Value::as_array_mut)
@@ -1327,6 +1446,51 @@ fn m0_manifest() -> Result<(), String> {
         &missing_boot_image,
         "missing-boot-image-release",
         "requires exactly one boot image",
+        &mut negative_results,
+    )?;
+
+    let mut missing_final_link_receipt = manifest_value.clone();
+    *missing_final_link_receipt
+        .pointer_mut("/release/development")
+        .ok_or_else(|| "final-link release development target missing".to_string())? =
+        serde_json::json!(false);
+    *missing_final_link_receipt
+        .pointer_mut("/release/release_eligible")
+        .ok_or_else(|| "final-link release eligibility target missing".to_string())? =
+        serde_json::json!(true);
+    *missing_final_link_receipt
+        .pointer_mut("/signing/key_id")
+        .ok_or_else(|| "final-link release key target missing".to_string())? =
+        serde_json::json!("external-production-key");
+    for repository in missing_final_link_receipt
+        .pointer_mut("/repositories")
+        .and_then(serde_json::Value::as_array_mut)
+        .ok_or_else(|| "final-link release repository target missing".to_string())?
+    {
+        *repository
+            .get_mut("dirty")
+            .ok_or_else(|| "final-link release repository dirty field missing".to_string())? =
+            serde_json::json!(false);
+    }
+    let final_link_artifact = missing_final_link_receipt
+        .pointer_mut("/artifacts")
+        .and_then(serde_json::Value::as_array_mut)
+        .and_then(|artifacts| {
+            artifacts.iter_mut().find(|artifact| {
+                artifact.get("name").and_then(serde_json::Value::as_str)
+                    == Some("m0-final-link-receipt")
+            })
+        })
+        .ok_or_else(|| "final-link release artifact target missing".to_string())?;
+    *final_link_artifact
+        .get_mut("kind")
+        .ok_or_else(|| "final-link release kind target missing".to_string())? =
+        serde_json::json!("manifest");
+    record_manifest_rejection(
+        &schema,
+        &missing_final_link_receipt,
+        "missing-final-link-receipt-release",
+        "requires exactly one final-link receipt artifact",
         &mut negative_results,
     )?;
 
@@ -1398,14 +1562,642 @@ fn m0_manifest() -> Result<(), String> {
     let negative_sha = sha256sum(&work.join("negative-results.txt"))?;
     let schema_sha = sha256sum(&schema_path)?;
     let validator_sha = sha256sum(&root.join("xtask/src/manifest.rs"))?;
+    let orchestrator_sha = sha256sum(&root.join("xtask/src/main.rs"))?;
     let report = format!(
-        "M0_MANIFEST_OK\nschema_validated=true\nsignature_verified=true\nartifact_files_replayed=true\nrelease_eligible=false\nschema_sha256={schema_sha}\nvalidator_sha256={validator_sha}\nmanifest_sha256={primary_manifest_sha}\npayload_sha256={primary_payload_sha}\nsignature_sha256={primary_signature_sha}\npublic_key_sha256={expected_public_sha}\nreproducibility_builds=3\nnegative_results_sha256={negative_sha}\nnegative_cases=unknown-property,capsule-byte-drift,unknown-source-binding,direct-verus-artifact-mismatch,artifact-file-drift,platform-primitives-file-drift,boot-image-file-drift,noncanonical-order,development-key-release,missing-composition-release,missing-boot-image-release,schema-loosening,signature-mutation,payload-mutation\n"
+        "M0_MANIFEST_OK\nschema_validated=true\nsignature_verified=true\nartifact_files_replayed=true\ncomposition_receipt_validated=true\ncomposition_receipt_replayed=true\nfinal_link_receipt_validated=true\nrelease_eligible=false\ncomposition_binding_sha256={}\nfinal_link_receipt_sha256={}\nschema_sha256={schema_sha}\nvalidator_sha256={validator_sha}\norchestrator_sha256={orchestrator_sha}\nmanifest_sha256={primary_manifest_sha}\npayload_sha256={primary_payload_sha}\nsignature_sha256={primary_signature_sha}\npublic_key_sha256={expected_public_sha}\nreproducibility_builds=3\nnegative_results_sha256={negative_sha}\nnegative_cases=unknown-property,capsule-byte-drift,unknown-source-binding,direct-verus-artifact-mismatch,artifact-file-drift,platform-primitives-file-drift,composition-artifact-file-drift,final-link-receipt-file-drift,boot-image-file-drift,noncanonical-order,development-key-release,missing-composition-release,missing-boot-image-release,missing-final-link-receipt-release,schema-loosening,signature-mutation,payload-mutation\n",
+        composition.binding_sha, composition.final_link_receipt_sha
     );
     fs::write(work.join("report.txt"), &report)
         .map_err(|error| format!("write manifest report: {error}"))?;
     print!("{report}");
     println!("evidence={}", work.display());
     Ok(())
+}
+
+struct ManifestCompositionEvidence {
+    receipt_schema: String,
+    binding_sha: String,
+    receipt_sha: String,
+    report_sha: String,
+    final_link_receipt_sha: String,
+}
+
+fn validate_m0_composition_inputs(root: &Path) -> Result<ManifestCompositionEvidence, String> {
+    let bundle = root.join("build/m0-composition/primary.verified");
+    let receipt_path = bundle.join("receipt.json");
+    let receipt_bytes =
+        fs::read(&receipt_path).map_err(|error| format!("read composition receipt: {error}"))?;
+    let receipt: serde_json::Value = serde_json::from_slice(&receipt_bytes)
+        .map_err(|error| format!("parse composition receipt: {error}"))?;
+    let receipt_schema = json_string(&receipt, "/schema", "composition receipt schema")?;
+    if receipt_schema != "thermite.verified-composition-receipt.v1"
+        || json_string(&receipt, "/binding/schema", "composition binding schema")? != receipt_schema
+        || json_string(&receipt, "/binding/assurance", "composition assurance")? != "L3"
+        || json_string(&receipt, "/binding/scope", "composition scope")? != "end_to_end"
+    {
+        return Err("composition receipt is not an end-to-end L3 composition binding".to_string());
+    }
+
+    let binding_sha =
+        json_string(&receipt, "/binding_sha256", "composition binding digest")?.to_string();
+    let receipt_sha = sha256sum(&receipt_path)?;
+    let artifact_sha = validate_json_file_record(
+        &bundle,
+        receipt
+            .pointer("/binding/artifact")
+            .ok_or_else(|| "composition receipt has no artifact record".to_string())?,
+        "artifact/libtmk_composition_probe.rlib",
+        "composition artifact",
+    )?;
+    for (relative, label) in [
+        ("evidence/input.th", "composition Thermite input"),
+        (
+            "evidence/direct-verus/00-composition_shell.rs",
+            "composition direct-Verus shell",
+        ),
+        ("evidence/source.verus.rs", "composition combined source"),
+        ("evidence/toolchain.json", "composition toolchain evidence"),
+        (
+            "evidence/translation-validation.json",
+            "composition translation validation",
+        ),
+        ("evidence/verus-result.json", "composition Verus result"),
+    ] {
+        validate_receipt_inventory_file(&bundle, &receipt, relative, label)?;
+    }
+
+    let source_sha = sha256sum(&root.join("thermite/core/composition_probe.th"))?;
+    let shell_sha = sha256sum(&root.join("tests/m0/composition_shell.rs"))?;
+    let combined_source_sha = sha256sum(&bundle.join("evidence/source.verus.rs"))?;
+    if json_string(
+        &receipt,
+        "/binding/raw_source_sha256",
+        "composition raw-source digest",
+    )? != source_sha
+        || json_string(
+            &receipt,
+            "/binding/composition/combined_source_sha256",
+            "composition combined-source digest",
+        )? != combined_source_sha
+        || json_string(
+            &receipt,
+            "/binding/verus_source_sha256",
+            "composition Verus-source digest",
+        )? != combined_source_sha
+    {
+        return Err(
+            "composition receipt source binding does not match canonical inputs".to_string(),
+        );
+    }
+    let bound_shell = receipt
+        .pointer("/binding/files")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|files| {
+            files.iter().find(|record| {
+                record.get("path").and_then(serde_json::Value::as_str)
+                    == Some("evidence/direct-verus/00-composition_shell.rs")
+            })
+        })
+        .and_then(|record| record.get("sha256"))
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| "composition receipt has no direct-Verus shell digest".to_string())?;
+    if bound_shell != shell_sha {
+        return Err(format!(
+            "composition receipt shell digest is {bound_shell}, canonical shell is {shell_sha}"
+        ));
+    }
+
+    let forge = forge_binary()?;
+    check_forge_skill(&forge)?;
+    let forge_sha = sha256sum(&forge)?;
+    if forge_sha != "3fad9e2b328367ad0169b297ea03165664edc854f6a026fcb08bcfcb814f35d4" {
+        return Err(format!(
+            "composition Forge digest is unexpected: {forge_sha}"
+        ));
+    }
+    let thermite_revision_output = run_checked(
+        Command::new("git").args(["-C", "/home/doll/Thermite", "rev-parse", "HEAD"]),
+        "manifest composition Thermite revision",
+    )?;
+    let thermite_revision = String::from_utf8(thermite_revision_output.stdout)
+        .map_err(|error| format!("Thermite revision is not UTF-8: {error}"))?;
+    let thermite_revision = thermite_revision.trim();
+    if thermite_revision != "845d684f00e829491ee4c537818fba2689bcaefc" {
+        return Err(format!(
+            "composition Thermite revision is {thermite_revision}, expected the manifest pin"
+        ));
+    }
+    let thermite_status = run_checked(
+        Command::new("git").args([
+            "-C",
+            "/home/doll/Thermite",
+            "status",
+            "--porcelain",
+            "--untracked-files=all",
+        ]),
+        "manifest composition Thermite cleanliness",
+    )?;
+    if !thermite_status.stdout.is_empty() {
+        return Err("composition Thermite repository is dirty".to_string());
+    }
+
+    let replay_output = run_checked(
+        Command::new(&forge)
+            .current_dir(root)
+            .args(["verify-build"])
+            .arg(&bundle)
+            .args(["--replay", "--json"]),
+        "manifest replay of composition receipt",
+    )?;
+    let replay: serde_json::Value = serde_json::from_slice(&replay_output.stdout)
+        .map_err(|error| format!("parse composition replay result: {error}"))?;
+    if replay.get("replayed").and_then(serde_json::Value::as_bool) != Some(true)
+        || json_string(&replay, "/binding_sha256", "composition replay binding")? != binding_sha
+        || json_string(&replay, "/artifact_sha256", "composition replay artifact")? != artifact_sha
+    {
+        return Err("composition replay result does not match the consumed receipt".to_string());
+    }
+
+    let final_link_receipt_sha =
+        validate_m0_final_link_receipt(root, &receipt, &binding_sha, &receipt_sha)?;
+    let report_path = root.join("build/m0-composition/report.txt");
+    let report = fs::read_to_string(&report_path)
+        .map_err(|error| format!("read composition acceptance report: {error}"))?;
+    let report_sha = sha256sum(&report_path)?;
+    if report.lines().next() != Some("M0_COMPOSITION_OK") {
+        return Err("composition report has no success headline".to_string());
+    }
+    for (key, expected) in [
+        ("component_verified", "true".to_string()),
+        ("release_eligible", "false".to_string()),
+        ("receipt_validated", "true".to_string()),
+        ("receipt_replayed", "true".to_string()),
+        ("final_link_receipted", "true".to_string()),
+        ("linked_primitives_verified", "true".to_string()),
+        ("selected_primitives", "memcpy".to_string()),
+        ("positive_gates", "12".to_string()),
+        ("forge_revision", thermite_revision.to_string()),
+        ("forge_sha256", forge_sha),
+        (
+            "skill_sha256",
+            sha256sum(&PathBuf::from(
+                "/home/doll/.codex/skills/thermite/references/language.md",
+            ))?,
+        ),
+        ("source_sha256", source_sha),
+        ("shell_sha256", shell_sha),
+        ("combined_source_sha256", combined_source_sha),
+        ("receipt_sha256", receipt_sha.clone()),
+        ("binding_sha256", binding_sha.clone()),
+        ("artifact_sha256", artifact_sha),
+        (
+            "platform_primitive_object_sha256",
+            sha256sum(
+                &root.join("build/m0-platform-primitives/objects/platform-primitives.o"),
+            )?,
+        ),
+        (
+            "final_link_receipt_sha256",
+            final_link_receipt_sha.clone(),
+        ),
+        (
+            "hosted_consumer_sha256",
+            sha256sum(&root.join("build/m0-composition/composition-consumer"))?,
+        ),
+        (
+            "low_static_consumer_sha256",
+            sha256sum(&root.join("build/m0-composition/composition-kernel-low"))?,
+        ),
+        (
+            "high_half_consumer_sha256",
+            sha256sum(&root.join("build/m0-composition/composition-kernel-high-half"))?,
+        ),
+        ("composition_reproducibility_builds", "3".to_string()),
+        ("low_static_reproducibility_links", "3".to_string()),
+        ("high_half_reproducibility_links", "3".to_string()),
+        (
+            "hosted_runtime_marker",
+            "M0_COMPOSITION_OK:store:reject:1".to_string(),
+        ),
+        ("freestanding_runtime", "fail-stop-timeout-124".to_string()),
+        ("high_half_link_base", "ffffffff80000000".to_string()),
+        (
+            "negative_cases",
+            "artifact-tamper,binding-tamper,certificate-l2,external-body,extra-file,host-rustc,post-plan-shell,private-export,rich-standalone-export,shell-tamper,tv-nonpass".to_string(),
+        ),
+    ] {
+        let actual = report_field(&report, key)?;
+        if actual != expected {
+            return Err(format!(
+                "composition report field `{key}` is `{actual}`, expected `{expected}`"
+            ));
+        }
+    }
+
+    Ok(ManifestCompositionEvidence {
+        receipt_schema: receipt_schema.to_string(),
+        binding_sha,
+        receipt_sha,
+        report_sha,
+        final_link_receipt_sha,
+    })
+}
+
+fn validate_m0_final_link_receipt(
+    root: &Path,
+    composition_receipt: &serde_json::Value,
+    composition_binding_sha: &str,
+    composition_receipt_sha: &str,
+) -> Result<String, String> {
+    let path = root.join("build/m0-composition/final-link-receipt.json");
+    let bytes = fs::read(&path).map_err(|error| format!("read final-link receipt: {error}"))?;
+    if canonical_json(&bytes, "final-link receipt")? != bytes {
+        return Err("final-link receipt is not canonical JSON".to_string());
+    }
+    let receipt: serde_json::Value = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("parse final-link receipt: {error}"))?;
+    ensure_json_object_keys(
+        &receipt,
+        "",
+        &["composition", "link_plan", "outputs", "platform", "schema"],
+        "final-link receipt",
+    )?;
+    if json_string(&receipt, "/schema", "final-link receipt schema")? != "tmk.final-link-receipt.v1"
+        || json_string(
+            &receipt,
+            "/composition/binding_sha256",
+            "final-link composition binding",
+        )? != composition_binding_sha
+        || json_string(
+            &receipt,
+            "/composition/receipt_sha256",
+            "final-link composition receipt digest",
+        )? != composition_receipt_sha
+        || receipt
+            .pointer("/composition/replay_passed")
+            .and_then(serde_json::Value::as_bool)
+            != Some(true)
+    {
+        return Err("final-link receipt does not bind the replayed composition".to_string());
+    }
+
+    validate_json_file_record(
+        root,
+        receipt
+            .pointer("/composition/artifact")
+            .ok_or_else(|| "final-link receipt has no composition artifact".to_string())?,
+        "build/m0-composition/primary.verified/artifact/libtmk_composition_probe.rlib",
+        "final-link composition artifact",
+    )?;
+    let receipt_dependencies = receipt
+        .pointer("/composition/dependencies")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "final-link receipt has no dependency array".to_string())?;
+    let composition_dependencies: Vec<_> = composition_receipt
+        .pointer("/binding/files")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "composition receipt has no file inventory".to_string())?
+        .iter()
+        .filter(|record| {
+            record
+                .get("path")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|path| path.starts_with("artifact/deps/"))
+        })
+        .cloned()
+        .collect();
+    if receipt_dependencies != composition_dependencies.as_slice()
+        || receipt_dependencies.len() != 4
+    {
+        return Err(
+            "final-link dependency allowlist differs from the composition receipt".to_string(),
+        );
+    }
+    let bundle = root.join("build/m0-composition/primary.verified");
+    for record in receipt_dependencies {
+        let relative = record
+            .get("path")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| "final-link dependency has no path".to_string())?;
+        validate_json_file_record(&bundle, record, relative, "final-link dependency")?;
+    }
+
+    for (pointer, relative, label) in [
+        (
+            "/platform/object",
+            "build/m0-platform-primitives/objects/platform-primitives.o",
+            "final-link platform object",
+        ),
+        (
+            "/platform/acceptance_report",
+            "build/m0-platform-primitives/report.txt",
+            "final-link platform report",
+        ),
+        (
+            "/platform/linked_primitive",
+            "build/m0-composition/linked-primitives/memcpy.bin",
+            "final-link linked primitive",
+        ),
+        (
+            "/link_plan/consumer",
+            "tests/m0/composition_kernel_consumer.rs",
+            "final-link consumer",
+        ),
+        (
+            "/link_plan/linker_script",
+            "tests/m0/global_allocator_kernel.ld",
+            "final-link linker script",
+        ),
+        (
+            "/outputs/low_static",
+            "build/m0-composition/composition-kernel-low",
+            "final-link low image",
+        ),
+        (
+            "/outputs/higher_half",
+            "build/m0-composition/composition-kernel-high-half",
+            "final-link higher-half image",
+        ),
+    ] {
+        validate_json_file_record(
+            root,
+            receipt
+                .pointer(pointer)
+                .ok_or_else(|| format!("{label} record is missing"))?,
+            relative,
+            label,
+        )?;
+    }
+    if json_string(
+        &receipt,
+        "/link_plan/orchestrator_source_sha256",
+        "final-link orchestrator digest",
+    )? != sha256sum(&root.join("xtask/src/composition.rs"))?
+        || json_u64(
+            &receipt,
+            "/link_plan/undefined_symbols",
+            "final-link undefined-symbol count",
+        )? != 0
+        || json_string(&receipt, "/outputs/higher_half_entry", "higher-half entry")?
+            != "ffffffff80000000"
+        || json_u64(
+            &receipt,
+            "/outputs/low_static_reproducibility_links",
+            "low-link reproducibility count",
+        )? != 3
+        || json_u64(
+            &receipt,
+            "/outputs/higher_half_reproducibility_links",
+            "higher-half-link reproducibility count",
+        )? != 3
+        || json_string(
+            &receipt,
+            "/outputs/freestanding_runtime",
+            "freestanding composition runtime",
+        )? != "fail-stop-timeout-124"
+    {
+        return Err("final-link receipt policy fields are inconsistent".to_string());
+    }
+
+    let selected = receipt
+        .pointer("/link_plan/selected_symbols")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "final-link receipt has no selected-symbol array".to_string())?;
+    let selected_expected = serde_json::json!([
+        "memcpy",
+        "tmk_composition_probe::composition_shell::boot_observation",
+        "tmk_composition_probe::composition_step"
+    ]);
+    if selected != selected_expected.as_array().expect("literal array") {
+        return Err("final-link selected-symbol allowlist is unexpected".to_string());
+    }
+    let discarded = receipt
+        .pointer("/link_plan/discarded_platform_symbols")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "final-link receipt has no discarded-symbol array".to_string())?;
+    let discarded_expected = serde_json::json!(["memset", "tmk_alloc_capsule", "tmk_seal_capsule"]);
+    if discarded != discarded_expected.as_array().expect("literal array") {
+        return Err("final-link discarded-symbol allowlist is unexpected".to_string());
+    }
+
+    let tools = receipt
+        .pointer("/link_plan/tools")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "final-link receipt has no tool array".to_string())?;
+    let expected_tools = [
+        (
+            "cc",
+            "/usr/sbin/cc",
+            "1ce580ecfabf35747bc550481621e2f2c04fd8fc23b8182779f33b82d07856d0",
+        ),
+        (
+            "ld",
+            "/usr/sbin/ld",
+            "6cf122245638eb45fd981c75bf3a116675b3f9c7510ae2e3b386aa6738e46505",
+        ),
+        (
+            "nm",
+            "/usr/sbin/nm",
+            "988d8ded768c4e59284a44f641e92db6c0c8dd222547c32ce432577ff3cb9cc6",
+        ),
+        (
+            "objcopy",
+            "/usr/sbin/objcopy",
+            "8f09a5b2d8e2b34aebf269fffef2308492a022dcfedf87b49489592e838129b4",
+        ),
+        (
+            "readelf",
+            "/usr/sbin/readelf",
+            "59d345f2a2b47f5617e8f53c72f6db5169c723c11d3e809a9e6e3c5673f2420c",
+        ),
+        (
+            "rustc-codegen",
+            "/home/doll/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/rustc",
+            "bff349e72704ff70bc08a234a3847338e797065bbedde5e556808bc87b7bf7c6",
+        ),
+        (
+            "timeout",
+            "/usr/bin/timeout",
+            "350001cc47ad731c4e797532fe46a999477aba359692e2de3e93f316b4021dab",
+        ),
+    ];
+    if tools.len() != expected_tools.len() {
+        return Err("final-link tool allowlist has the wrong length".to_string());
+    }
+    for (record, (name, tool_path, expected_sha)) in tools.iter().zip(expected_tools) {
+        if record.get("name").and_then(serde_json::Value::as_str) != Some(name)
+            || record.get("path").and_then(serde_json::Value::as_str) != Some(tool_path)
+            || record.get("sha256").and_then(serde_json::Value::as_str) != Some(expected_sha)
+            || sha256sum(Path::new(tool_path))? != expected_sha
+        {
+            return Err(format!(
+                "final-link tool `{name}` does not match its live pin"
+            ));
+        }
+    }
+
+    let high = root.join("build/m0-composition/composition-kernel-high-half");
+    let undefined = run_checked(
+        Command::new("/usr/sbin/nm").arg("-u").arg(&high),
+        "manifest final-link undefined-symbol audit",
+    )?;
+    if !undefined.stdout.is_empty() {
+        return Err("manifest final-link image has undefined symbols".to_string());
+    }
+    let symbols = run_checked(
+        Command::new("/usr/sbin/nm").arg("-C").arg(&high),
+        "manifest final-link symbol audit",
+    )?;
+    let symbols = String::from_utf8_lossy(&symbols.stdout);
+    for symbol in selected_expected
+        .as_array()
+        .expect("literal array")
+        .iter()
+        .filter_map(serde_json::Value::as_str)
+    {
+        if !symbols.contains(symbol) {
+            return Err(format!(
+                "manifest final-link image lacks selected symbol `{symbol}`"
+            ));
+        }
+    }
+    for symbol in discarded_expected
+        .as_array()
+        .expect("literal array")
+        .iter()
+        .filter_map(serde_json::Value::as_str)
+    {
+        if symbols
+            .lines()
+            .any(|line| line.split_whitespace().last() == Some(symbol))
+        {
+            return Err(format!(
+                "manifest final-link image retains discarded symbol `{symbol}`"
+            ));
+        }
+    }
+    let header = run_checked(
+        Command::new("/usr/sbin/readelf").args(["-hW"]).arg(&high),
+        "manifest final-link ELF-header audit",
+    )?;
+    require_output_fragments(
+        &header.stdout,
+        "manifest final-link ELF header",
+        &["Entry point address:               0xffffffff80000000"],
+    )?;
+
+    let audit = root.join("build/m0-manifest-link-audit");
+    if audit.exists() {
+        fs::remove_dir_all(&audit)
+            .map_err(|error| format!("remove stale manifest link audit: {error}"))?;
+    }
+    platform_primitives::audit_linked_composition_primitives(&high, &audit)?;
+    let extracted = fs::read(audit.join("memcpy.bin"))
+        .map_err(|error| format!("read manifest-extracted memcpy: {error}"))?;
+    let registered = fs::read(root.join("build/m0-platform-primitives/emitted/memcpy.bin"))
+        .map_err(|error| format!("read registered memcpy: {error}"))?;
+    let receipted = fs::read(root.join("build/m0-composition/linked-primitives/memcpy.bin"))
+        .map_err(|error| format!("read receipted linked memcpy: {error}"))?;
+    if extracted != registered || extracted != receipted {
+        return Err(
+            "manifest-extracted memcpy does not match the receipted registered bytes".to_string(),
+        );
+    }
+    fs::remove_dir_all(&audit).map_err(|error| format!("remove manifest link audit: {error}"))?;
+    sha256sum(&path)
+}
+
+fn validate_receipt_inventory_file(
+    bundle: &Path,
+    receipt: &serde_json::Value,
+    relative: &str,
+    label: &str,
+) -> Result<String, String> {
+    let record = receipt
+        .pointer("/binding/files")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|records| {
+            records.iter().find(|record| {
+                record.get("path").and_then(serde_json::Value::as_str) == Some(relative)
+            })
+        })
+        .ok_or_else(|| format!("composition receipt inventory omits `{relative}`"))?;
+    validate_json_file_record(bundle, record, relative, label)
+}
+
+fn validate_json_file_record(
+    root: &Path,
+    record: &serde_json::Value,
+    expected_relative: &str,
+    label: &str,
+) -> Result<String, String> {
+    let relative = record
+        .get("path")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| format!("{label} has no path"))?;
+    let expected_size = record
+        .get("length")
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| format!("{label} has no length"))?;
+    let expected_sha = record
+        .get("sha256")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| format!("{label} has no digest"))?;
+    if relative != expected_relative
+        || relative.starts_with('/')
+        || relative
+            .split('/')
+            .any(|part| part.is_empty() || part == "..")
+    {
+        return Err(format!(
+            "{label} path `{relative}` is not the expected normalized path"
+        ));
+    }
+    let path = root.join(relative);
+    require_file(&path, label)?;
+    let actual_size = fs::metadata(&path)
+        .map_err(|error| format!("stat {label}: {error}"))?
+        .len();
+    let actual_sha = sha256sum(&path)?;
+    if actual_size != expected_size || actual_sha != expected_sha {
+        return Err(format!(
+            "{label} file is {actual_size}/{actual_sha}, receipt binds {expected_size}/{expected_sha}"
+        ));
+    }
+    Ok(actual_sha)
+}
+
+fn ensure_json_object_keys(
+    value: &serde_json::Value,
+    pointer: &str,
+    expected: &[&str],
+    label: &str,
+) -> Result<(), String> {
+    let object = if pointer.is_empty() {
+        value.as_object()
+    } else {
+        value
+            .pointer(pointer)
+            .and_then(serde_json::Value::as_object)
+    }
+    .ok_or_else(|| format!("{label} is not an object at `{pointer}`"))?;
+    let mut actual: Vec<_> = object.keys().map(String::as_str).collect();
+    let mut expected = expected.to_vec();
+    actual.sort_unstable();
+    expected.sort_unstable();
+    if actual != expected {
+        return Err(format!(
+            "{label} has keys {actual:?}, expected exactly {expected:?}"
+        ));
+    }
+    Ok(())
+}
+
+fn json_u64(value: &serde_json::Value, pointer: &str, label: &str) -> Result<u64, String> {
+    value
+        .pointer(pointer)
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| format!("{label} is missing or is not an unsigned integer at `{pointer}`"))
 }
 
 fn manifest_artifact(

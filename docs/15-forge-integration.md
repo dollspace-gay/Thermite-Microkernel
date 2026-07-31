@@ -5,8 +5,8 @@
 This document defines how TMK consumes Thermite code without losing assurance
 between proof, compilation, and final kernel composition.
 
-The baseline is Thermite commit
-`4fa63cb1a6d707e501d99a1da57b5a53f8346efa`, which ships:
+The baseline is Thermite `v0.0.2` commit
+`845d684f00e829491ee4c537818fba2689bcaefc`, which ships:
 
 - `forge build --level l3 --target kernel --export ...`;
 - exact-source Verus proof and code generation;

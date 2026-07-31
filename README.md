@@ -70,7 +70,7 @@ workspace exist. The first Thermite L3 kernel rlib has been verified, replayed,
 executed through a host consumer, and linked through a separate `no_std` consumer.
 
 The standalone probe's toolchain-binding gate is locally closed by pinned
-Thermite commit `4fa63cb1a6d707e501d99a1da57b5a53f8346efa`. Forge records both
+Thermite `v0.0.2` commit `845d684f00e829491ee4c537818fba2689bcaefc`. Forge records both
 ambient Rust 1.96 and the authoritative Verus-selected Rust 1.95 codegen closure;
 TMK selects the consumer compiler from the bound evidence, links and executes it,
 and confirms that the incompatible host compiler is rejected. Upstream issue

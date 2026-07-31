@@ -509,6 +509,17 @@ fn validate_semantics(manifest: &Value) -> Result<(), String> {
         {
             return Err("a release-eligible manifest requires exactly one boot image".to_string());
         }
+        if artifacts
+            .iter()
+            .filter(|artifact| artifact.get("kind").and_then(Value::as_str) == Some("link_receipt"))
+            .count()
+            != 1
+        {
+            return Err(
+                "a release-eligible manifest requires exactly one final-link receipt artifact"
+                    .to_string(),
+            );
+        }
         if tests
             .iter()
             .any(|test| test.get("status").and_then(Value::as_str) != Some("pass"))

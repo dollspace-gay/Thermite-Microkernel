@@ -32,7 +32,7 @@ Generated files live under the build directory and are never hand edited.
 
 The current design baseline is:
 
-- Thermite commit `4fa63cb1a6d707e501d99a1da57b5a53f8346efa`;
+- Thermite `v0.0.2` commit `845d684f00e829491ee4c537818fba2689bcaefc`;
 - canonical Thermite skill SHA-256
   `92141afe423f30b495398e806589753fb4ad57c2d0d10f3ef0fcd417beb557dd`;
 - Verus `0.2026.05.24.ecee80a`;

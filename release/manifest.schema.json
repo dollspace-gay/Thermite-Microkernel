@@ -284,6 +284,7 @@
             "boot_image",
             "service_bundle",
             "filesystem_image",
+            "link_receipt",
             "manifest"
           ]
         },
