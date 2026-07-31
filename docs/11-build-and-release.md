@@ -133,14 +133,16 @@ second bound receipt. An ordinary rustc consumer link proves ABI usability but n
 the direct-Verus caller's preconditions or representation relation.
 
 The `no_std` host supplies a verified bounded allocator and fail-stop panic
-handler. The M0 component-link gate already combines the allocation policy, panic
-lang item, and registered HLT capsule into a static x86_64 ELF, requires one RX
-load segment, no relocations, no dynamic section, no undefined symbols, no
-runtime data, exact linked capsule bytes, three proof builds, three links, and an
-observed fail-stop execution. This is not yet the final kernel link: a verified
-byte/layout adapter and `GlobalAlloc`, receipt allowlist, UEFI image, and manifest
-binding remain required. The final linker accepts only objects named by accepted
-Forge, composition, direct-Verus, and capsule receipts.
+handler. The M0 component-link gate already combines the fixed-unit and
+byte/layout allocation policies, panic lang item, and registered HLT capsule into
+a static x86_64 ELF, requires one RX load segment, no relocations, no dynamic
+section, no undefined symbols, no runtime data, exact linked capsule bytes, three
+proof builds per component, three links, and an observed fail-stop execution.
+This is not yet the final kernel link: the raw-pointer `GlobalAlloc` ABI bridge,
+receipt allowlist, UEFI image, and manifest binding remain required. The bridge
+must either verify directly or be a proved exact-byte capsule; an assumed
+`Layout`/pointer shim is forbidden. The final linker accepts only objects named
+by accepted Forge, composition, direct-Verus, and capsule receipts.
 
 ## 6. Capsule gate
 

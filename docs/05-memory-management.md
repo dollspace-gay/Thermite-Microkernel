@@ -34,6 +34,22 @@ operations are routed through a verified bounded allocator whose failure is an
 ordinary result, never hidden panic. The final design must ensure generated
 collection capacity cannot grow beyond a pre-proved bound.
 
+The M0 byte/layout policy accepts alignments 1, 2, 4, 8, 16, 32, 64, and 4096;
+all other alignments, zero-sized requests, corrupt arena state, exhaustion, and
+arithmetic-edge failures leave the cursor unchanged and return failure. The
+alignment set covers the selected kernel object profile and page-aligned boot
+objects; adding another alignment requires a new bit-vector proof and runtime
+case. Runtime alignment uses a mask only after proving it equivalent to modulo,
+so the freestanding artifact has no division-by-zero panic dependency.
+
+`core::alloc::GlobalAlloc` is only an ABI adapter. Its implementation MUST refine
+the verified byte/layout result and create a pointer carrying the arena's
+provenance and writable permission. If pinned Verus cannot verify `Layout`
+inspection and pointer construction, the adapter MUST be an exact-byte machine
+capsule with those semantics or wait for verifier support. An `external_body`,
+assumed standard-library specification, or unchecked `unsafe` wrapper is not an
+acceptable bridge.
+
 ## 3. VSpaces
 
 A `VSpace` owns:

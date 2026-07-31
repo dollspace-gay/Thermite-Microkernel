@@ -46,6 +46,7 @@ reproducibility identity. The canonical positive Verus summary and report are
 stable across reruns. The report digest was
 `da0f457d8ec6c1898979a72c4fd8898be3226ce51137d688203557a00516b1e6`.
 This policy is also present in the verified freestanding host recorded in
-`panic-host.md`. It is not complete allocator integration: the byte/layout
-adapter, memory permissions, `GlobalAlloc`, composition receipt, and final-image
-binding remain outstanding, so the report states `release_eligible=false`.
+`panic-host.md`. The byte/layout layer is recorded separately in
+`byte-allocator.md`. Memory permissions, the raw-pointer `GlobalAlloc` bridge,
+composition receipt, and final-image binding remain outstanding, so the report
+states `release_eligible=false`.

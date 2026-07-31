@@ -344,7 +344,7 @@ and the TMK case remains as an integration test.
 | Strict rejection of non-L3/TV non-pass cases | nine local bundle-tamper cases pass | certificate/TV verdict and source-mutation fault-injection remainder |
 | Actual codegen-rustc receipt binding | pinned fix commit passes locally; #103 pending merge | receipt-selected consumer links; mismatched host compiler is rejected |
 | Rich-state same-crate composition | source probe L3-checks; Thermite issue #104 open | same-crate shell proof, rlib, receipt validation, and replay |
-| Verified bounded allocator and panic host | policy and panic code prove/reproduce; component ELF links and runs fail-stop with exact HLT bytes and one RX segment | verify byte/layout adapter and `GlobalAlloc`; bind the receipted final image |
+| Verified bounded allocator and panic host | unit and byte/layout policies plus panic code prove/reproduce; component ELF links and runs fail-stop with exact HLT bytes and one RX segment | close raw-pointer `GlobalAlloc` bridge without assumptions; bind the receipted final image |
 | Exact-byte instruction capsules | M0 `mov rax,rdi; hlt` model/emitter/post-link probe passes | bind probe receipt into empty UEFI image; extend per platform operation |
 | Final receipted link/image | unreceipted direct-Verus component-link gate passes | allowlist audit and reproducible manifest-bound UEFI image |
 

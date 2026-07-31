@@ -24,10 +24,11 @@ fn run() -> Result<(), String> {
         Some("m0-forge-tamper") if args.next().is_none() => m0_forge_tamper(),
         Some("m0-host-link") if args.next().is_none() => m0_host_link(),
         Some("m0-verus-allocator") if args.next().is_none() => m0_verus_allocator(),
+        Some("m0-verus-byte-allocator") if args.next().is_none() => m0_verus_byte_allocator(),
         Some("m0-verus-capsule") if args.next().is_none() => m0_verus_capsule(),
         Some("toolchain-check") if args.next().is_none() => toolchain_check(),
         _ => Err(
-            "usage: cargo run -p xtask -- <toolchain-check|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-verus-allocator|m0-verus-capsule|m0-host-link>"
+            "usage: cargo run -p xtask -- <toolchain-check|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-verus-allocator|m0-verus-byte-allocator|m0-verus-capsule|m0-host-link>"
                 .to_string(),
         ),
     }
@@ -836,6 +837,251 @@ fn m0_verus_allocator() -> Result<(), String> {
     Ok(())
 }
 
+fn m0_verus_byte_allocator() -> Result<(), String> {
+    let root = workspace_root()?;
+    let verus = PathBuf::from("/opt/verus/0.2026.05.24.ecee80a/verus");
+    let rustc =
+        PathBuf::from("/home/doll/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/rustc");
+    let nm = PathBuf::from("/usr/sbin/nm");
+    for (path, expected, label) in [
+        (
+            verus.as_path(),
+            "c5911ee43c7a92c49a48d2c8646c604d252a38c71c87bda88ad4d33eb9e7e0fc",
+            "Verus",
+        ),
+        (
+            rustc.as_path(),
+            "bff349e72704ff70bc08a234a3847338e797065bbedde5e556808bc87b7bf7c6",
+            "Verus codegen rustc",
+        ),
+        (
+            nm.as_path(),
+            "988d8ded768c4e59284a44f641e92db6c0c8dd222547c32ce432577ff3cb9cc6",
+            "GNU nm",
+        ),
+    ] {
+        require_file(path, label)?;
+        let actual = sha256sum(path)?;
+        if actual != expected {
+            return Err(format!("{label} digest is {actual}, expected {expected}"));
+        }
+    }
+
+    let source = root.join("verus/platform/byte_allocator.rs");
+    require_file(&source, "byte/layout allocator Verus source")?;
+    let canonical = fs::read_to_string(&source)
+        .map_err(|error| format!("read {}: {error}", source.display()))?;
+    for forbidden in [
+        "assume(",
+        "admit(",
+        "axiom fn",
+        "external_body",
+        "unsafe",
+        "asm!",
+    ] {
+        if canonical.contains(forbidden) {
+            return Err(format!(
+                "byte/layout allocator contains forbidden `{forbidden}`"
+            ));
+        }
+    }
+    let source_sha = sha256sum(&source)?;
+    let work = root.join("build/m0-byte-allocator");
+    if work.exists() {
+        fs::remove_dir_all(&work)
+            .map_err(|error| format!("remove stale {}: {error}", work.display()))?;
+    }
+    fs::create_dir_all(&work).map_err(|error| format!("create {}: {error}", work.display()))?;
+    let staged = work.join("tmk_byte_allocator.rs");
+    fs::copy(&source, &staged)
+        .map_err(|error| format!("stage byte/layout allocator source: {error}"))?;
+    if sha256sum(&staged)? != source_sha {
+        return Err(
+            "staged byte/layout allocator source differs from canonical source".to_string(),
+        );
+    }
+
+    let verification = run_checked(
+        &mut direct_verus_command(&verus, &work, "tmk_byte_allocator.rs", true),
+        "Verus byte/layout allocator proof and codegen",
+    )?;
+    require_output_fragments(
+        &verification.stdout,
+        "Verus byte/layout allocator proof and codegen",
+        &[
+            "\"success\": true",
+            "\"verified\": 18",
+            "\"errors\": 0",
+            "\"version\": \"0.2026.05.24.ecee80a\"",
+            "\"toolchain\": \"1.95.0-x86_64-unknown-linux-gnu\"",
+        ],
+    )?;
+    fs::write(
+        work.join("verus-result.json"),
+        canonical_json(&verification.stdout, "byte/layout allocator Verus result")?,
+    )
+    .map_err(|error| format!("write byte/layout allocator Verus result: {error}"))?;
+    if sha256sum(&staged)? != source_sha {
+        return Err("byte/layout allocator source changed during proof/codegen".to_string());
+    }
+
+    let artifact = work.join("libtmk_byte_allocator.rlib");
+    require_file(&artifact, "compiled byte/layout allocator rlib")?;
+    let artifact_sha = sha256sum(&artifact)?;
+    for name in ["repro-a", "repro-b"] {
+        let repro = work.join(name);
+        fs::create_dir(&repro)
+            .map_err(|error| format!("create byte-allocator reproducibility path: {error}"))?;
+        fs::copy(&source, repro.join("tmk_byte_allocator.rs"))
+            .map_err(|error| format!("stage byte-allocator reproducibility source: {error}"))?;
+        run_checked(
+            &mut direct_verus_command(&verus, &repro, "tmk_byte_allocator.rs", true),
+            &format!("Verus byte/layout allocator clean build in {name}"),
+        )?;
+        let repro_sha = sha256sum(&repro.join("libtmk_byte_allocator.rlib"))?;
+        if repro_sha != artifact_sha {
+            return Err(format!(
+                "byte/layout allocator build in {name} produced {repro_sha}, expected {artifact_sha}"
+            ));
+        }
+        fs::remove_dir_all(&repro)
+            .map_err(|error| format!("remove byte-allocator reproducibility path: {error}"))?;
+    }
+
+    let undefined = run_checked(
+        Command::new(&nm).arg("-u").arg(&artifact),
+        "byte/layout allocator undefined-symbol audit",
+    )?;
+    let undefined_text = String::from_utf8_lossy(&undefined.stdout);
+    if undefined_text.lines().any(|line| {
+        let trimmed = line.trim_start();
+        trimmed.starts_with("U ") || trimmed.contains(" U ")
+    }) {
+        return Err(format!(
+            "byte/layout allocator rlib has undefined symbols:\n{undefined_text}"
+        ));
+    }
+    fs::write(work.join("undefined-symbols.txt"), &undefined.stdout)
+        .map_err(|error| format!("write byte/layout allocator symbol audit: {error}"))?;
+
+    let consumer = work.join("byte-allocator-consumer");
+    run_checked(
+        Command::new(&rustc)
+            .current_dir(&root)
+            .args(["--edition=2021"])
+            .arg(root.join("tests/m0/byte_allocator_consumer.rs"))
+            .arg("--extern")
+            .arg(format!("tmk_byte_allocator={}", artifact.display()))
+            .arg("-L")
+            .arg("dependency=/opt/verus/0.2026.05.24.ecee80a")
+            .args(["-C", "panic=abort"])
+            .arg("-o")
+            .arg(&consumer),
+        "link byte/layout allocator host consumer",
+    )?;
+    let runtime = run_checked(
+        Command::new(&consumer).current_dir(&root),
+        "execute byte/layout allocator cases",
+    )?;
+    require_output_fragments(
+        &runtime.stdout,
+        "byte/layout allocator runtime",
+        &["M0_BYTE_ALLOCATOR_OK:200008:200020:200030"],
+    )?;
+
+    let bad_alignment = canonical.replacen(
+        "let address = cursor + padding;",
+        "let address = cursor;",
+        1,
+    );
+    if bad_alignment == canonical {
+        return Err("byte allocator alignment mutation target was not found".to_string());
+    }
+    fs::write(work.join("bad-alignment.rs"), bad_alignment)
+        .map_err(|error| format!("write byte allocator alignment mutation: {error}"))?;
+    let bad_alignment_result = run_expect_failure(
+        &mut direct_verus_command(&verus, &work, "bad-alignment.rs", false),
+        "Verus rejects byte allocator alignment mutation",
+    )?;
+    let mut bad_alignment_diagnostic = Vec::new();
+    bad_alignment_diagnostic.extend_from_slice(&bad_alignment_result.stdout);
+    bad_alignment_diagnostic.extend_from_slice(&bad_alignment_result.stderr);
+    require_output_fragments(
+        &bad_alignment_diagnostic,
+        "byte allocator alignment rejection",
+        &["postcondition not satisfied"],
+    )?;
+    write_combined_output(
+        &work.join("bad-alignment-result.txt"),
+        &bad_alignment_result,
+        "byte allocator alignment mutation",
+    )?;
+
+    let bad_exhaustion =
+        canonical.replacen("if size > after_padding {", "if size >= after_padding {", 1);
+    if bad_exhaustion == canonical {
+        return Err("byte allocator exhaustion mutation target was not found".to_string());
+    }
+    fs::write(work.join("bad-exhaustion.rs"), bad_exhaustion)
+        .map_err(|error| format!("write byte allocator exhaustion mutation: {error}"))?;
+    let bad_exhaustion_result = run_expect_failure(
+        &mut direct_verus_command(&verus, &work, "bad-exhaustion.rs", false),
+        "Verus rejects byte allocator exhaustion mutation",
+    )?;
+    let mut bad_exhaustion_diagnostic = Vec::new();
+    bad_exhaustion_diagnostic.extend_from_slice(&bad_exhaustion_result.stdout);
+    bad_exhaustion_diagnostic.extend_from_slice(&bad_exhaustion_result.stderr);
+    require_output_fragments(
+        &bad_exhaustion_diagnostic,
+        "byte allocator exhaustion rejection",
+        &["postcondition not satisfied"],
+    )?;
+    write_combined_output(
+        &work.join("bad-exhaustion-result.txt"),
+        &bad_exhaustion_result,
+        "byte allocator exhaustion mutation",
+    )?;
+
+    let bad_assume = canonical.replacen(
+        "    if !(0 < state.base",
+        "    assume(false);\n    if !(0 < state.base",
+        1,
+    );
+    if bad_assume == canonical {
+        return Err("byte allocator assume mutation target was not found".to_string());
+    }
+    fs::write(work.join("bad-assume.rs"), bad_assume)
+        .map_err(|error| format!("write byte allocator assume mutation: {error}"))?;
+    let bad_assume_result = run_expect_failure(
+        &mut direct_verus_command(&verus, &work, "bad-assume.rs", false),
+        "Verus no-cheating rejects byte allocator assume",
+    )?;
+    let mut bad_assume_diagnostic = Vec::new();
+    bad_assume_diagnostic.extend_from_slice(&bad_assume_result.stdout);
+    bad_assume_diagnostic.extend_from_slice(&bad_assume_result.stderr);
+    require_output_fragments(
+        &bad_assume_diagnostic,
+        "byte allocator assume rejection",
+        &["assume"],
+    )?;
+    write_combined_output(
+        &work.join("bad-assume-result.txt"),
+        &bad_assume_result,
+        "byte allocator assume mutation",
+    )?;
+
+    let verification_sha = sha256sum(&work.join("verus-result.json"))?;
+    let consumer_sha = sha256sum(&consumer)?;
+    let report = format!(
+        "M0_VERUS_BYTE_ALLOCATOR_OK\ncomponent_verified=true\nrelease_eligible=false\nsource_sha256={source_sha}\nartifact_sha256={artifact_sha}\nreproducibility_builds=3\nverus_result_sha256={verification_sha}\nconsumer_sha256={consumer_sha}\nruntime_marker=M0_BYTE_ALLOCATOR_OK:200008:200020:200030\nnegative_cases=bad-alignment,bad-exhaustion,bad-assume\n"
+    );
+    fs::write(work.join("report.txt"), &report)
+        .map_err(|error| format!("write byte/layout allocator report: {error}"))?;
+    print!("{report}");
+    println!("evidence={}", work.display());
+    Ok(())
+}
+
 fn m0_verus_capsule() -> Result<(), String> {
     let root = workspace_root()?;
     let verus = PathBuf::from("/opt/verus/0.2026.05.24.ecee80a/verus");
@@ -1339,11 +1585,15 @@ fn m0_host_link() -> Result<(), String> {
 
     let allocator = root.join("build/m0-allocator/libtmk_allocator.rlib");
     let allocator_report = root.join("build/m0-allocator/report.txt");
+    let byte_allocator = root.join("build/m0-byte-allocator/libtmk_byte_allocator.rlib");
+    let byte_allocator_report = root.join("build/m0-byte-allocator/report.txt");
     let capsule_object = root.join("build/m0-capsule/capsule.o");
     let capsule_report = root.join("build/m0-capsule/report.txt");
     for (path, label) in [
         (&allocator, "verified allocator rlib"),
         (&allocator_report, "allocator report"),
+        (&byte_allocator, "verified byte/layout allocator rlib"),
+        (&byte_allocator_report, "byte/layout allocator report"),
         (&capsule_object, "registered capsule object"),
         (&capsule_report, "capsule report"),
     ] {
@@ -1356,6 +1606,17 @@ fn m0_host_link() -> Result<(), String> {
     for required in ["component_verified=true", allocator_binding.as_str()] {
         if !allocator_report_text.contains(required) {
             return Err(format!("allocator report is missing `{required}`"));
+        }
+    }
+    let byte_allocator_sha = sha256sum(&byte_allocator)?;
+    let byte_allocator_report_text = fs::read_to_string(&byte_allocator_report)
+        .map_err(|error| format!("read {}: {error}", byte_allocator_report.display()))?;
+    let byte_allocator_binding = format!("artifact_sha256={byte_allocator_sha}");
+    for required in ["component_verified=true", byte_allocator_binding.as_str()] {
+        if !byte_allocator_report_text.contains(required) {
+            return Err(format!(
+                "byte/layout allocator report is missing `{required}`"
+            ));
         }
     }
     let capsule_report_text = fs::read_to_string(&capsule_report)
@@ -1389,6 +1650,8 @@ fn m0_host_link() -> Result<(), String> {
         .map_err(|error| format!("stage panic host source: {error}"))?;
     fs::copy(&allocator, work.join("libtmk_allocator.rlib"))
         .map_err(|error| format!("stage allocator rlib: {error}"))?;
+    fs::copy(&byte_allocator, work.join("libtmk_byte_allocator.rlib"))
+        .map_err(|error| format!("stage byte/layout allocator rlib: {error}"))?;
     fs::copy(&capsule_object, work.join("capsule.o"))
         .map_err(|error| format!("stage capsule object: {error}"))?;
 
@@ -1572,6 +1835,7 @@ fn m0_host_link() -> Result<(), String> {
             "mov    rax,rdi",
             "hlt",
             "allocate_pair",
+            "allocate_two_layouts",
             "rust_begin_unwind",
         ],
     )?;
@@ -1598,6 +1862,8 @@ fn m0_host_link() -> Result<(), String> {
             .map_err(|error| format!("create host link reproducibility path: {error}"))?;
         fs::copy(&allocator, repro.join("libtmk_allocator.rlib"))
             .map_err(|error| format!("stage allocator in host repro path: {error}"))?;
+        fs::copy(&byte_allocator, repro.join("libtmk_byte_allocator.rlib"))
+            .map_err(|error| format!("stage byte/layout allocator in host repro path: {error}"))?;
         fs::copy(&panic_rlib, repro.join("libtmk_panic_host.rlib"))
             .map_err(|error| format!("stage panic host in repro path: {error}"))?;
         fs::copy(&capsule_object, repro.join("capsule.o"))
@@ -1719,7 +1985,7 @@ fn m0_host_link() -> Result<(), String> {
     let panic_result_sha = sha256sum(&work.join("verus-result.json"))?;
     let capsule_object_sha = sha256sum(&work.join("capsule.o"))?;
     let report = format!(
-        "M0_HOST_LINK_OK\ncomponent_verified=true\nrelease_eligible=false\npanic_source_sha256={source_sha}\npanic_artifact_sha256={panic_sha}\npanic_verus_result_sha256={panic_result_sha}\nallocator_artifact_sha256={allocator_sha}\ncapsule_object_sha256={capsule_object_sha}\nlinker_script_sha256={linker_sha}\nhost_elf_sha256={host_sha}\nproof_reproducibility_builds=3\nlink_reproducibility_builds=3\nruntime_observation=fail-stop-timeout-124\nnegative_cases=missing-divergence,external-panic-body,writable-data\n"
+        "M0_HOST_LINK_OK\ncomponent_verified=true\nrelease_eligible=false\npanic_source_sha256={source_sha}\npanic_artifact_sha256={panic_sha}\npanic_verus_result_sha256={panic_result_sha}\nallocator_artifact_sha256={allocator_sha}\nbyte_allocator_artifact_sha256={byte_allocator_sha}\ncapsule_object_sha256={capsule_object_sha}\nlinker_script_sha256={linker_sha}\nhost_elf_sha256={host_sha}\nproof_reproducibility_builds=3\nlink_reproducibility_builds=3\nruntime_observation=fail-stop-timeout-124\nnegative_cases=missing-divergence,external-panic-body,writable-data\n"
     );
     fs::write(work.join("report.txt"), &report)
         .map_err(|error| format!("write M0 host report: {error}"))?;
@@ -1792,7 +2058,11 @@ fn m0_host_link_command(
         .arg("-o")
         .arg(output)
         .arg("--whole-archive")
-        .args(["libtmk_allocator.rlib", "libtmk_panic_host.rlib"])
+        .args([
+            "libtmk_allocator.rlib",
+            "libtmk_byte_allocator.rlib",
+            "libtmk_panic_host.rlib",
+        ])
         .arg("--no-whole-archive")
         .arg("capsule.o");
     command

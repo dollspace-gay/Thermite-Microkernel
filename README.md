@@ -81,14 +81,16 @@ audit, and mutation-battery checks. Its honest same-crate Thermite/direct-Verus
 composition build remains blocked on Thermite
 [#104](https://github.com/dollspace-gay/Thermite/issues/104).
 
-The first direct-Verus platform component is a total bounded bump-allocation
-policy over fixed-size units. Its proof/codegen, three-path reproducibility,
-separate runtime consumer, symbol audit, and two negative proof tests pass. A
-verified fail-stop panic lang item and the allocator policy are now linked with
+The direct-Verus allocation layer now contains both a fixed-unit policy and a
+byte/layout adapter. The latter proves exact success/failure, alignment,
+overflow/capacity safety, and sequential non-overlap; its three reproducible
+builds, runtime edge-case suite, symbol audit, and three negative proofs pass. A
+verified fail-stop panic lang item and both allocation policies are linked with
 the registered capsule into a deterministic freestanding x86_64 ELF. The host
 actually runs its fail-stop entry, has one read/execute load segment, and passes
 negative divergence, executable-`external_body`, and writable-data tests. The
-byte/layout adapter and real `GlobalAlloc` implementation remain M0 work.
+remaining `GlobalAlloc` raw-pointer ABI needs either verifier support or an
+exact-byte refined capsule; it will not be supplied by an unverified Rust shim.
 
 The M0 x86 capsule is also live: Verus proves the exact encoding and machine-state
 transition for `mov rax,rdi; hlt`; the emitted bytes survive object conversion and
@@ -103,6 +105,7 @@ cargo run -p xtask -- m0-forge-probe
 cargo run -p xtask -- m0-forge-tamper
 cargo run -p xtask -- m0-composition-source-check
 cargo run -p xtask -- m0-verus-allocator
+cargo run -p xtask -- m0-verus-byte-allocator
 cargo run -p xtask -- m0-verus-capsule
 cargo run -p xtask -- m0-host-link
 ```

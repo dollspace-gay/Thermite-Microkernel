@@ -38,7 +38,7 @@ here.
 | G-002 | closed upstream | `forge build` was L1-only | atomic `--level l3` strict build mode |
 | G-003 | closed upstream | build manifest lacked proof/source/artifact binding | `VerifiedBuildReceiptV1` plus validation and replay |
 | G-004 | designed partition | Thermite has no raw machine/atomic/concurrency surface | direct verified Verus shell; do not add these effects to Thermite merely to reduce module count |
-| G-005 | partially closed | verified allocation policy and fail-stop panic host link and run; no byte/layout adapter or `GlobalAlloc` yet | verify real allocator adapter and repeat the final-link test |
+| G-005 | partially closed | fixed-unit and byte/layout policies plus fail-stop host link/run pass; pinned Verus cannot yet verify `Layout` inspection/raw-pointer construction in `GlobalAlloc` | verify the pointer ABI directly or as an exact-byte refined capsule, then exercise real `alloc` use |
 | G-006 | closed for M0 probe | no existing exact-byte x86 capsule system | M0 model/emitter/post-link auditor passes; extend the opcode model for each M1 operation |
 | G-007 | closed upstream for L3 builds | general Forge TV commands can report unsupported bodies | strict L3 artifact mode rejects every reachable non-`Faithful` verdict |
 | G-008 | open | Forge link exports admit only primitive scalars/unit and do not expose rich verified kernel state | same-crate composition exports with rich types and complete closure |
@@ -52,6 +52,13 @@ G-005, G-008, G-011, and G-013 block M1. G-006's M0 acceptance instance
 is closed; additional privileged operations are M1 proof work. Closed-upstream
 rows remain pinned TMK regression tests; an upstream capability is not treated
 as locally demonstrated until the M0 replay and negative-test matrix pass.
+
+The G-005 boundary was reproduced with a minimal `GlobalAlloc` probe. Unsafe
+trait methods themselves enter verification, but `core::alloc::Layout` is
+unsupported without an external type/function specification and safe creation of
+the arena raw pointer requires provenance/permission operations unavailable to
+the trait signature under the current no-vstd/no-cheating gate. No executable
+escape hatch was accepted.
 
 ## 3. Major risks
 
