@@ -50,6 +50,30 @@ capsule with those semantics or wait for verifier support. An `external_body`,
 assumed standard-library specification, or unchecked `unsafe` wrapper is not an
 acceptable bridge.
 
+The implemented M0 bridge takes the exact-byte route. Its boot arena is a
+4096-aligned 64 KiB zero-initialized region followed by an eight-byte cursor and
+an eight-byte sealed flag. A no-cheating Verus model proves the registered
+allocation bytes refine the byte/layout policy, preserve failure state, return an
+arena-derived aligned address on success, and refuse every allocation after the
+seal transition. Exact-image decoders accept only the registered allocator,
+seal, memory-operation, shim, and relocation encodings before exposing those
+semantics. The pointwise `memcpy` and `memset` models require valid ranges,
+non-overlap for `memcpy`, and the kernel's DF-clear calling invariant. Pinned
+Rust contributes only the `GlobalAlloc` calling-convention adapter; every
+emitted function body and relocation is compared against the model-owned
+skeleton and target plan before linking. Thus the unsafe Rust syntax is not
+trusted by inspection or contract:
+only the audited machine instance is accepted. Both a runnable low-address ELF
+and a kernel-code-model ELF based at `0xffffffff80000000` must link without
+undefined symbols or relocation truncation.
+
+This allocator is boot-only. `dealloc` is a no-op, while `realloc` and
+`alloc_zeroed` return null. Kernel collections must request their proved capacity
+up front and never grow. The BSP seals the arena before any AP is started; after
+that happens all cores can only observe allocation failure, and no cursor write
+is possible. General physical/object allocation uses the verified allocators in
+§1–2 rather than this Rust ABI bridge.
+
 ## 3. VSpaces
 
 A `VSpace` owns:

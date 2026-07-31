@@ -47,6 +47,7 @@ stable across reruns. The report digest was
 `da0f457d8ec6c1898979a72c4fd8898be3226ce51137d688203557a00516b1e6`.
 This policy is also present in the verified freestanding host recorded in
 `panic-host.md`. The byte/layout layer is recorded separately in
-`byte-allocator.md`. Memory permissions, the raw-pointer `GlobalAlloc` bridge,
-composition receipt, and final-image binding remain outstanding, so the report
-states `release_eligible=false`.
+`byte-allocator.md`. The later exact-byte `GlobalAlloc` bridge and boot-memory
+primitives are recorded in `platform-primitives.md`. The composition receipt and
+final-image binding remain outstanding, so the report states
+`release_eligible=false`.

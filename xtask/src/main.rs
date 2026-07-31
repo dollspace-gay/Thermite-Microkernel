@@ -1,6 +1,7 @@
 mod idl;
 mod m0_uefi;
 mod manifest;
+mod platform_primitives;
 mod uefi;
 
 use std::env;
@@ -27,6 +28,7 @@ fn run() -> Result<(), String> {
         }
         Some("m0-idl") if args.next().is_none() => m0_idl(),
         Some("m0-manifest") if args.next().is_none() => m0_manifest(),
+        Some("m0-platform-primitives") if args.next().is_none() => platform_primitives::run(),
         Some("m0-uefi") if args.next().is_none() => m0_uefi::run(),
         Some("m0-forge-probe") if args.next().is_none() => m0_forge_probe(),
         Some("m0-forge-tamper") if args.next().is_none() => m0_forge_tamper(),
@@ -36,7 +38,7 @@ fn run() -> Result<(), String> {
         Some("m0-verus-capsule") if args.next().is_none() => m0_verus_capsule(),
         Some("toolchain-check") if args.next().is_none() => toolchain_check(),
         _ => Err(
-            "usage: cargo run -p xtask -- <toolchain-check|m0-idl|m0-manifest|m0-uefi|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-verus-allocator|m0-verus-byte-allocator|m0-verus-capsule|m0-host-link>"
+            "usage: cargo run -p xtask -- <toolchain-check|m0-idl|m0-manifest|m0-uefi|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-verus-allocator|m0-verus-byte-allocator|m0-verus-capsule|m0-platform-primitives|m0-host-link>"
                 .to_string(),
         ),
     }
@@ -1408,7 +1410,7 @@ fn hex_encode(bytes: &[u8]) -> String {
 }
 
 fn hex_decode(value: &str) -> Result<Vec<u8>, String> {
-    if value.len() % 2 != 0 {
+    if !value.len().is_multiple_of(2) {
         return Err("hex value has odd length".to_string());
     }
     value
@@ -3502,6 +3504,16 @@ fn canonical_json(bytes: &[u8], label: &str) -> Result<Vec<u8>, String> {
 }
 
 fn direct_verus_command(verus: &Path, work: &Path, source_name: &str, compile: bool) -> Command {
+    direct_verus_command_with_rlimit(verus, work, source_name, compile, "20")
+}
+
+fn direct_verus_command_with_rlimit(
+    verus: &Path,
+    work: &Path,
+    source_name: &str,
+    compile: bool,
+    rlimit: &str,
+) -> Command {
     let mut command = Command::new(verus);
     command
         .current_dir(work)
@@ -3511,7 +3523,7 @@ fn direct_verus_command(verus: &Path, work: &Path, source_name: &str, compile: b
         command.arg("--compile");
     }
     command
-        .args(["--rlimit", "20"])
+        .args(["--rlimit", rlimit])
         .args(["--smt-option", "smt.random_seed=1"])
         .args(["-C", "panic=abort"])
         .args(["-C", "overflow-checks=off"])

@@ -42,9 +42,8 @@ report_sha256=65294ee5cd4aa4874f96fbc19839f993b10ad2907f2f7185b6f950e4cd99b751
 ```
 
 The artifact is also retained by the freestanding host link in `panic-host.md`.
-It does not yet implement `core::alloc::GlobalAlloc`: pinned Verus accepts the
-unsafe trait method bodies for verification but cannot inspect `Layout` or create
-the arena raw pointer with provenance/permission evidence under the current
-no-vstd/no-cheating gate. The remaining ABI bridge must verify directly or be an
-exact-byte refined capsule. The report therefore states
-`release_eligible=false`.
+Pinned Verus cannot directly inspect `Layout` or construct the arena raw pointer
+inside the trait signature, so the later `platform-primitives.md` checkpoint
+closes that ABI with a registered exact-byte Verus model and a byte-and-relocation
+audited Rust adapter. This earlier policy report remains
+`release_eligible=false` on its own.

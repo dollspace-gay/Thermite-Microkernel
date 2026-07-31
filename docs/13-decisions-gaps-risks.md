@@ -40,28 +40,31 @@ here.
 | G-002 | closed upstream | `forge build` was L1-only | atomic `--level l3` strict build mode |
 | G-003 | closed upstream | build manifest lacked proof/source/artifact binding | `VerifiedBuildReceiptV1` plus validation and replay |
 | G-004 | designed partition | Thermite has no raw machine/atomic/concurrency surface | direct verified Verus shell; do not add these effects to Thermite merely to reduce module count |
-| G-005 | partially closed | fixed-unit and byte/layout policies plus fail-stop host link/run pass; pinned Verus cannot yet verify `Layout` inspection/raw-pointer construction in `GlobalAlloc` | verify the pointer ABI directly or as an exact-byte refined capsule, then exercise real `alloc` use |
+| G-005 | closed locally | exact-image Verus decoders now own the boot-arena allocator, sealing, `memcpy`, `memset`, and the complete `GlobalAlloc` shim shape/relocation plan; real hosted `Box`/`Vec` plus reproducible low and higher-half static links pass | preserve the byte/model/source pins and bind the accepted component into the final receipted link |
 | G-006 | closed for M0 probe | no existing exact-byte x86 capsule system | M0 model/emitter/post-link auditor passes; extend the opcode model for each M1 operation |
 | G-007 | closed upstream for L3 builds | general Forge TV commands can report unsupported bodies | strict L3 artifact mode rejects every reachable non-`Faithful` verdict |
-| G-008 | open | Forge link exports admit only primitive scalars/unit and do not expose rich verified kernel state | same-crate composition exports with rich types and complete closure |
+| G-008 | shipped upstream, local replay blocked | Forge now emits same-crate rich-state composition bundles, but the M0 multi-field-enum case does not replay to the bound artifact digest at `57848f3e` | make rich-state artifact codegen deterministic, then validate and replay the local fixture |
 | G-009 | accepted residual TCB | final rustc/LLVM correctness is trusted | record exact TCB; later add codegen validation if feasible |
 | G-010 | closed upstream | L3 verification and kernel codegen used different lowerings | compile the same canonical Verus body with `--no-cheating --compile` |
 | G-011 | open | standalone Forge receipt does not by itself prove a direct-Verus consumer's calls or final-image selection | combined exact-source verification/codegen receipt and receipted final-link allowlist |
-| G-012 | closed locally at pinned commit `902f2924`; #103 pending merge | L3 receipt previously recorded ambient rustc 1.96 although Verus emits an rlib with rustc 1.95 metadata | receipt now binds rustc/sysroot/LLVM closure; selected consumer links and incompatible host rustc is rejected |
-| G-013 | open upstream (#104) | Forge has no exact-source rich-state Thermite/direct-Verus composition build or receipt | implement and replay the M0 rich-state composition probe without a post-verification adapter |
+| G-012 | closed locally and upstream; #103 closed by merged PR #105 | L3 receipt previously recorded ambient rustc 1.96 although Verus emits an rlib with rustc 1.95 metadata | receipt binds rustc/sysroot/LLVM closure; selected consumer links and incompatible host rustc is rejected |
+| G-013 | partially closed upstream (#104 reopened) | Forge now has an exact-source rich-state composition build and receipt, but replay of the M0 multi-field-enum bundle is nondeterministic | reproduce the receipt-bound artifact exactly and pass the M0 build/validate/replay/negative matrix |
 
-G-005, G-008, G-011, and G-013 block M1. G-006's M0 acceptance instance
+G-008, G-011, and G-013 block M1. G-005 is a required input to the G-011
+final-link closure. G-006's M0 acceptance instance
 is closed, including the exact-byte UEFI entry/return probe and real OVMF
 TCG/KVM boot; additional privileged operations are M1 proof work. Closed-upstream
 rows remain pinned TMK regression tests; an upstream capability is not treated
 as locally demonstrated until the M0 replay and negative-test matrix pass.
 
-The G-005 boundary was reproduced with a minimal `GlobalAlloc` probe. Unsafe
-trait methods themselves enter verification, but `core::alloc::Layout` is
-unsupported without an external type/function specification and safe creation of
-the arena raw pointer requires provenance/permission operations unavailable to
-the trait signature under the current no-vstd/no-cheating gate. No executable
-escape hatch was accepted.
+G-005 was closed without an executable escape hatch. A direct Verus model
+registers and decodes the exact allocation, seal, `memcpy`, and `memset`
+instruction bytes, the arena state machine, and the complete Rust adapter
+body/relocation plan. The build extracts the real rustc object, rejects any byte
+or relocation drift, and
+then runs hosted and freestanding consumers through the actual `GlobalAlloc`
+ABI. The remaining trust is the already-declared rustc/LLVM codegen boundary,
+not an assumed allocator contract.
 
 ## 3. Major risks
 

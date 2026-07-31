@@ -4,8 +4,9 @@ Date: 2026-07-31
 
 Status: **standalone release gate accepted against pinned Thermite commit
 `902f29242c068190320c1e1e1f702fb933e0dda6`.** Thermite issue
-[#103](https://github.com/dollspace-gay/Thermite/issues/103) remains open pending
-merge, but TMK pins and validates the immutable fix commit.
+[#103](https://github.com/dollspace-gay/Thermite/issues/103) was subsequently
+closed by merged PR #105; TMK continues to pin and validate the immutable fix
+commit until its coordinated composition/toolchain repin.
 
 The probe at `thermite/core/probe.th` was processed through:
 

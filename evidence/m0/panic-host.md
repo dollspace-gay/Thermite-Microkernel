@@ -64,7 +64,7 @@ report.txt       fa55072bd017d57a28e76b6d3a4fcdb3045317b5cfd10e4c834048ac15937b0
 ```
 
 The linked ELF is a component gate, not a boot image: the panic loop does not yet
-invoke the HLT capsule, the verified byte/layout policy is not yet connected to
-Rust's raw-pointer `GlobalAlloc` ABI, and Forge/composition receipts, the release
-manifest, PE/COFF UEFI loader, and QEMU boot observation remain outstanding.
-Accordingly the report states `release_eligible=false`.
+invoke the HLT capsule. The later `platform-primitives.md` checkpoint connects
+the verified allocation semantics to Rust's raw-pointer `GlobalAlloc` ABI.
+Composition receipt and final-link selection remain outstanding, so this report
+states `release_eligible=false`.

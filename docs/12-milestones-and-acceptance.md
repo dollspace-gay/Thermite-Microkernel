@@ -39,8 +39,17 @@ The kernel IDL generator deliverable is locally demonstrated: strict schema and
 layout validation, byte-identical three-path C/Rust generation, hosted C/Rust and
 freestanding Rust compilation, cross-language runtime agreement, and five
 negative cases pass. See `evidence/m0/kernel-idl.md`. This does not close M0 while
-the composition, final manifest/link, and raw-pointer allocator bridge remain
-open.
+the composition and final manifest/link remain open.
+
+The platform-primitives checkpoint closes the raw-pointer allocator bridge with
+a registered exact-byte Verus model and a pinned Rust ABI adapter. It proves the
+64 KiB boot arena, alignment and failure semantics, sealing, `memcpy`, and
+`memset`; connects exact images to those semantics; audits every adapter body and
+relocation; runs real `Box` and `Vec` operations; and reproducibly links both
+low-address and higher-half static consumers with no unresolved symbols.
+Unsupported growth and zeroed allocation fail with null, and allocation fails
+after sealing. See `evidence/m0/platform-primitives.md`. This is a component
+gate, not the final composition receipt or release link.
 
 The release manifest schema deliverable is also locally demonstrated. A clean
 development run binds and replays current M0 artifacts, signs the canonical

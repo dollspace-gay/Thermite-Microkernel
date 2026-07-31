@@ -74,24 +74,32 @@ Thermite commit `902f29242c068190320c1e1e1f702fb933e0dda6`. Forge records both
 ambient Rust 1.96 and the authoritative Verus-selected Rust 1.95 codegen closure;
 TMK selects the consumer compiler from the bound evidence, links and executes it,
 and confirms that the incompatible host compiler is rejected. Upstream issue
-[#103](https://github.com/dollspace-gay/Thermite/issues/103) remains open pending
-merge, but the immutable fix commit passes the local release gate.
+[#103](https://github.com/dollspace-gay/Thermite/issues/103) is closed by merged
+PR #105; TMK retains the already accepted immutable fix pin until the separate
+composition replay gate permits a coordinated repin.
 
-The rich-state acceptance transition is also implemented and passes Forge L3,
-audit, and mutation-battery checks. Its honest same-crate Thermite/direct-Verus
-composition build remains blocked on Thermite
-[#104](https://github.com/dollspace-gay/Thermite/issues/104).
+The rich-state acceptance transition and its direct-Verus shell are implemented.
+Thermite `main` now provides the exact-source composition build and receipt from
+[#104](https://github.com/dollspace-gay/Thermite/issues/104). The TMK multi-field
+action probe builds, validates, executes through a hosted consumer, keeps the rich
+root private, and final-links freestanding with the proved TPL primitives. Its
+three-build/replay gate exposed nondeterministic Verus-generated rlib metadata,
+so #104 is reopened and TMK has not repinned Forge or accepted the composition
+receipt yet.
 
-The direct-Verus allocation layer now contains both a fixed-unit policy and a
-byte/layout adapter. The latter proves exact success/failure, alignment,
-overflow/capacity safety, and sequential non-overlap; its three reproducible
-builds, runtime edge-case suite, symbol audit, and three negative proofs pass. A
-verified fail-stop panic lang item and both allocation policies are linked with
-the registered capsule into a deterministic freestanding x86_64 ELF. The host
-actually runs its fail-stop entry, has one read/execute load segment, and passes
-negative divergence, executable-`external_body`, and writable-data tests. The
-remaining `GlobalAlloc` raw-pointer ABI needs either verifier support or an
-exact-byte refined capsule; it will not be supplied by an unverified Rust shim.
+The direct-Verus allocation layer now closes the raw-pointer ABI as well as the
+fixed-unit and byte/layout policies. A 39-obligation Verus machine model owns the
+111-byte bump allocator, 12-byte seal operation, and exact `memcpy`/`memset`
+encodings, with exact-image decoders connecting the registered bytes and shim
+relocations to their semantics. A pinned minimal Rust `GlobalAlloc` ABI adapter
+is admitted only when its complete function skeletons, relocation targets, arena
+size/alignment, and undefined-symbol set match the registered model. Three model
+rlibs, adapter rlibs, and static links reproduce byte-for-byte. A hosted consumer actually runs
+`Box`, bounded-capacity `Vec`, rejected alignment, post-seal failure, copy, and
+set operations; fully static low-address and `0xffffffff80000000` higher-half
+consumers final-link reproducibly with no unresolved symbol. The boot allocator
+deliberately returns null for `realloc` and `alloc_zeroed` and is sealed before
+AP startup.
 
 The native ABI now has a strict single-source IDL generator. It emits C11 and
 `repr(C)` Rust definitions with compile-time layout assertions, reproduces all
@@ -139,6 +147,7 @@ cargo run -p xtask -- m0-composition-source-check
 cargo run -p xtask -- m0-verus-allocator
 cargo run -p xtask -- m0-verus-byte-allocator
 cargo run -p xtask -- m0-verus-capsule
+cargo run -p xtask -- m0-platform-primitives
 cargo run -p xtask -- m0-host-link
 ```
 

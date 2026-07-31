@@ -30,6 +30,19 @@ struct StructDef {
     fields: Vec<Field>,
 }
 
+#[derive(Clone, Copy)]
+struct RenderInput<'a> {
+    major: u64,
+    minor: u64,
+    magic: u64,
+    limits: &'a BTreeMap<String, u64>,
+    syscalls: &'a [(String, u64)],
+    statuses: &'a [(String, u64)],
+    operations: &'a [(String, String, u64)],
+    bitfields: &'a [BitFieldDef],
+    structs: &'a [StructDef],
+}
+
 pub fn generate_file(source: &Path, output: &Path) -> Result<GeneratedIdl, String> {
     let text = fs::read_to_string(source)
         .map_err(|error| format!("read IDL {}: {error}", source.display()))?;
@@ -182,28 +195,19 @@ pub fn generate_value(root: &Value) -> Result<GeneratedIdl, String> {
         );
     }
 
-    let rust = render_rust(
+    let render_input = RenderInput {
         major,
         minor,
-        utcb_magic,
-        &limit_values,
-        &syscalls,
-        &statuses,
-        &operations,
-        &bitfields,
-        &structs,
-    );
-    let c = render_c(
-        major,
-        minor,
-        utcb_magic,
-        &limit_values,
-        &syscalls,
-        &statuses,
-        &operations,
-        &bitfields,
-        &structs,
-    );
+        magic: utcb_magic,
+        limits: &limit_values,
+        syscalls: &syscalls,
+        statuses: &statuses,
+        operations: &operations,
+        bitfields: &bitfields,
+        structs: &structs,
+    };
+    let rust = render_rust(render_input);
+    let c = render_c(render_input);
     let canonical = format!(
         "{}\n",
         serde_json::to_string_pretty(&Value::Object(root.clone()))
@@ -472,17 +476,18 @@ fn structs(value: &Value) -> Result<Vec<StructDef>, String> {
     Ok(result)
 }
 
-fn render_rust(
-    major: u64,
-    minor: u64,
-    magic: u64,
-    limits: &BTreeMap<String, u64>,
-    syscalls: &[(String, u64)],
-    statuses: &[(String, u64)],
-    operations: &[(String, String, u64)],
-    bitfields: &[BitFieldDef],
-    structs: &[StructDef],
-) -> String {
+fn render_rust(input: RenderInput<'_>) -> String {
+    let RenderInput {
+        major,
+        minor,
+        magic,
+        limits,
+        syscalls,
+        statuses,
+        operations,
+        bitfields,
+        structs,
+    } = input;
     let mut out = String::new();
     writeln!(
         out,
@@ -601,17 +606,18 @@ fn render_rust_bitfields(out: &mut String, bitfields: &[BitFieldDef]) {
     }
 }
 
-fn render_c(
-    major: u64,
-    minor: u64,
-    magic: u64,
-    limits: &BTreeMap<String, u64>,
-    syscalls: &[(String, u64)],
-    statuses: &[(String, u64)],
-    operations: &[(String, String, u64)],
-    bitfields: &[BitFieldDef],
-    structs: &[StructDef],
-) -> String {
+fn render_c(input: RenderInput<'_>) -> String {
+    let RenderInput {
+        major,
+        minor,
+        magic,
+        limits,
+        syscalls,
+        statuses,
+        operations,
+        bitfields,
+        structs,
+    } = input;
     let mut out = String::new();
     writeln!(
         out,

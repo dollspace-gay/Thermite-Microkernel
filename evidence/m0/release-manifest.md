@@ -58,6 +58,7 @@ report_sha256=71868369de80a909146a434f450cea85514c91002d866e2b01ceabe7781f7a57
 
 The generated manifest accurately states `release_eligible=false`: it has a boot
 image and its proof/test bindings, but no rich-state composition receipt or
-receipted final-link allowlist, and the raw-pointer allocator ABI remains open.
-The schema deliverable is complete, but a signed development manifest is not a
+receipted final-link allowlist. The raw-pointer allocator ABI was closed after
+this manifest checkpoint and is not yet bound into this signed input set. The
+schema deliverable is complete, but a signed development manifest is not a
 release artifact.
