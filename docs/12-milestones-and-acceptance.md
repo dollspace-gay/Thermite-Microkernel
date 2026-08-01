@@ -166,14 +166,21 @@ vector pushes, padding, and 256 relative branches to one common-entry address.
 Three model, runtime, and linked artifacts reproduce byte-for-byte; ten negative
 gates fail. See [M1 exception-stub table](../evidence/m1/exception-stub-table.md).
 
+The exact common exception-entry image is a ninth accepted M1 subcomponent. Its
+direct Verus model proves 27 obligations for the 105-byte register-save, CR2
+capture, conditional `SWAPGS`, `CLD`, aligned dispatcher call, register restore,
+normalized-frame disposal, and `IRETQ` sequence. Three model, runtime, and linked
+artifacts reproduce byte-for-byte; eight negative gates fail. See
+[M1 common exception-entry capsule](../evidence/m1/exception-common-capsule.md).
+
 This status does not close M1. The raw `BootInfo` decoder remains fail-closed
 pending Thermite [#108](https://github.com/dollspace-gay/Thermite/issues/108), and
 the UEFI call gateway, raw map decoding and real `ExitBootServices` execution,
 general page-table construction/physical placement, the verified CR3 call site
 and hardware execution, descriptor-register loading and entry stubs, BSP entry
-state, live descriptor-install execution, interrupt/timer path, QEMU boots, and
-the common exception-entry/return body, final signed `M1_OK` gate, and remaining
-hardware execution remain to be implemented.
+state, live descriptor-install execution, interrupt/timer path, QEMU boots, the
+exception dispatcher and joined entry path, final signed `M1_OK` gate, and
+remaining hardware execution remain to be implemented.
 
 Deliver:
 

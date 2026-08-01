@@ -148,6 +148,17 @@ runtime, and linked artifacts reproduce, with 20 Verus obligations and ten
 negative gates. The common-entry address is intentionally bound without a body
 until the next checkpoint, so no exception-delivery claim is made yet.
 
+The M1 common-exception checkpoint supplies that destination as an exact
+105-byte capsule at `0xffffffff80011000`. Its direct Verus machine model proves
+27 obligations covering all general-register saves/restores, immediate CR2
+capture, conditional `SWAPGS`, dispatcher stack alignment, `CLD`, validated
+selectors/RFLAGS/canonical return state, normalized-frame disposal, and
+`IRETQ`. Three model, runtime, and linked artifacts reproduce byte-for-byte and
+eight semantic/link/proof mutations fail. The dispatcher at
+`0xffffffff80011100` remains a registered returning seam rather than an
+implemented body, and neither exception delivery nor this capsule has executed
+in the boot VM yet.
+
 The standalone probe's toolchain-binding gate is locally closed by pinned
 Thermite `v0.0.2` commit `845d684f00e829491ee4c537818fba2689bcaefc`. Forge records both
 ambient Rust 1.96 and the authoritative Verus-selected Rust 1.95 codegen closure;

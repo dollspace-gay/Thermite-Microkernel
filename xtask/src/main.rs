@@ -6,6 +6,7 @@ mod m1_cr3;
 mod m1_descriptor_install;
 mod m1_descriptors;
 mod m1_elf;
+mod m1_exception_common;
 mod m1_exception_stubs;
 mod m1_firmware;
 mod m1_page_tables;
@@ -53,6 +54,7 @@ fn run() -> Result<(), String> {
         Some("m1-descriptor-install") if args.next().is_none() => m1_descriptor_install::run(),
         Some("m1-descriptors") if args.next().is_none() => m1_descriptors::run(),
         Some("m1-exception-stubs") if args.next().is_none() => m1_exception_stubs::run(),
+        Some("m1-exception-common") if args.next().is_none() => m1_exception_common::run(),
         Some("m0-verus-capsule") if args.next().is_none() => m0_verus_capsule(),
         Some("toolchain-check") if args.next().is_none() => toolchain_check(),
         _ => Err(

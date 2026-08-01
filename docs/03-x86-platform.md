@@ -359,6 +359,42 @@ yet save registers, capture CR2, create the common trap frame, dispatch, return
 with `IRETQ`, or execute through the IDT on hardware. Those are the next entry-
 capsule and BSP integration gates.
 
+### 7.2 Implemented common-exception entry capsule checkpoint
+
+The common target at `0xffffffff80011000` is now backed by an exact 105-byte,
+relocation-free instruction image. It saves the original RAX before reading
+CR2, captures CR2 before any dispatcher work, saves every remaining general
+register, inspects the saved CS, performs `SWAPGS` only for a user-originated
+frame, executes `CLD`, passes the normalized frame in RDI, preserves that frame
+pointer in callee-saved RBX, aligns RSP to 16 bytes, and calls the registered
+dispatcher seam at `0xffffffff80011100`. On a returning dispatch it restores
+the original frame stack, conditionally swaps GS back, restores all registers,
+discards the captured CR2/vector/error words, and returns through `IRETQ`.
+
+The direct Verus machine model proves 27 obligations over both user and kernel
+origins. Its caller contract requires CPL0, interrupt-gate IF clearing, a
+normalized frame, 151 writable/readable bytes below the entry RSP, canonical
+resume RIP/RSP, the exact kernel/user selectors, a restricted architectural
+RFLAGS mask with bit 1 set, a registered returning dispatcher that preserves
+RBX and the frame, and GS mode consistent with the interrupted privilege level.
+The user consumer observes two `SWAPGS` operations; the kernel consumer observes
+none. Both prove that the dispatcher sees DF clear, while `IRETQ` restores the
+validated interrupted RFLAGS, including its original DF value.
+
+`cargo run -p xtask -- m1-exception-common` performs three proof/codegen runs,
+three separately executed consumers, and three high-half links. It requires
+exact 105-byte identity, one executable section, no relocations, exactly two
+conditional `SWAPGS` instructions, the registered dispatcher call, and the
+final `IRETQ`; eight byte, section, CR2, register, GS, DF, resume-state, and
+proof-escape negatives fail. See
+[M1 common exception-entry capsule](../evidence/m1/exception-common-capsule.md).
+
+This checkpoint models only a dispatcher that returns while preserving the
+agreed frame/RBX convention. The dispatcher body, fatal non-returning paths,
+the joined stub/common/dispatcher link, concrete guarded-stack ownership, GS
+base initialization, and live IDT delivery remain open. No privileged execution
+claim is made by host-side model and post-link evidence.
+
 SMAP is enabled. User memory is accessed only by proved copy primitives that
 bound the range, validate the VSpace mapping epoch, bracket access with
 `STAC`/`CLAC`, and return a partial-copy result on fault.
