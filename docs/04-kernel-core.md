@@ -219,6 +219,27 @@ must still prove the RDI range before creating the slice, snapshot per-CPU/curre
 thread context under the kernel lock, and execute the returned action. See
 [M1 exception-frame bridge](../evidence/m1/exception-frame-bridge.md).
 
+### 8.3 Implemented dispatcher-front scalar ABI
+
+The platform side now has an accepted exact 93-byte front end for the raw RDI
+frame pointer. Under explicit readable-frame and returning-scalar obligations,
+it performs the conditional six-word kernel/eight-word user reads and transports
+CR2, error, RIP, RFLAGS, optional user RSP, vector, CS, and SS through six SysV
+scalars. The direct Verus model proves the frame and RBX are unchanged, RSP
+advances exactly eight bytes over the inherited return address, and the tail
+target is exactly `0xffffffff80011200`. The scalar inherits the correct
+dispatcher-entry SysV alignment and returns through the common-entry return
+address without another stack write. The readable return target is fixed to the
+common-entry continuation at `0xffffffff80011038`. Three runtime consumers and
+three fixed-address links reproduce; thirteen artifact/proof negatives fail. See
+[M1 dispatcher-front capsule](../evidence/m1/exception-dispatcher-front-capsule.md).
+
+This is not yet the platform-to-core transition itself. The next verified
+scalar body must join these values to the safe decoder and the locked per-CPU/
+current-thread context, then execute the selected action or enter a proved
+non-returning fail-stop path. The common-entry caller must also discharge the
+front end's concrete frame-memory obligations in one composed proof.
+
 ## 9. Transition atomicity
 
 Every syscall follows:

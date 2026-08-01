@@ -200,13 +200,24 @@ bundles reproduce and replay, 12 runtime layouts execute, two freestanding links
 pass, and seven proof/receipt/dependency negatives fail. See
 [M1 exception-frame bridge](../evidence/m1/exception-frame-bridge.md).
 
+The exact dispatcher-front image is a thirteenth accepted M1 subcomponent. Its
+direct Verus model proves 22 obligations for the 93-byte conditional frame-read
+and six-scalar SysV packing sequence at `0xffffffff80011100`, including six
+kernel/eight user reads, scalar target identity, frame immutability, and
+returning-frame/RBX preservation with exact continuation/RSP state. Three
+models, executed consumers, emitted images, and fixed-address links reproduce
+byte-for-byte; eleven malformed machine states and thirteen artifact/proof
+mutations are rejected. See
+[M1 dispatcher-front capsule](../evidence/m1/exception-dispatcher-front-capsule.md).
+
 This status does not close M1. Thermite PR #109 still requires upstream merge and
 a coordinated project-wide main-branch repin. The UEFI call gateway, raw UEFI
 descriptor decoding and real `ExitBootServices` execution,
 general page-table construction/physical placement, the verified CR3 call site
 and hardware execution, descriptor-register loading and entry stubs, BSP entry
 state, live descriptor-install execution, interrupt/timer path, QEMU boots, the
-raw frame-pointer ownership, concrete dispatcher context/action bridge and
+joined common-entry proof of dispatcher frame-pointer ownership, concrete
+dispatcher scalar/context/action bridge and
 joined entry path, final signed `M1_OK`
 gate, and
 remaining hardware execution remain to be implemented.

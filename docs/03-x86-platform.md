@@ -487,6 +487,37 @@ and can be converted to exactly 21 or 23 readable words before calling it. The
 current-thread/context snapshot and action executor also remain absent, so this
 checkpoint still makes no live-dispatch claim.
 
+### 7.5 Implemented raw dispatcher-front capsule
+
+The first concrete dispatcher image now occupies `0xffffffff80011100`. The
+exact 93-byte capsule keeps the raw RDI frame address in R10, loads CR2, error,
+RIP, and RFLAGS into the first four SysV arguments, and loads vector and CS for
+packed metadata. It tests the saved CS privilege bits before touching the
+same-ring-absent tail. A user frame additionally supplies user RSP in R8 and SS
+in metadata; a kernel frame receives R8 zero and no tail read. R9 is
+`vector | CS << 32 | SS << 48`, with the SS field zero on the kernel path. The
+capsule tail-jumps to the registered scalar seam at `0xffffffff80011200`; that
+function inherits the dispatcher-entry SysV stack and returns through the
+common-entry call's existing return address. The front end writes neither frame
+nor stack memory and touches no callee-saved register.
+
+The direct Verus model proves 22 whole-crate obligations under explicit CPL0,
+IF-clear, DF-clear, RDI/base, readable-frame, exact readable common-continuation
+return address, and registered returning scalar requirements. The
+`m1-exception-dispatcher-front` xtask performs three proof/codegen builds,
+executes three consumers over the user/kernel paths and eleven rejected states,
+emits and fixed-address-links three identical images, and audits exact 93-byte
+post-link identity, one executable section, no relocation, every frame load,
+and the one scalar tail-jump shape with no push/pop/call/return. Thirteen
+artifact and proof mutations fail. See
+[M1 dispatcher-front capsule](../evidence/m1/exception-dispatcher-front-capsule.md).
+
+This closes exact raw-pointer dereference and scalar ABI refinement only when
+the modeled caller obligations hold. The common-entry and dispatcher models are
+not yet joined to prove that concrete stack ownership; the scalar function,
+safe-decoder/context join, returning/fail-stop split, machine-action executor,
+combined image, and live hardware delivery remain open.
+
 SMAP is enabled. User memory is accessed only by proved copy primitives that
 bound the range, validate the VSpace mapping epoch, bracket access with
 `STAC`/`CLAC`, and return a partial-copy result on fault.
