@@ -1,7 +1,7 @@
 # M1 firmware memory-map and exit policy
 
-Status: **accepted M1 subcomponent** against Thermite `v0.0.2` commit
-`845d684f00e829491ee4c537818fba2689bcaefc`. This is a verified policy over
+Status: **accepted M1 subcomponent** against public Thermite `main` commit
+`b8dc3947f504454775aa70977d8bda5da677d2af`. This is a verified policy over
 normalized firmware responses, not yet a complete UEFI loader or M1 exit gate.
 
 ## Accepted implementation
@@ -13,14 +13,19 @@ normalized firmware responses, not yet a complete UEFI loader or M1 exit gate.
   nonempty, sorted, non-overlapping physical ranges below the 52-bit physical
   limit; validates normalized cache/runtime metadata; and maps UEFI types to
   reserved, loader-reclaimable, boot-reclaimable, usable, bad, ACPI-reclaimable,
-  ACPI-NVS, MMIO, and persistent classes. Completion requires usable memory.
+  ACPI-NVS, MMIO, and persistent classes. UEFI 2.11 type 15 unaccepted memory
+  remains reserved. Runtime code/data (types 5 and 6) require the runtime bit;
+  types 11 and 12 may additionally carry it for runtime MMIO/MMIO-port ranges,
+  while other types may not.
+  Completion requires usable memory.
 - `firmware_exit_step` allows at most eight map calls and four invalid-key exit
   retries. `BUFFER_TOO_SMALL` grows capacity to `required + 512`, enough for two
   maximum-size descriptors. A successful map binds its key and count; an invalid
   key clears them and forces reacquisition; only a successful exit can reach the
   terminal state.
 
-The direct-Verus shell runs a good three-range normalization and a real policy
+The direct-Verus shell runs a good three-range normalization, including runtime
+MMIO, and a real policy
 trace of buffer resize, key 77 rejection, key 78 reacquisition, successful exit,
 and finish. A separate Rust crate calls the emitted observation.
 
@@ -61,13 +66,13 @@ component_verified=true
 release_eligible=false
 receipt_validated=true
 receipt_replayed=true
-source_sha256=22188bc9c61f45255daf74e828bd0de41e2068d35ffaf8ca8c178279d14338c5
-shell_sha256=df581c96cb83e0678559afa409a89748a0f9e7f99be1c02273778d4df7b2a720
-combined_source_sha256=51cbb8baabedc18fc205232df3a3bb9e543efc917f75c2cc91a23915e276cbf6
-receipt_sha256=b2c8981886ae8a3c578386d79ef5d442bb520cec948bf73bcdda0f5655b9c07c
-binding_sha256=e904118bbbd580d37ca051463b2dee7972710818e72535fb1751c13d366e02b1
-artifact_sha256=4b4a490c81634ee0e5502bd5d5b7fabd319a69d2227f6abbc13caf265efc0dba
-consumer_sha256=409bb6840d3c5f8ab7b079775f101b5dd3a737f2eaad83682f451ed896e9bff6
+source_sha256=48bf69891a07fa9888108d04df16c3eb83bfbe69a07f6b8d9fa4180f14c2668f
+shell_sha256=61539b9aba1a2e0209a85f0c192168a90989a3e3456e29befb65600143d81de5
+combined_source_sha256=19e5aa8f270d846c177775198e53acc6f52d56fe31e954afcc0a0d8c596899dc
+receipt_sha256=21cda9cd0ed80057ccefaef153197a53416acee474c283bb9cace2cbbd0670a3
+binding_sha256=716569411ef00beb835ee12104d218e8a620ad005eca674727824b6a8bef8d35
+artifact_sha256=9915fde3e088f92e9d6c380498016d86aa7245f19644476c5b08c33894b67f2f
+consumer_sha256=07daf9bdba76037b0d9117efb18fb4c38dc8598a7972e62672fc2c881196d388
 reproducibility_builds=3
 runtime_marker=M1_FIRMWARE_POLICY_OK observation=255
 ```
@@ -76,12 +81,11 @@ Generated bundles and logs remain under ignored `build/m1-firmware/`.
 
 ## Remaining boundary
 
-The accepted [initial UEFI boot-services gateway](uefi-boot-services-gateway.md)
-now validates registered table prefixes and raw pointers, executes the real
-null-buffer `GetMemoryMap` size probe under OVMF, and checks its raw status and
-required size. It does not yet allocate a map buffer or connect raw descriptor
-bytes to these normalized policy events. The content-preserving read mechanism
-is demonstrated by the separate [BootInfo decoder](bootinfo-decoder.md), but the
-raw UEFI descriptor decoder itself remains to be written. Actual OVMF map
-growth/key invalidation, `ExitBootServices`, page installation, and final `M1_OK`
-are not claimed by either checkpoint.
+The accepted [raw UEFI memory-map checkpoint](firmware-raw-memory-map.md) now
+allocates a bounded loader-owned buffer, performs the second real
+`GetMemoryMap`, validates every raw descriptor, observes the map key, composes a
+content-preserving decoder with this policy, and frees the buffer on every
+post-allocation path. Because `FreePool` changes the firmware map, this slice
+does not retain its observed key or claim `ExitBootServices`. Bounded final-map
+reacquisition without a subsequent allocation/free, real `ExitBootServices`,
+page installation, and final `M1_OK` remain open.

@@ -114,10 +114,12 @@ fn memory_map_step(state: MemoryMapState, event: MemoryMapEvent)
         physical_start <= 0x0010_0000_0000_0000 - page_count * 4096 &&
         (state.accepted_descriptors == 0 ||
          physical_start >= state.last_end) &&
-        memory_type <= 14 && cache_class <= 5 && attributes_known &&
+        memory_type <= 15 && cache_class <= 5 && attributes_known &&
         !((memory_type == 7 || memory_type == 11 || memory_type == 12) &&
           cache_class == 0) &&
-        runtime == (memory_type == 5 || memory_type == 6) &&
+        (!(memory_type == 5 || memory_type == 6) || runtime) &&
+        (!runtime || memory_type == 5 || memory_type == 6 ||
+         memory_type == 11 || memory_type == 12) &&
         (memory_type != 7 ||
          page_count <= 1099511627776 - state.usable_pages) &&
         kind == if memory_type == 1 || memory_type == 2 {
@@ -170,10 +172,12 @@ fn memory_map_step(state: MemoryMapState, event: MemoryMapEvent)
                 physical_start < state.last_end) {
               12 as u32
             } else {
-              if memory_type > 14 || cache_class > 5 || !attributes_known ||
+              if memory_type > 15 || cache_class > 5 || !attributes_known ||
                  ((memory_type == 7 || memory_type == 11 ||
                    memory_type == 12) && cache_class == 0) ||
-                 runtime != (memory_type == 5 || memory_type == 6) ||
+                 ((memory_type == 5 || memory_type == 6) && !runtime) ||
+                 (runtime && memory_type != 5 && memory_type != 6 &&
+                  memory_type != 11 && memory_type != 12) ||
                  (memory_type == 7 &&
                   page_count > 1099511627776 - state.usable_pages) {
                 13 as u32
@@ -252,10 +256,12 @@ fn memory_map_step(state: MemoryMapState, event: MemoryMapEvent)
               physical_start < state.last_end) {
             (state, MemoryMapAction::Reject { code: 12 })
           } else {
-            if memory_type > 14 || cache_class > 5 || !attributes_known ||
+            if memory_type > 15 || cache_class > 5 || !attributes_known ||
                ((memory_type == 7 || memory_type == 11 ||
                  memory_type == 12) && cache_class == 0) ||
-               runtime != (memory_type == 5 || memory_type == 6) ||
+               ((memory_type == 5 || memory_type == 6) && !runtime) ||
+               (runtime && memory_type != 5 && memory_type != 6 &&
+                memory_type != 11 && memory_type != 12) ||
                (memory_type == 7 &&
                 page_count > 1099511627776 - state.usable_pages) {
               (state, MemoryMapAction::Reject { code: 13 })

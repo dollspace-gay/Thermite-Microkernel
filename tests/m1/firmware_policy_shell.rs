@@ -74,7 +74,7 @@ pub fn firmware_policy_observation() -> (result: u64)
     assert(0x20000u64 <= 0x0010_0000_0000_0000u64 - 4096u64);
     assert(0u64 <= 0x0010_0000_0000_0000u64 - 1u64 * 4096u64);
     assert(!((0u32 == 7u32 || 0u32 == 11u32 || 0u32 == 12u32) && 0u32 == 0u32));
-    assert(false == (0u32 == 5u32 || 0u32 == 6u32));
+    assert(false == (0u32 == 5u32 || 0u32 == 6u32 || 0u32 == 11u32 || 0u32 == 12u32));
 
     let map_header = valid_memory_header(3);
     let reserved = memory_map_step(
@@ -117,7 +117,7 @@ pub fn firmware_policy_observation() -> (result: u64)
             physical_start: 0x20000,
             page_count: 1,
             cache_class: 1,
-            runtime: false,
+            runtime: true,
             attributes_known: true,
         },
     );

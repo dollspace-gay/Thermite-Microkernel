@@ -129,10 +129,10 @@ Generated evidence remains under ignored `build/m1-uefi-gateway/`.
 
 ## Remaining boundary
 
-This gate proves and executes only the initial size probe. The next firmware
-slice must allocate and own a bounded buffer, issue the second `GetMemoryMap`,
-decode the returned raw descriptors without constructing unchecked references,
-bind descriptor size/version and the map key into the accepted firmware policy,
-then execute the policy's bounded reacquisition and real `ExitBootServices`
-calls. Physical copying, page installation, kernel handoff, and final signed
-`M1_OK` remain open.
+This gate proves and executes only the initial size probe. The following
+[raw UEFI memory-map checkpoint](firmware-raw-memory-map.md) now allocates and
+owns a bounded buffer, issues the second `GetMemoryMap`, validates every raw
+descriptor, composes a content-preserving decoder with the accepted policy,
+observes the map key, and frees the buffer on every post-allocation path. Final
+map retention, bounded real `ExitBootServices` calls, physical copying, page
+installation, kernel handoff, and final signed `M1_OK` remain open.

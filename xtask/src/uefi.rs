@@ -21,8 +21,23 @@ pub struct BootFile {
 }
 
 pub fn audit_pe(image: &[u8], expected_entry: &[u8]) -> Result<PeAudit, String> {
-    if image.len() != 1024 {
-        return Err(format!("PE image is {} bytes, expected 1024", image.len()));
+    if expected_entry.is_empty() {
+        return Err("registered PE entry capsule is empty".to_string());
+    }
+    let text_raw_size = expected_entry
+        .len()
+        .checked_add(511)
+        .ok_or_else(|| "registered PE entry size overflow".to_string())?
+        / 512
+        * 512;
+    let expected_image_len = 512usize
+        .checked_add(text_raw_size)
+        .ok_or_else(|| "registered PE image size overflow".to_string())?;
+    if image.len() != expected_image_len {
+        return Err(format!(
+            "PE image is {} bytes, expected {expected_image_len}",
+            image.len()
+        ));
     }
     require_slice(image, 0, 2, "DOS signature")?;
     if &image[0..2] != b"MZ" {
@@ -72,10 +87,16 @@ pub fn audit_pe(image: &[u8], expected_entry: &[u8]) -> Result<PeAudit, String> 
     {
         return Err("PE section/file alignment is not 4096/512".to_string());
     }
-    if u32_at(image, optional + 56, "image size")? != 0x2000
+    let expected_virtual_image_size = 0x1000usize
+        .checked_add(expected_entry.len())
+        .and_then(|size| size.checked_add(4095))
+        .ok_or_else(|| "registered PE virtual image size overflow".to_string())?
+        / 4096
+        * 4096;
+    if u32_at(image, optional + 56, "image size")? as usize != expected_virtual_image_size
         || u32_at(image, optional + 60, "header size")? != 0x200
     {
-        return Err("PE image/header size is not 0x2000/0x200".to_string());
+        return Err("PE image/header size does not match the registered entry".to_string());
     }
     if u16_at(image, optional + 68, "PE subsystem")? != PE_SUBSYSTEM_EFI_APPLICATION {
         return Err("PE subsystem is not EFI application".to_string());
@@ -104,7 +125,7 @@ pub fn audit_pe(image: &[u8], expected_entry: &[u8]) -> Result<PeAudit, String> 
     }
     if u32_at(image, section + 8, ".text virtual size")? as usize != expected_entry.len()
         || u32_at(image, section + 12, ".text RVA")? != 0x1000
-        || u32_at(image, section + 16, ".text raw size")? != 512
+        || u32_at(image, section + 16, ".text raw size")? as usize != text_raw_size
         || u32_at(image, section + 20, ".text raw offset")? != 512
     {
         return Err("PE .text layout does not match the registered entry capsule".to_string());
@@ -122,11 +143,11 @@ pub fn audit_pe(image: &[u8], expected_entry: &[u8]) -> Result<PeAudit, String> 
         ));
     }
     let text_offset = 512usize;
-    require_slice(image, text_offset, 512, "PE .text raw data")?;
+    require_slice(image, text_offset, text_raw_size, "PE .text raw data")?;
     if &image[text_offset..text_offset + expected_entry.len()] != expected_entry {
         return Err("PE .text bytes differ from the verified entry capsule".to_string());
     }
-    if image[text_offset + expected_entry.len()..text_offset + 512]
+    if image[text_offset + expected_entry.len()..text_offset + text_raw_size]
         .iter()
         .any(|byte| *byte != 0)
     {

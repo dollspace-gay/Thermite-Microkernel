@@ -259,10 +259,23 @@ and KVM and emits the exact success marker only after the firmware service
 returns; 22 proof/model/byte/link/FAT/firmware negative classes fail. See
 [M1 UEFI boot-services gateway](../evidence/m1/uefi-boot-services-gateway.md).
 
+The allocated raw-memory-map path is an eighteenth accepted M1 subcomponent.
+Its strict same-crate Thermite/direct-Verus decoder consumes the exact arbitrary-
+stride UEFI bytes, calls `memory_map_step` for every descriptor, and proves the
+accepted content, ordering, last end, and usable total. Three receipts reproduce,
+validate, and replay; one valid and 17 malformed maps execute; two false proofs
+and a receipt mutation reject. A separate 21-obligation direct-Verus model owns
+the exact 1016-byte EFIAPI capsule for probe, bounded `AllocatePool`, second
+`GetMemoryMap`, complete raw scan, and all-path `FreePool`. Three models,
+consumers, PE images, and FAT images reproduce, 33 model scenarios execute per
+build, and the real image emits `TMK_MAP_OK` under pinned OVMF with both TCG and
+KVM. See
+[M1 raw UEFI memory map](../evidence/m1/firmware-raw-memory-map.md).
+
 This status does not close M1. The coordinated Thermite main-branch repin is
 complete and every candidate-bound receipt has been regenerated and replayed.
-The allocated-buffer `GetMemoryMap` gateway, raw UEFI descriptor decoding,
-map-key/policy binding, and real `ExitBootServices` execution,
+The final retained-buffer `GetMemoryMap`, stale-key retry, real
+`ExitBootServices` execution, and normalized-map transfer into `BootInfoV1`,
 general page-table construction/physical placement, the verified CR3 call site
 and hardware execution, descriptor-register loading and entry stubs, BSP entry
 state, live descriptor-install execution, interrupt/timer path, QEMU boots, the

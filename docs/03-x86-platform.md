@@ -119,9 +119,9 @@ observes a stale key, reacquires key 78, exits boot services, and reaches the
 terminal state. See [M1 firmware policy](../evidence/m1/firmware-policy.md).
 
 This checkpoint proves policy over normalized call observations. The accepted
-initial gateway below now covers one raw `EFI_STATUS` comparison and real
-`GetMemoryMap` size probe; raw descriptor reads, physical copying, and real OVMF
-`ExitBootServices` execution remain separate gates.
+gateways below now cover the real size probe, allocated-buffer map call, and raw
+descriptor reads. Physical copying and real OVMF `ExitBootServices` execution
+remain separate gates.
 
 ### 3.3 Implemented initial boot-services gateway checkpoint
 
@@ -144,8 +144,44 @@ firmware-image gates reject. See
 [M1 UEFI boot-services gateway](../evidence/m1/uefi-boot-services-gateway.md).
 
 This closes only the null-buffer size probe and its raw status/size validation.
-The allocated-buffer call, raw descriptor decoder, map-key binding, bounded
-reacquisition, real `ExitBootServices`, and kernel handoff remain open.
+The next checkpoint closes the allocated-buffer call and raw descriptor decoder;
+final map retention, bounded reacquisition, real `ExitBootServices`, and kernel
+handoff remain open.
+
+### 3.4 Implemented allocated raw-memory-map checkpoint
+
+The next EFIAPI capsule is an exact 1016-byte direct-Verus registered image. It
+extends the validated boot-services prefix through offset 79, requires nonzero
+`GetMemoryMap`, `AllocatePool`, and `FreePool` targets at offsets 56, 64, and 72,
+and uses a 168-byte aligned call frame with the required 32-byte shadow space.
+After the null probe it accepts at most 1,048,064 required bytes, adds a
+512-byte growth margin, allocates at most 1 MiB of `EfiLoaderData`, and performs
+the second call into that owned buffer.
+
+The capsule validates descriptor version 1, a 40–256 byte eight-aligned stride,
+an exact map-size/count relation, at most 4096 descriptors, sorted non-overlap,
+52-bit physical bounds, virtual overflow, the UEFI 2.11 attribute mask, ISA
+validity, mandatory runtime marking for types 5/6, optional runtime MMIO marking
+for types 11/12, and nonzero conventional memory. It treats type 15 unaccepted
+memory as reserved. Every path after a
+successful allocation calls `FreePool`; only validation plus a successful free
+emits `TMK_MAP_OK`.
+
+A separate same-crate Forge composition reads the exact returned `&[u8]`,
+preserves future bytes in larger descriptor strides, derives every field with
+checked offsets, calls Thermite `memory_map_step` for every descriptor, and
+proves the complete accepted byte sequence, last end, and usable-page total.
+`cargo run -p xtask -- m1-firmware-raw-map` produces three reproducible strict
+L3 receipts, validation/replay, 17 executed malformed maps, proof mutations,
+and receipt tampering. `cargo run -p xtask -- m1-uefi-raw-map` proves 21 machine
+model obligations in three builds, executes 33 model scenarios three times,
+reproduces three exact PE/FAT images, and boots under pinned OVMF on TCG and KVM.
+See [M1 raw UEFI memory map](../evidence/m1/firmware-raw-memory-map.md).
+
+`FreePool` changes the firmware map, so this checkpoint observes but does not
+retain a key suitable for exit. The final retained-buffer reacquisition,
+`EFI_INVALID_PARAMETER` retry, real `ExitBootServices`, and `BootInfoV1`
+transfer remain open.
 
 ## 4. Boot information
 

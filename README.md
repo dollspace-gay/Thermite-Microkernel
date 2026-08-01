@@ -6,8 +6,9 @@ M0 toolchain and proof-artifact closure is complete. A freestanding verified
 composition final-links at the higher-half address, and a reproducible M0 UEFI
 probe image boots under OVMF with both TCG and KVM. M1 kernel/BSP implementation
 is in progress; accepted components now include the verified static-kernel ELF
-load policy, normalized memory-map/`ExitBootServices` retry policy, and a live
-initial `GetMemoryMap` gateway under OVMF/TCG/KVM, plus the alias-aware kernel
+load policy, normalized memory-map/`ExitBootServices` retry policy, a live
+initial `GetMemoryMap` gateway, and an allocated-buffer raw-map acquisition and
+decoder under OVMF/TCG/KVM, plus the alias-aware kernel
 address-plan policy and a concrete verified reference
 page-table image, executable four-level walker, and exact-byte CR3 installation
 capsule. The per-CPU GDT, TSS, descriptor pointers, and all 256 IDT gates now
@@ -79,7 +80,8 @@ in progress. The ELF/load-plan, firmware-response, raw-BootInfo, address-plan,
 concrete reference-page-table, CR3, descriptor, exception-stub, returning
 common-entry, exception-dispatch policy, safe saved-frame bridge, exact
 dispatcher-front, entry/dispatcher join, scalar policy/action/entry, and per-CPU
-scalar-core checkpoints, plus the live initial UEFI boot-services gateway, are
+scalar-core checkpoints, plus the live initial and allocated-buffer UEFI
+boot-services gateways, are
 accepted M1 subcomponents; these do not yet
 constitute an M1 loader or kernel.
 
@@ -98,9 +100,9 @@ buffer growth, and permits at most eight map acquisitions and four stale-key exi
 retries. The executable trace grows the map buffer, observes a stale key,
 reacquires a fresh map, and exits successfully. Three builds, validation/replay,
 the separate runtime consumer, fourteen rejection/proof/receipt cases, and both
-64/64 mutation batteries pass. This is the firmware-response policy; the initial
-indirect call is now accepted separately, but raw descriptor decoding and the
-real exit sequence remain open.
+64/64 mutation batteries pass. This is the firmware-response policy; both the
+initial indirect call and content-preserving raw descriptor decoding are now
+accepted separately, while the real exit sequence remains open.
 
 The initial M1 UEFI boot-services gateway is accepted as an exact 308-byte
 direct-Verus image. It validates registered system/boot table prefixes, obeys
@@ -110,8 +112,21 @@ real OVMF `GetMemoryMap` null-buffer size probe, checks raw
 returns EFI success. Three model, consumer, PE, and FAT builds reproduce; 16
 proof obligations and 15 model scenarios pass; the exact image emits
 `TMK_M1_UEFI_GATE_OK` under both TCG and KVM; and 22 negative classes reject.
-This does not claim the allocated-buffer call, descriptor decoder, map-key
-binding, `ExitBootServices`, or kernel handoff.
+The following checkpoint now closes the allocated-buffer call and descriptor
+decoder; this initial gate alone does not claim them.
+
+The M1 raw UEFI memory-map checkpoint composes the Thermite policy with a
+direct-Verus `&[u8]` decoder and registers an exact 1016-byte EFIAPI capsule.
+The live capsule performs the size probe, allocates bounded `EfiLoaderData`,
+calls `GetMemoryMap` again, validates every arbitrary-stride UEFI 2.11
+descriptor, observes the key, and calls `FreePool` on every post-allocation
+path. Three strict Forge receipts replay; 17 malformed maps execute; 21
+direct-Verus obligations and 33 model scenarios pass in three builds; three PE
+and FAT images reproduce; and the exact bytes emit `TMK_MAP_OK` under both TCG
+and KVM. The shakedown also corrected runtime MMIO and type-15 unaccepted-memory
+handling. Because freeing the buffer mutates the map, final map retention and
+real `ExitBootServices` remain open. See
+[M1 raw UEFI memory map](evidence/m1/firmware-raw-memory-map.md).
 
 The raw `BootInfoV1` decoder is accepted against merged Thermite `main` commit
 `b8dc3947f504454775aa70977d8bda5da677d2af`; the kernel-slice and subsequent
@@ -358,7 +373,9 @@ cargo run -p xtask -- m0-platform-primitives
 cargo run -p xtask -- m0-host-link
 cargo run -p xtask -- m1-elf
 cargo run -p xtask -- m1-firmware
+cargo run -p xtask -- m1-firmware-raw-map
 cargo run -p xtask -- m1-uefi-gateway
+cargo run -p xtask -- m1-uefi-raw-map
 cargo run -p xtask -- m1-address
 ```
 
