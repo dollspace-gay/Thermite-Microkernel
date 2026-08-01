@@ -185,6 +185,18 @@ ELF links without unresolved symbols using the exact accepted nine-byte M0
 state lookup/locking, action execution, joined entry image, LAPIC effects, and
 live IDT delivery remain open.
 
+The M1 exception-frame bridge checkpoint then connects the accepted 105-byte
+save order to that policy without introducing unsafe Rust. A direct-Verus shell
+decodes either the exact 21-word same-ring frame or the exact 23-word user frame
+from a bounded `&[u64]`, validates vector, selector, kernel/user RIP class,
+RFLAGS, and the user RSP/SS tail, derives CR2/vector/error at the proved offsets,
+and invokes the policy in the same verified crate. Three builds reproduce and
+replay; the policy remains 64/64 mutation-complete; 12 runtime layouts execute;
+seven proof/receipt/dependency negatives fail; and both freestanding links pass
+with the verified M0 `memcpy`. The raw assembly-pointer-to-slice conversion,
+per-CPU state lookup/locking, machine actions, joined image, and hardware entry
+are still explicit open boundaries.
+
 The standalone probe's toolchain-binding gate is locally closed by pinned
 Thermite `v0.0.2` commit `845d684f00e829491ee4c537818fba2689bcaefc`. Forge records both
 ambient Rust 1.96 and the authoritative Verus-selected Rust 1.95 codegen closure;

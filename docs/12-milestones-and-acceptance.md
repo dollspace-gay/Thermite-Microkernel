@@ -192,13 +192,22 @@ negatives fail, and the no-undefined-symbol higher-half ELF reuses and
 post-link-matches the verified M0 `memcpy` capsule. See
 [M1 exception-dispatch policy](../evidence/m1/exception-dispatch-policy.md).
 
+The saved-frame decoder and policy bridge is a twelfth accepted M1 subcomponent.
+Its direct-Verus shell proves the exact 21-word kernel and 23-word user layouts,
+all saved-register/CR2/vector/error/return offsets, selector and return-state
+validation, and same-crate invocation of the accepted Thermite policy. Three
+bundles reproduce and replay, 12 runtime layouts execute, two freestanding links
+pass, and seven proof/receipt/dependency negatives fail. See
+[M1 exception-frame bridge](../evidence/m1/exception-frame-bridge.md).
+
 This status does not close M1. Thermite PR #109 still requires upstream merge and
 a coordinated project-wide main-branch repin. The UEFI call gateway, raw UEFI
 descriptor decoding and real `ExitBootServices` execution,
 general page-table construction/physical placement, the verified CR3 call site
 and hardware execution, descriptor-register loading and entry stubs, BSP entry
 state, live descriptor-install execution, interrupt/timer path, QEMU boots, the
-concrete exception dispatcher bridge and joined entry path, final signed `M1_OK`
+raw frame-pointer ownership, concrete dispatcher context/action bridge and
+joined entry path, final signed `M1_OK`
 gate, and
 remaining hardware execution remain to be implemented.
 

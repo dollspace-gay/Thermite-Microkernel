@@ -455,6 +455,38 @@ invalidation, and timer/IRQ classification does not program or acknowledge the
 LAPIC. A joined verified bridge and QEMU fault/interrupt execution remain the
 next entry-path gates.
 
+### 7.4 Implemented saved-frame decoder and policy bridge
+
+The common-entry stack order is now consumed by a verified safe-slice decoder.
+The first 21 words are, in address order, R15 through R8, RBP, RDI, RSI, RDX,
+RCX, RBX, captured CR2, original RAX, vector, error, RIP, CS, and RFLAGS. A
+same-ring frame is exactly 21 words/168 bytes. A user-origin frame is exactly 23
+words/184 bytes and appends RSP and SS. This matches the push sequence and frame
+pointer of the accepted common-entry capsule.
+
+`tests/m1/exception_frame_shell.rs` verifies length before every executable
+slice access. It accepts only vectors `0..255`, kernel CS `0x08` with a
+higher-half RIP, or user CS `0x23` with a lower-canonical RIP plus lower-
+canonical RSP and SS `0x1b`. RFLAGS bit 1 and the restricted return mask are
+checked. CR2, vector, error, origin, and validated dispatch context are lowered
+to `ExceptionEvent`; invalid layouts enter the policy as `frame_valid=false`
+and prove an immediate fail-stop result (reason 1 if already latched, otherwise
+reason 2).
+
+`cargo run -p xtask -- m1-exception-frame` performs three reproducible same-
+crate proof/codegen builds, validation and replay, the 64/64 underlying policy
+battery, a separately compiled 12-scenario runtime, two freestanding links, four
+proof mutations, and three receipt/kernel-vstd tamper negatives. The higher-half
+ELF has no undefined symbols and post-link-matches the exact verified M0
+`memcpy`. See
+[M1 exception-frame bridge](../evidence/m1/exception-frame-bridge.md).
+
+The exported verified bridge takes `&[u64]`; no unsafe raw pointer is admitted.
+The next capsule/shell step must prove that the assembly RDI frame pointer owns
+and can be converted to exactly 21 or 23 readable words before calling it. The
+current-thread/context snapshot and action executor also remain absent, so this
+checkpoint still makes no live-dispatch claim.
+
 SMAP is enabled. User memory is accessed only by proved copy primitives that
 bound the range, validate the VSpace mapping epoch, bracket access with
 `STAC`/`CLAC`, and return a partial-copy result on fault.

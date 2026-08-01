@@ -204,6 +204,21 @@ platform masking/acknowledgement, TLB invalidation, and the concrete frame-to-
 event/action-to-machine bridge are still later verified transitions. See
 [M1 exception-dispatch policy](../evidence/m1/exception-dispatch-policy.md).
 
+### 8.2 Implemented saved-frame normalization bridge
+
+The platform-to-core boundary now has an accepted safe-slice decoder for the
+exact saved exception-frame layouts. It validates the 21-word kernel or 23-word
+user shape, selectors, return-address class, restricted RFLAGS, vector, and user
+stack tail before constructing `ExceptionEvent`. Captured CR2, vector, error,
+and privilege origin come only from their proved common-entry offsets. The
+verified function calls the accepted Thermite policy in the same crate, and any
+malformed slice fail-stops before a recoverable action can be returned.
+
+This closes value normalization, not pointer ownership: the eventual dispatcher
+must still prove the RDI range before creating the slice, snapshot per-CPU/current-
+thread context under the kernel lock, and execute the returned action. See
+[M1 exception-frame bridge](../evidence/m1/exception-frame-bridge.md).
+
 ## 9. Transition atomicity
 
 Every syscall follows:
