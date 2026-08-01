@@ -139,7 +139,7 @@ fn boot_policy_step(state: BootPolicyState, event: BootPolicyEvent)
         !(((flags & 2) == 0) && seed_length != 0) &&
         framebuffer_valid && service_digest_present &&
         config_digest_present && rsdp != 0 && (rsdp & 15) == 0 &&
-        checksum_valid,
+        checksum_valid && result.0.expected_ranges == map_count,
       BootPolicyAction::RangeAccepted => false,
       BootPolicyAction::Complete => false,
       BootPolicyAction::Reject { code } =>
@@ -194,7 +194,8 @@ fn boot_policy_step(state: BootPolicyState, event: BootPolicyEvent)
           start < end && (start & 4095) == 0 && (end & 4095) == 0 &&
           end <= 0x0010_0000_0000_0000 &&
           (state.accepted_ranges == 0 || start >= state.last_end) &&
-          kind != 0 && kind <= 9 && reserved_zero,
+          kind != 0 && kind <= 9 && reserved_zero &&
+          result.0.last_end == end,
         BootPolicyAction::Complete => false,
         BootPolicyAction::Reject { code } =>
           code == if state.phase != 1 {

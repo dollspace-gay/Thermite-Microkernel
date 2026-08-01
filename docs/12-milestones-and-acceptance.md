@@ -119,7 +119,16 @@ second accepted M1 subcomponent. Both Thermite transitions are L3/end-to-end wit
 runtime execution pass, and fourteen malformed-state/proof/receipt cases pass.
 See [M1 firmware policy](../evidence/m1/firmware-policy.md).
 
-The alias-aware kernel address-plan policy is a third accepted M1 subcomponent.
+The content-preserving raw `BootInfoV1` decoder is a third accepted M1
+subcomponent against exact public Thermite candidate commit `1fb0a799` (draft PR
+#109). Its success theorem connects actual slice bytes to every header, checksum,
+digest, map-containment, range-content/order/reserved-byte, last-end, and BSP
+APIC result. A 64/64 battery, three reproducible builds, validation/replay, an
+executed valid case plus 12 malformed images, two freestanding links, and six
+proof/receipt/dependency tamper negatives pass. See
+[M1 raw BootInfo decoder](../evidence/m1/bootinfo-decoder.md).
+
+The alias-aware kernel address-plan policy is a fourth accepted M1 subcomponent.
 Its Thermite transition is L3/end-to-end with 64/64 mutants killed; three
 composition builds reproduce; validation/replay and separate runtime execution
 pass; and fourteen malformed-plan/proof/receipt cases pass. The policy enforces
@@ -127,7 +136,7 @@ the fixed windows and direct-map offset, low guard, virtual non-overlap, guarded
 stacks, W^X, physical alias exclusion, and exact text/rodata/data image coverage.
 See [M1 address-space policy](../evidence/m1/address-space-policy.md).
 
-The concrete reference page-table image is a fourth accepted M1 subcomponent.
+The concrete reference page-table image is a fifth accepted M1 subcomponent.
 Its `no_std` Verus implementation constructs thirteen contiguous,
 4-KiB-aligned x86_64 table pages and executes a real four-level walker. Verus
 proves 75 obligations; three model artifacts and three consumers reproduce
@@ -135,7 +144,7 @@ byte-for-byte; all consumers execute ten mapping/guard observations; and four
 semantic mutations fail proof. See
 [M1 reference boot page tables](../evidence/m1/boot-page-tables.md).
 
-The exact-byte CR3 installation capsule is a fifth accepted M1 subcomponent.
+The exact-byte CR3 installation capsule is a sixth accepted M1 subcomponent.
 Its direct Verus model proves 15 obligations for the four-byte
 `mov cr3,rdi; ret` sequence, including caller conditions, register/stack effects,
 and non-global TLB invalidation. Three model artifacts, three runtime decoder
@@ -143,7 +152,7 @@ executions, and three high-half links reproduce byte-for-byte; six semantic and
 post-link mutations fail. See
 [M1 CR3 installation capsule](../evidence/m1/cr3-install-capsule.md).
 
-The concrete per-CPU descriptor images are a sixth accepted M1 subcomponent.
+The concrete per-CPU descriptor images are a seventh accepted M1 subcomponent.
 The `no_std` Verus implementation constructs the seven-entry GDT, 104-byte TSS,
 packed descriptor pointers, and all 256 IDT gates, with the breakpoint DPL and
 three fatal-vector IST assignments made explicit. Verus proves 36 obligations;
@@ -151,7 +160,7 @@ three model artifacts and three executable consumers reproduce byte-for-byte;
 each consumer exhaustively scans every gate; and eight negative gates fail. See
 [M1 descriptor-table images](../evidence/m1/descriptor-tables.md).
 
-The exact-byte descriptor-install capsule is a seventh accepted M1
+The exact-byte descriptor-install capsule is an eighth accepted M1
 subcomponent. Its direct Verus model proves 19 obligations for the 38-byte
 `LGDT`, DS/ES/SS reload, same-privilege CS far return, `LTR`, `LIDT`, and final
 return sequence, including the TSS busy-bit write. Three models, runtime
@@ -159,23 +168,23 @@ executions, and high-half links reproduce byte-for-byte; eight semantic and
 post-link mutations fail. See
 [M1 descriptor-install capsule](../evidence/m1/descriptor-install-capsule.md).
 
-The concrete 256-vector exception-stub table is an eighth accepted M1
+The concrete 256-vector exception-stub table is a ninth accepted M1
 subcomponent. Its direct Verus implementation proves 20 obligations over the
 ten CPU-error-code and 246 synthetic-error paths, exact 16-byte slots, full
 vector pushes, padding, and 256 relative branches to one common-entry address.
 Three model, runtime, and linked artifacts reproduce byte-for-byte; ten negative
 gates fail. See [M1 exception-stub table](../evidence/m1/exception-stub-table.md).
 
-The exact common exception-entry image is a ninth accepted M1 subcomponent. Its
+The exact common exception-entry image is a tenth accepted M1 subcomponent. Its
 direct Verus model proves 27 obligations for the 105-byte register-save, CR2
 capture, conditional `SWAPGS`, `CLD`, aligned dispatcher call, register restore,
 normalized-frame disposal, and `IRETQ` sequence. Three model, runtime, and linked
 artifacts reproduce byte-for-byte; eight negative gates fail. See
 [M1 common exception-entry capsule](../evidence/m1/exception-common-capsule.md).
 
-This status does not close M1. The raw `BootInfo` decoder remains fail-closed
-pending Thermite [#108](https://github.com/dollspace-gay/Thermite/issues/108), and
-the UEFI call gateway, raw map decoding and real `ExitBootServices` execution,
+This status does not close M1. Thermite PR #109 still requires upstream merge and
+a coordinated project-wide main-branch repin. The UEFI call gateway, raw UEFI
+descriptor decoding and real `ExitBootServices` execution,
 general page-table construction/physical placement, the verified CR3 call site
 and hardware execution, descriptor-register loading and entry stubs, BSP entry
 state, live descriptor-install execution, interrupt/timer path, QEMU boots, the

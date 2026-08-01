@@ -82,7 +82,8 @@ is the reviewed summary.
 
 This checkpoint validates scalar ELF header/program-header events. It does not
 claim that untrusted file bytes have already been decoded into those events. The
-same-source content-preserving byte decoder depends on the no-`vstd` kernel slice
-model tracked by Thermite
-[#108](https://github.com/dollspace-gay/Thermite/issues/108). The loader, page
+same-source content-preserving ELF byte decoder has not yet been authored. The
+needed no-`vstd` kernel slice model is now locally demonstrated by the separate
+[BootInfo decoder](bootinfo-decoder.md) against Thermite #108 candidate commit
+`1fb0a799`; it no longer requires an unverified adapter. The loader, page
 installation, service bundle, `ExitBootServices`, and QEMU/OVMF gates remain open.

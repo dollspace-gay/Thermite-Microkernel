@@ -74,9 +74,10 @@ M0 toolchain closure is complete. The public repository, pinned Cargo workspace,
 replayable standalone and rich-state Forge paths, verified platform layer,
 receipted higher-half link, reproducible UEFI probe, and signed development
 manifest have all passed their acceptance gates. M1 verified UEFI/BSP bring-up is
-in progress. The ELF/load-plan, firmware-response, address-plan, concrete
-reference-page-table, CR3-capsule, and descriptor-table checkpoints are accepted
-M1 subcomponents; these do not yet constitute an M1 loader or kernel.
+in progress. The ELF/load-plan, firmware-response, raw-BootInfo, address-plan,
+concrete reference-page-table, CR3, descriptor, exception-stub, and returning
+common-entry checkpoints are accepted M1 subcomponents; these do not yet
+constitute an M1 loader or kernel.
 
 The M1 ELF policy is a same-crate Thermite/direct-Verus kernel composition. It
 accepts only the pinned static ELF64/x86-64 profile, checks the digest and bounded
@@ -84,10 +85,7 @@ program-header table, enforces file containment, sorted non-overlapping loads,
 W^X, constrained GNU stack/RELRO metadata, and executable entry coverage. Three
 builds reproduce the receipt, combined source, and rlib; validation and replay
 pass; a separately compiled consumer executes the verified observation; and ten
-adversarial/proof/receipt cases fail as intended. The raw `BootInfo` byte decoder
-remains fail-closed on Thermite
-[#108](https://github.com/dollspace-gay/Thermite/issues/108), which tracks a
-verified no-`vstd` byte-slice view for kernel compositions.
+adversarial/proof/receipt cases fail as intended.
 
 The M1 firmware policy is also accepted as a same-crate kernel composition. It
 normalizes bounded, sorted UEFI descriptors into nine kernel range classes,
@@ -98,6 +96,19 @@ reacquires a fresh map, and exits successfully. Three builds, validation/replay,
 the separate runtime consumer, fourteen rejection/proof/receipt cases, and both
 64/64 mutation batteries pass. This is the firmware-response policy, not yet the
 verified indirect UEFI call capsule or raw descriptor decoder.
+
+The raw `BootInfoV1` decoder is accepted against Thermite issue #108 candidate
+commit `1fb0a799071d35493815ba99b9ca26af9a22eb1c` in draft PR
+[#109](https://github.com/dollspace-gay/Thermite/pull/109). Its same-crate
+Thermite/direct-Verus build imports the digest-bound verified slice model while
+retaining a `no_std` kernel artifact. Three builds reproduce source, receipt,
+rlib, and kernel-vstd dependency; validation/replay pass; the real decoder runs
+one valid and 12 malformed byte images; both freestanding links succeed; and six
+proof/receipt/dependency tamper gates fail. The success theorem covers header,
+checksum, digest, framebuffer, total map containment, every range byte,
+ordering, all 12 reserved bytes, last-end, and BSP APIC identity. Upstream merge
+and the final coordinated main-branch repin remain release bookkeeping, not an
+unverified decoder seam.
 
 The M1 address-space policy is accepted as a third same-crate kernel
 composition. It checks the fixed LA48 windows, low guard, absence of recursive

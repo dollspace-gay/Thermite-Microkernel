@@ -140,13 +140,35 @@ copying, and real OVMF `ExitBootServices` execution remain separate gates.
 The kernel reparses and validates `BootInfo`; it does not trust the loader’s Rust
 types across the binary boundary.
 
-The authored `BootInfoV1` policy is L3 with all generated mutants killed. Its
-same-source raw-byte shell is currently an intentional failing integration test:
-Forge kernel compositions use `--no-vstd`, but have no verified slice element
-view with which to connect an executable byte read to its postcondition. Thermite
-[#108](https://github.com/dollspace-gay/Thermite/issues/108) records the minimized
-failure and required no-stdlib acceptance gates. No unverified decoder adapter is
-introduced while that issue is open.
+The authored `BootInfoV1` policy and its same-source raw-byte decoder are now an
+accepted L3/end-to-end kernel composition against the exact public Thermite
+issue #108 candidate `1fb0a799071d35493815ba99b9ca26af9a22eb1c` in draft PR
+[#109](https://github.com/dollspace-gay/Thermite/pull/109). Forge explicitly
+imports the digest-bound verified `vstd.vir` slice model and supplies a separate
+erased `no_std` metadata/link crate; the proof still uses `--no-vstd` to prevent
+an ambient, unrecorded standard-library dependency. The receipt binds the model,
+its 120-file source tree, generated link source, link rlib, combined source, and
+kernel artifact.
+
+`validate_bootinfo` proves that every successful result corresponds to the
+actual input bytes: complete fixed-header constraints and checksum; service and
+configuration digests; framebuffer rules; exact total/map/command/seed
+containment; each range's start/end/kind; sorted non-overlap; all 12 reserved
+bytes per 32-byte range; final end; and BSP APIC ID. The decoder checks the fixed
+256-byte header before any variable access and proves the entire bounded map is
+present before iterating, so malformed lengths reject without an out-of-bounds
+read.
+
+`cargo run -p xtask -- m1-bootinfo` performs a 64/64 mutation battery, three
+reproducible proof/codegen builds, receipt validation/replay, a separately
+compiled executable consumer over one valid and 12 malformed images, and both
+freestanding rlib and ELF64 links. Three proof mutations and three
+receipt/kernel-vstd tamper cases fail. See
+[M1 raw BootInfo decoder](../evidence/m1/bootinfo-decoder.md).
+
+The public candidate commit is exact and replayable, but PR #109 is still a
+draft. A later coordinated repin will move the project-wide Thermite baseline
+after merge; no release claim depends on an unmerged branch.
 
 ## 5. Virtual-address layout
 

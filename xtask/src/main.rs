@@ -2,6 +2,7 @@ mod composition;
 mod idl;
 mod m0_uefi;
 mod m1_address;
+mod m1_bootinfo;
 mod m1_cr3;
 mod m1_descriptor_install;
 mod m1_descriptors;
@@ -49,6 +50,7 @@ fn run() -> Result<(), String> {
         Some("m1-elf") if args.next().is_none() => m1_elf::run(),
         Some("m1-firmware") if args.next().is_none() => m1_firmware::run(),
         Some("m1-address") if args.next().is_none() => m1_address::run(),
+        Some("m1-bootinfo") if args.next().is_none() => m1_bootinfo::run(),
         Some("m1-page-tables") if args.next().is_none() => m1_page_tables::run(),
         Some("m1-cr3") if args.next().is_none() => m1_cr3::run(),
         Some("m1-descriptor-install") if args.next().is_none() => m1_descriptor_install::run(),
@@ -58,7 +60,7 @@ fn run() -> Result<(), String> {
         Some("m0-verus-capsule") if args.next().is_none() => m0_verus_capsule(),
         Some("toolchain-check") if args.next().is_none() => toolchain_check(),
         _ => Err(
-            "usage: cargo run -p xtask -- <toolchain-check|m0-idl|m0-manifest|m0-uefi|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-composition|m0-verus-allocator|m0-verus-byte-allocator|m0-verus-capsule|m0-platform-primitives|m0-host-link|m1-elf|m1-firmware|m1-address|m1-page-tables|m1-cr3|m1-descriptors|m1-descriptor-install|m1-exception-stubs>"
+            "usage: cargo run -p xtask -- <toolchain-check|m0-idl|m0-manifest|m0-uefi|m0-forge-probe|m0-forge-tamper|m0-composition-source-check|m0-composition|m0-verus-allocator|m0-verus-byte-allocator|m0-verus-capsule|m0-platform-primitives|m0-host-link|m1-elf|m1-firmware|m1-address|m1-bootinfo|m1-page-tables|m1-cr3|m1-descriptors|m1-descriptor-install|m1-exception-stubs|m1-exception-common>"
                 .to_string(),
         ),
     }

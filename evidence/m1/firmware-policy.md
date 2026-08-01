@@ -79,7 +79,8 @@ Generated bundles and logs remain under ignored `build/m1-firmware/`.
 The shell currently supplies scalar normalized firmware observations. The
 registered UEFI calling-convention capsule must still issue the indirect calls,
 validate raw pointers/status values, and connect raw descriptor bytes to these
-events. Content-preserving byte reads remain tracked by Thermite
-[#108](https://github.com/dollspace-gay/Thermite/issues/108). Actual OVMF map
+events. The content-preserving read mechanism is now demonstrated by the
+separate [BootInfo decoder](bootinfo-decoder.md), but the raw UEFI descriptor
+decoder itself remains to be written. Actual OVMF map
 growth/key invalidation, `ExitBootServices`, page installation, and final `M1_OK`
 are not claimed by this checkpoint.

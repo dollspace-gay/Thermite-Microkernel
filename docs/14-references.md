@@ -69,6 +69,15 @@ The design was read against the local Thermite repository at commit:
 845d684f00e829491ee4c537818fba2689bcaefc
 ```
 
+The M1 raw-BootInfo decoder additionally pins the public issue #108 candidate:
+
+```text
+1fb0a799071d35493815ba99b9ca26af9a22eb1c
+```
+
+That commit is on draft PR #109 and is recorded separately from the M0 baseline
+until the upstream merge and coordinated repin.
+
 The canonical generated language reference at design time had SHA-256:
 
 ```text
@@ -78,6 +87,8 @@ The canonical generated language reference at design time had SHA-256:
 This baseline includes correspondence-backed L3 build bundles from Thermite
 issue #101 / implementation PR #102, the codegen-toolchain binding repair from
 #103 / PR #105, and deterministic exact-source rich-state composition from #104.
+The separately pinned candidate adds the digest-bound kernel byte-slice model
+from #108 / draft PR #109.
 TMK's normative consumption and same-crate composition requirements are defined in
 [Forge L3 integration](15-forge-integration.md).
 
