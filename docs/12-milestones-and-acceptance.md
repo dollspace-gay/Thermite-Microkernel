@@ -120,8 +120,8 @@ runtime execution pass, and fourteen malformed-state/proof/receipt cases pass.
 See [M1 firmware policy](../evidence/m1/firmware-policy.md).
 
 The content-preserving raw `BootInfoV1` decoder is a third accepted M1
-subcomponent against exact public Thermite candidate commit `1fb0a799` (draft PR
-#109). Its success theorem connects actual slice bytes to every header, checksum,
+subcomponent against exact public Thermite `main` commit `b8dc3947`. The fixes
+from PRs #109, #112, and #113 are merged. Its success theorem connects actual slice bytes to every header, checksum,
 digest, map-containment, range-content/order/reserved-byte, last-end, and BSP
 APIC result. A 64/64 battery, three reproducible builds, validation/replay, an
 executed valid case plus 12 malformed images, two freestanding links, and six
@@ -220,14 +220,26 @@ fixed-address ELFs containing only the byte-identical accepted 105-byte and
 artifact/proof mutations are rejected. See
 [M1 exception entry/dispatcher join](../evidence/m1/exception-entry-dispatcher-join.md).
 
-This status does not close M1. Thermite PR #109 still requires upstream merge and
-a coordinated project-wide main-branch repin. The UEFI call gateway, raw UEFI
+The scalar policy/action bridge and exact scalar-entry image are a fifteenth
+accepted M1 subcomponent. The same-crate Thermite/direct-Verus core validates
+the per-CPU snapshot and exact six-scalar/frame correspondence, then executes a
+transactional formal action model with fixed return/schedule/fail-stop controls.
+Three strict bundles and consumers reproduce and replay, including 11 runtime
+scenarios and policy rollback on backend failure. A separate 11-obligation
+Verus model registers the exact eight-byte `mov rdi,rbx; jmp` capsule at
+`0xffffffff80011200`; three models, consumers, and relocation-free links
+reproduce. Fifteen negative gates fail. See
+[M1 scalar exception bridge](../evidence/m1/exception-scalar-bridge.md).
+
+This status does not close M1. The coordinated Thermite main-branch repin is
+complete and every candidate-bound receipt has been regenerated and replayed.
+The UEFI call gateway, raw UEFI
 descriptor decoding and real `ExitBootServices` execution,
 general page-table construction/physical placement, the verified CR3 call site
 and hardware execution, descriptor-register loading and entry stubs, BSP entry
 state, live descriptor-install execution, interrupt/timer path, QEMU boots, the
-concrete dispatcher scalar/context/action bridge and
-full stub/scalar joined entry path, final signed `M1_OK`
+concrete GS/per-CPU scalar-core wrapper and real action backends,
+full stub/scalar-core joined entry path, final signed `M1_OK`
 gate, and
 remaining hardware execution remain to be implemented.
 

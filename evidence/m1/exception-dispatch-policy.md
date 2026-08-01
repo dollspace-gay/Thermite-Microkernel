@@ -1,7 +1,7 @@
 # M1 exception-dispatch policy
 
-Status: **accepted M1 subcomponent** against public Thermite candidate commit
-`1fb0a799071d35493815ba99b9ca26af9a22eb1c`. This checkpoint proves the pure
+Status: **accepted M1 subcomponent** against public Thermite `main` commit
+`b8dc3947f504454775aa70977d8bda5da677d2af`. This checkpoint proves the pure
 dispatcher state/action transition. It does not supply the concrete dispatcher
 body called by the common-entry capsule and executes no machine actions.
 
@@ -83,16 +83,16 @@ shell_sha256=27ba08dd346d699f91498a39e57457138a1efa0126206ac51b2fcc8a15396817
 consumer_source_sha256=02ee8d663c391f9d1f31f82a9d8a74591a076e4e71a2a54cefe59fccf205f706
 freestanding_source_sha256=9ddb8029d3012faf7dc71df185c67e6697a734eb4c106f91c198d1f4c3c86e6d
 combined_source_sha256=17957e445ee36580c130715de5b58abd0122aed605c67a23942f91153b418b7e
-receipt_sha256=c4bc6afa9effb2fc556d132bc16ed71dd8a5a94daadd3b25850680df27cc279e
-binding_sha256=fc3ade2e024c55b3bf075aefd8446af705e6d86821eeda7c8bfeacd20ebc1419
+receipt_sha256=9e06de64ed40b2a0cd929dd73bba55edbd7c832c04ba79f7fbf5d1cab031367c
+binding_sha256=bdd02c3f3c897dd3d0e2a0666b29f7aed2c16e4669371e60fb3688b184dd6de5
 artifact_sha256=2c2e0999f82fca2977df7102d7cecb8dfc30f3ffab350d4d28de492a8f88b1fa
 consumer_sha256=b9d4ac81a15c97d84a90b7b024b2c33c89c166c533a5c0d6cf8a9fb7200b471a
 freestanding_rlib_sha256=2ca9054a3d91790046baff5da5691eb6fea77ff8537a8ecc4a644c52484e4d42
 freestanding_elf_sha256=6b8b99a94f9b81a0187d5e74ec04245dcfd89c3554537e9b18ed26d00533ea0d
 platform_primitive_object_sha256=a3884a20bfb8193e6cfdbf921eae60bac038406aebfe9184ad5039e0629ec50f
 linked_memcpy_sha256=00d0174466d21d8a224c588f4bf2e324a605806fac0cb0d4fa2ba1a9667a49a9
-forge_source_identity=1fb0a799071d35493815ba99b9ca26af9a22eb1c
-forge_sha256=12240457546220ebefba7c7a5e3ab2d127acaf9b592543a8d0394bf0c8253b74
+forge_source_identity=b8dc3947f504454775aa70977d8bda5da677d2af
+forge_sha256=b073fa34a955dc4ce723aac3cdba36ed031e7daa1ca5db6ead866d41ef36fbf9
 reproducibility_builds=3
 mutation_battery=64/64
 scenarios=user-page-fault,user-terminate,corrupt-page-fault,kernel-page-fault,double-fault,timer,reschedule,bound-irq,unbound-irq,new-shootdown,stale-shootdown,stop-ipi,spurious,bad-frame,bad-vector,missing-thread,counter-overflow,latched-panic
@@ -114,9 +114,10 @@ scheduler queues, or execute platform actions. Its single TLB epoch is a policy
 classifier, not the later per-VSpace/per-CPU shootdown proof. IRQ and timer
 actions do not mask, acknowledge, EOI, or program LAPIC hardware.
 
-The next joined entry gate must connect the accepted stub table and common-entry
-capsule to a verified concrete dispatcher bridge, prove state/frame ownership
-and returning versus non-returning behavior, execute each action through proved
-platform capsules, and run representative CPL0/CPL3 exceptions, IPIs, and IRQs
-under QEMU. Until then `dispatcher_machine_actions_executed=false` and
-`release_eligible=false` remain explicit.
+The scalar bridge now supplies a verified transactional action model and an
+exact entry capsule; see
+[M1 scalar exception bridge](exception-scalar-bridge.md). Per-CPU lookup,
+concrete scheduler/LAPIC/platform backends, the full fixed-address join, and
+representative CPL0/CPL3 exceptions, IPIs, and IRQs under QEMU remain open.
+Accordingly this policy-only receipt retains
+`dispatcher_machine_actions_executed=false` and `release_eligible=false`.

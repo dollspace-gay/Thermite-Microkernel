@@ -11,11 +11,13 @@ skill_sha256 = "92141afe423f30b495398e806589753fb4ad57c2d0d10f3ef0fcd417beb557dd
 
 [thermite_issue_108]
 repository = "https://github.com/dollspace-gay/Thermite"
-branch = "issue-108-kernel-byte-slices"
-pull_request = 109
-commit = "1fb0a799071d35493815ba99b9ca26af9a22eb1c"
+branch = "main"
+pull_request = 113
+merged_pull_requests = [109, 112, 113]
+closed_issues = [108, 110, 111]
+commit = "b8dc3947f504454775aa70977d8bda5da677d2af"
 forge_path = "/home/doll/Thermite/target/debug/forge"
-forge_sha256 = "12240457546220ebefba7c7a5e3ab2d127acaf9b592543a8d0394bf0c8253b74"
+forge_sha256 = "b073fa34a955dc4ce723aac3cdba36ed031e7daa1ca5db6ead866d41ef36fbf9"
 skill_sha256 = "92141afe423f30b495398e806589753fb4ad57c2d0d10f3ef0fcd417beb557dd"
 
 [verus]

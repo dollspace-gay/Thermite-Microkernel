@@ -141,9 +141,9 @@ The kernel reparses and validates `BootInfo`; it does not trust the loader’s R
 types across the binary boundary.
 
 The authored `BootInfoV1` policy and its same-source raw-byte decoder are now an
-accepted L3/end-to-end kernel composition against the exact public Thermite
-issue #108 candidate `1fb0a799071d35493815ba99b9ca26af9a22eb1c` in draft PR
-[#109](https://github.com/dollspace-gay/Thermite/pull/109). Forge explicitly
+accepted L3/end-to-end kernel composition against exact public Thermite `main`
+commit `b8dc3947f504454775aa70977d8bda5da677d2af`. The kernel-slice and subsequent
+receipt/composition fixes from PRs #109, #112, and #113 are merged. Forge explicitly
 imports the digest-bound verified `vstd.vir` slice model and supplies a separate
 erased `no_std` metadata/link crate; the proof still uses `--no-vstd` to prevent
 an ambient, unrecorded standard-library dependency. The receipt binds the model,
@@ -166,9 +166,9 @@ freestanding rlib and ELF64 links. Three proof mutations and three
 receipt/kernel-vstd tamper cases fail. See
 [M1 raw BootInfo decoder](../evidence/m1/bootinfo-decoder.md).
 
-The public candidate commit is exact and replayable, but PR #109 is still a
-draft. A later coordinated repin will move the project-wide Thermite baseline
-after merge; no release claim depends on an unmerged branch.
+The public commit is exact and replayable. The coordinated candidate repin and
+regeneration of all candidate-bound M1 receipts pass; the frozen M0 baseline
+remains separate by design.
 
 ## 5. Virtual-address layout
 
@@ -447,13 +447,12 @@ to the accepted M0 primitive object; post-link extraction requires exact
 identity with the verified nine-byte `memcpy` capsule. See
 [M1 exception-dispatch policy](../evidence/m1/exception-dispatch-policy.md).
 
-This checkpoint does not implement the function body at
-`0xffffffff80011100`, decode the concrete saved frame, select the current
-thread under the kernel lock, construct a fault-reply token, or execute any
-returned machine action. TLB classification is not a proof of page-table
-invalidation, and timer/IRQ classification does not program or acknowledge the
-LAPIC. A joined verified bridge and QEMU fault/interrupt execution remain the
-next entry-path gates.
+The later dispatcher, frame, and scalar checkpoints now connect this policy to
+the transported frame values and execute a transactional formal action model.
+They still do not select the real current thread under the kernel lock,
+construct a live fault-reply token, invalidate page tables, or program/
+acknowledge the LAPIC. Those concrete backends and QEMU fault/interrupt
+execution remain entry-path gates.
 
 ### 7.4 Implemented saved-frame decoder and policy bridge
 
@@ -482,10 +481,11 @@ ELF has no undefined symbols and post-link-matches the exact verified M0
 [M1 exception-frame bridge](../evidence/m1/exception-frame-bridge.md).
 
 The exported verified bridge takes `&[u64]`; no unsafe raw pointer is admitted.
-The next capsule/shell step must prove that the assembly RDI frame pointer owns
-and can be converted to exactly 21 or 23 readable words before calling it. The
-current-thread/context snapshot and action executor also remain absent, so this
-checkpoint still makes no live-dispatch claim.
+The dispatcher front proves the conditional raw reads, and the scalar core
+cross-checks the transported values against this safe view before policy. The
+remaining join is a lower-TPL per-CPU wrapper that owns the registered frame,
+constructs the safe view, and binds the real thread/platform state; this older
+component alone still makes no live-dispatch claim.
 
 ### 7.5 Implemented raw dispatcher-front capsule
 
@@ -513,8 +513,9 @@ artifact and proof mutations fail. See
 [M1 dispatcher-front capsule](../evidence/m1/exception-dispatcher-front-capsule.md).
 
 This closes exact raw-pointer dereference and scalar ABI refinement only when
-the modeled caller obligations hold. The scalar function, safe-decoder/context
-join, returning/fail-stop split, machine-action executor, full entry image, and
+the modeled caller obligations hold. The scalar checkpoint now supplies the
+cross-check, policy/action model, and returning/schedule/fail-stop control
+split. The per-CPU wrapper, real machine-action backends, full entry image, and
 live hardware delivery remain open.
 
 ### 7.6 Implemented common-entry/dispatcher composition
@@ -543,9 +544,54 @@ three byte-identical ELFs with exactly two executable sections and no
 relocations. Eleven artifact/proof mutations fail. See
 [M1 exception entry/dispatcher join](../evidence/m1/exception-entry-dispatcher-join.md).
 
-The scalar seam remains registered rather than implemented. Safe frame
-reconstruction, per-CPU/current-thread context, policy action execution,
-non-returning failure, full stub linkage, and live IDT delivery remain open.
+The next scalar checkpoint implements the safe policy/action core and the exact
+entry bytes at this seam. Its core target remains registered: per-CPU/current-
+thread lookup, real scheduler/platform actions, full stub linkage, and live IDT
+delivery remain open.
+
+### 7.7 Implemented scalar policy/action bridge and entry capsule
+
+`tests/m1/exception_scalar_shell.rs` composes the accepted Thermite policy with
+a direct-Verus action core. Before invoking policy it requires a unique per-CPU
+state token, kernel-lock ownership, interrupts masked, matching current thread,
+and ready scheduler/crash records. It independently validates the exact 21/23-
+word frame and proves that CR2, error, RIP, RFLAGS, optional user RSP, vector,
+CS, and SS match the six values transported by the dispatcher front.
+
+The core gives executable formal semantics to fault delivery, termination,
+timer/reschedule, mask/notify/ack IRQ, new/stale TLB shootdown, quarantine,
+spurious, and panic actions. Action preflight is transactional. Missing fault,
+IRQ, TLB, or acknowledgement capacity latches bridge fail-stop reason 103 from
+the pre-policy state, preserving every accounting field. Snapshot and scalar-
+frame failures use reasons 100 and 101 before policy invocation. The return,
+schedule, and fail-stop controls are fixed at 0, 1, and 2.
+
+The exact scalar entry at `0xffffffff80011200` is eight bytes:
+
+```text
+48 89 df e9 f8 00 00 00    mov rdi,rbx; jmp 0xffffffff80011300
+```
+
+RBX is the registered frame pointer carried by the dispatcher front. Replacing
+RDI discards only its redundant CR2 copy; the core reads authoritative CR2 from
+the frame after cross-checking the scalar transport. The tail jump preserves
+the inherited stack word at the common continuation. Control 0 may return there;
+schedule and fail-stop controls are nonreturning.
+
+`cargo run -p xtask -- m1-exception-scalar` performs three strict Forge builds,
+receipt validation/replay, the 64/64 policy battery, three 11-scenario core
+consumers, three 11-obligation entry-model builds, three entry consumers, and
+three fixed-address links. The final ELF has one eight-byte executable section,
+no relocations, and the exact core target. Fifteen proof, receipt, dependency,
+byte, size, and executable-section changes are rejected. See
+[M1 scalar exception bridge](../evidence/m1/exception-scalar-bridge.md).
+
+This checkpoint deliberately leaves `0xffffffff80011300` as a registered core
+seam. The next lower-TPL wrapper must read initialized kernel GS, establish the
+per-CPU/lock token, construct the safe frame view from registered ownership,
+call the compiled rich-state core, and connect return/schedule/fail-stop to real
+platform paths. Only then can the full stub/common/front/entry/core image and
+live QEMU delivery be claimed.
 
 SMAP is enabled. User memory is accessed only by proved copy primitives that
 bound the range, validate the VSpace mapping epoch, bracket access with

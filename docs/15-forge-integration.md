@@ -25,14 +25,14 @@ second absolute source root reproduces those products and both final images, and
 receipt replay succeeds. Nothing in this document relabels an ordinary Forge L1
 build.
 
-One M1 component uses a separately recorded candidate extension: Thermite
-commit `1fb0a799071d35493815ba99b9ca26af9a22eb1c` from draft PR #109. That
-extension explicitly imports and receipts the verified slice model for a
+Candidate-bound M1 components use a separately recorded merged extension:
+Thermite `main` commit `b8dc3947f504454775aa70977d8bda5da677d2af`, including PRs
+#109, #112, and #113. That extension explicitly imports and receipts the verified slice model for a
 `--no-vstd` kernel composition and generates an erased `no_std` metadata/link
 rlib. It is pinned under `[thermite_issue_108]` in `toolchain/lock.toml`; it does
 not silently replace the M0 `v0.0.2` baseline. The raw BootInfo gate binds the
-model/source/link identities and replays the complete receipt. Release requires
-the PR to merge and a coordinated project-wide baseline repin.
+model/source/link identities and replays the complete receipt. The coordinated
+candidate repin is complete; the M0 `v0.0.2` receipt identity remains frozen.
 
 ## 2. Two different interfaces
 

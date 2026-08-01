@@ -16,9 +16,9 @@ const FREESTANDING: &str = "tests/m1/bootinfo_freestanding.rs";
 const CRATE_NAME: &str = "tmk_bootinfo";
 const ARTIFACT: &str = "artifact/libtmk_bootinfo.rlib";
 const RECEIPT_SCHEMA: &str = "thermite.verified-composition-receipt.v1";
-pub(super) const THERMITE_COMMIT: &str = "1fb0a799071d35493815ba99b9ca26af9a22eb1c";
+pub(super) const THERMITE_COMMIT: &str = "b8dc3947f504454775aa70977d8bda5da677d2af";
 pub(super) const FORGE_SHA256: &str =
-    "12240457546220ebefba7c7a5e3ab2d127acaf9b592543a8d0394bf0c8253b74";
+    "b073fa34a955dc4ce723aac3cdba36ed031e7daa1ca5db6ead866d41ef36fbf9";
 const RUNTIME_MARKER: &str = "M1_BOOTINFO_OK ranges=2 last=0000000000a00000 bsp=7 negatives=12";
 
 pub fn run() -> Result<(), String> {

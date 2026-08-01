@@ -1,7 +1,7 @@
 # M1 saved exception-frame decoder and policy bridge
 
-Status: **accepted M1 subcomponent** against public Thermite candidate commit
-`1fb0a799071d35493815ba99b9ca26af9a22eb1c`. This checkpoint proves safe
+Status: **accepted M1 subcomponent** against public Thermite `main` commit
+`b8dc3947f504454775aa70977d8bda5da677d2af`. This checkpoint proves safe
 normalization of the exact common-entry stack layout and invokes the accepted
 exception policy in the same verified crate. It does not convert the raw RDI
 pointer into a slice and executes no returned machine action.
@@ -85,16 +85,16 @@ shell_sha256=454c525f28d9609e6d34986fe68797856beb8eb723eb20635c84e2df20d12210
 consumer_source_sha256=af5ee2272f196b6f37b90b61153432a862a45591b263dd5ee675fa6f12f16bed
 freestanding_source_sha256=fc28e999c211ef9817ddf152d1a88870d80fcfa5b97d479939abe54e82246eea
 combined_source_sha256=fda31943706efcaf44928c5a0c60740b67e5a18ecde581993e714225287809fb
-receipt_sha256=e768dce5537ff7dabe687c95ae5028f5710a89a8573f07f7263a009a7140105c
-binding_sha256=bec94929b9afa7d6b008eefdf9c84af550d6cf2b96dffb4eb09047e7aa1ea4aa
+receipt_sha256=0d35ff07ddff15565306c404746d7cc034a6b6871a9fc60742f4d097daeac302
+binding_sha256=ceea24c765dd449fee67dc65575b5389bb5ed7def634e5ed440a0386ea543034
 artifact_sha256=895d1dc87b5329a43fc485c55069857b46614b0e40ffbbaf191fb9bc5a27e7fb
 consumer_sha256=167e17320b0423045f1f7301c86f70d5b729a772f26ca89af474ec85a4a95eab
 freestanding_rlib_sha256=fc018ce3249f40527ba096d87f82b6f000ba5ca5423016e8a35fa7ef1c8081c2
 freestanding_elf_sha256=74cc44419b63cb7f8f7296be692b5d819ba39d2dc24ce18439d18a0e1c407737
 platform_primitive_object_sha256=a3884a20bfb8193e6cfdbf921eae60bac038406aebfe9184ad5039e0629ec50f
 linked_memcpy_sha256=00d0174466d21d8a224c588f4bf2e324a605806fac0cb0d4fa2ba1a9667a49a9
-forge_source_identity=1fb0a799071d35493815ba99b9ca26af9a22eb1c
-forge_sha256=12240457546220ebefba7c7a5e3ab2d127acaf9b592543a8d0394bf0c8253b74
+forge_source_identity=b8dc3947f504454775aa70977d8bda5da677d2af
+forge_sha256=b073fa34a955dc4ce723aac3cdba36ed031e7daa1ca5db6ead866d41ef36fbf9
 reproducibility_builds=3
 mutation_battery=64/64
 frame_layout_words=21,23
@@ -120,9 +120,12 @@ IRQ context under the kernel lock, provide valid generations, execute each
 returned action through proved platform operations, and distinguish returning
 from fail-stop paths.
 
-The next joined gate must connect those obligations to the accepted stub/common
-bytes and this artifact, post-link the actual dispatcher at
-`0xffffffff80011100`, and execute CPL0/CPL3 exceptions and interrupts under
-QEMU. Until then `raw_pointer_bridge_present=false`,
-`dispatcher_machine_actions_executed=false`, and `release_eligible=false` remain
-explicit.
+The accepted dispatcher front now discharges the conditional raw reads, and the
+accepted scalar bridge checks those transported values against the safe frame
+before invoking policy and its action model; see
+[M1 scalar exception bridge](exception-scalar-bridge.md). A concrete per-CPU
+lookup wrapper, fixed-address scalar core, real scheduler/LAPIC backends, full
+stub-to-scalar link, and CPL0/CPL3 execution under QEMU remain open. This older
+component report therefore keeps `raw_pointer_bridge_present=false`,
+`dispatcher_machine_actions_executed=false`, and `release_eligible=false` as
+historical component-scoped claims.

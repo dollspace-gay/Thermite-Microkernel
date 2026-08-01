@@ -1,11 +1,11 @@
 # M1 raw BootInfo decoder
 
-Status: **accepted M1 subcomponent** against exact public Thermite candidate
-commit `1fb0a799071d35493815ba99b9ca26af9a22eb1c`, branch
-`issue-108-kernel-byte-slices`, draft PR
-[#109](https://github.com/dollspace-gay/Thermite/pull/109). Thermite issue
-[#108](https://github.com/dollspace-gay/Thermite/issues/108) and the PR remain
-open, so the final coordinated main-branch repin is still a release gate.
+Status: **accepted M1 subcomponent** against exact public Thermite `main`
+commit `b8dc3947f504454775aa70977d8bda5da677d2af`. The kernel-byte-slice work from
+[#109](https://github.com/dollspace-gay/Thermite/pull/109) and the later Forge
+receipt/composition repairs from PRs #112 and #113 are merged; issues #108,
+#110, and #111 are closed. The candidate-bound receipts were regenerated and
+replayed after the coordinated repin.
 
 ## Accepted implementation
 
@@ -81,8 +81,8 @@ shell_sha256=7f45d0d591b03f7f12574becadc77d090d1276548f8ffee23386c0d45bb03b45
 consumer_source_sha256=c57d6e50de9431aa8b1c6500f521ae6fdb31e912c29673497ef14f7a831cdda3
 freestanding_source_sha256=f44c72edf361a4edf5e2052fdb40d37edcd2f4579274efce9f3d834f6cb99e3e
 combined_source_sha256=9021b2cabfd25a44546fb01e3b322d3aad22f78dc040b805ab3940a69d2c85bb
-receipt_sha256=2e3b028ed9bcd3d699d95de72f8bb7655c7fec1119a7debf8a30d619676a3b39
-binding_sha256=eda1e2ad5c9875ecbe9cfac6e579699a7dcdc41c7d61f2e26e58497fa05cbe73
+receipt_sha256=574ce4c08940dfb3531604254ccf99b4a2dac8661a31b2e95de77ed746c4f68d
+binding_sha256=ba221c8abe1aea50332418844a69b8f3cddfa27a44ddb1fd037e8b15644a6bac
 artifact_sha256=42f873f661eac450ec9de17fc7629dc98fec2eae0c23ee8c390507215751e7f3
 consumer_sha256=8df7a68c39bfde9ea0ff592bc36608da62229f4cfe702595baaced110d082929
 freestanding_rlib_sha256=1675925c841b4b9f332e7f6adbff8453b0902db465ed212ec63047c7a3bc938b
@@ -91,7 +91,7 @@ kernel_vstd_vir_sha256=d6622a14a77948332f9601bfc9bd0fb71b7aca6f9ea7b10345c8a825f
 kernel_vstd_source_sha256=75b9e1b3277f143f3a0c7424f8dccc73f44b00d4f7dcee1e69aa619d6cf35016
 kernel_vstd_link_source_sha256=414a10d0b1f819004e300ab34197fda3d281f6b4dd8261cf1b9709ffa51fbda5
 kernel_vstd_link_rlib_sha256=428b45dec5a144db16af5da29a06e9c5490d6dcf891c3fcc73a4ae2703bcd6dd
-forge_source_identity=1fb0a799071d35493815ba99b9ca26af9a22eb1c
+forge_source_identity=b8dc3947f504454775aa70977d8bda5da677d2af
 reproducibility_builds=3
 verified_success_contract=header,checksum,digests,framebuffer,map-bounds,range-content,range-order,reserved-zero,last-end,bsp-apic-id
 freestanding_links=rlib,elf64-x86-64
@@ -108,5 +108,5 @@ remains under ignored `build/m1-bootinfo/`.
 This component validates a complete byte image; it does not allocate or populate
 that image from UEFI descriptors. The loader-side encoder/copy, raw UEFI
 descriptor decoder, firmware call gateway, and live handoff remain separate M1
-gates. PR #109 must be merged and the project-wide baseline repinned before a
-release build may consume the fix from Thermite `main`.
+gates. The upstream-merge/repin gate is closed; these implementation boundaries,
+not Thermite branch state, now prevent a release claim.

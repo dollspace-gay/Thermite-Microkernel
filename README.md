@@ -76,9 +76,9 @@ receipted higher-half link, reproducible UEFI probe, and signed development
 manifest have all passed their acceptance gates. M1 verified UEFI/BSP bring-up is
 in progress. The ELF/load-plan, firmware-response, raw-BootInfo, address-plan,
 concrete reference-page-table, CR3, descriptor, exception-stub, returning
-common-entry, exception-dispatch policy, safe saved-frame bridge, and exact
-dispatcher-front and entry/dispatcher-join checkpoints are accepted M1
-subcomponents; these do not yet
+common-entry, exception-dispatch policy, safe saved-frame bridge, exact
+dispatcher-front, entry/dispatcher join, and scalar policy/action/entry
+checkpoints are accepted M1 subcomponents; these do not yet
 constitute an M1 loader or kernel.
 
 The M1 ELF policy is a same-crate Thermite/direct-Verus kernel composition. It
@@ -99,18 +99,18 @@ the separate runtime consumer, fourteen rejection/proof/receipt cases, and both
 64/64 mutation batteries pass. This is the firmware-response policy, not yet the
 verified indirect UEFI call capsule or raw descriptor decoder.
 
-The raw `BootInfoV1` decoder is accepted against Thermite issue #108 candidate
-commit `1fb0a799071d35493815ba99b9ca26af9a22eb1c` in draft PR
-[#109](https://github.com/dollspace-gay/Thermite/pull/109). Its same-crate
+The raw `BootInfoV1` decoder is accepted against merged Thermite `main` commit
+`b8dc3947f504454775aa70977d8bda5da677d2af`; the kernel-slice and subsequent
+receipt/composition fixes from PRs #109, #112, and #113 are public. Its same-crate
 Thermite/direct-Verus build imports the digest-bound verified slice model while
 retaining a `no_std` kernel artifact. Three builds reproduce source, receipt,
 rlib, and kernel-vstd dependency; validation/replay pass; the real decoder runs
 one valid and 12 malformed byte images; both freestanding links succeed; and six
 proof/receipt/dependency tamper gates fail. The success theorem covers header,
 checksum, digest, framebuffer, total map containment, every range byte,
-ordering, all 12 reserved bytes, last-end, and BSP APIC identity. Upstream merge
-and the final coordinated main-branch repin remain release bookkeeping, not an
-unverified decoder seam.
+ordering, all 12 reserved bytes, last-end, and BSP APIC identity. The coordinated
+main-branch repin, receipt regeneration, replay, runtime, proof-negative, and
+tamper regressions all pass.
 
 The M1 address-space policy is accepted as a third same-crate kernel
 composition. It checks the fixed LA48 windows, low guard, absence of recursive
@@ -182,9 +182,9 @@ quarantine, and latched panic state. Three Forge builds reproduce and replay;
 64/64 mutants die; a real consumer executes 18 scenarios; four source-proof and
 three receipt/dependency tamper negatives fail; and the freestanding higher-half
 ELF links without unresolved symbols using the exact accepted nine-byte M0
-`memcpy`. This proves policy action selection only: the concrete dispatcher ABI,
-state lookup/locking, action execution, joined entry image, LAPIC effects, and
-live IDT delivery remain open.
+`memcpy`. This proves policy action selection only; the later scalar checkpoint
+executes a formal action model. Real state lookup/locking, scheduler/LAPIC
+backends, the complete joined image, and live IDT delivery remain open.
 
 The M1 exception-frame bridge checkpoint then connects the accepted 105-byte
 save order to that policy without introducing unsafe Rust. A direct-Verus shell
@@ -194,9 +194,10 @@ RFLAGS, and the user RSP/SS tail, derives CR2/vector/error at the proved offsets
 and invokes the policy in the same verified crate. Three builds reproduce and
 replay; the policy remains 64/64 mutation-complete; 12 runtime layouts execute;
 seven proof/receipt/dependency negatives fail; and both freestanding links pass
-with the verified M0 `memcpy`. The raw assembly-pointer-to-slice conversion,
-per-CPU state lookup/locking, machine actions, joined image, and hardware entry
-are still explicit open boundaries.
+with the verified M0 `memcpy`. The dispatcher front and scalar checkpoint now
+cover conditional raw reads, scalar cross-checking, and the formal action model.
+Per-CPU state lookup, real platform actions, the joined core image, and hardware
+entry remain explicit open boundaries.
 
 The thirteenth M1 checkpoint implements the first concrete dispatcher bytes at
 `0xffffffff80011100`. Its 93-byte direct-Verus capsule consumes the raw RDI
@@ -206,9 +207,9 @@ packs CR2, error, RIP, RFLAGS, optional user RSP, vector, CS, and SS into six
 SysV scalar arguments for a tail jump to the seam at `0xffffffff80011200`.
 Twenty-two Verus obligations, three model/runtime/link reproductions, exact
 post-link bytes, no relocations, one executable section, eleven runtime
-rejection states, and thirteen artifact/proof negatives pass. The scalar body,
-safe-decoder/context connection, machine actions, and hardware execution remain
-open. See
+rejection states, and thirteen artifact/proof negatives pass. The later scalar
+checkpoint supplies the action core and exact scalar-entry capsule; the per-CPU
+wrapper and hardware execution remain open. See
 [M1 dispatcher-front capsule](evidence/m1/exception-dispatcher-front-capsule.md).
 
 The fourteenth M1 checkpoint composes the exact common entry and dispatcher
@@ -219,9 +220,25 @@ obligations for both possible eight-byte-aligned entry stacks. Three proofs,
 executed consumers, and fixed-address links reproduce; the combined ELF has
 only the two accepted executable sections, no relocations, and byte-identical
 105-byte/93-byte component images. Thirteen runtime rejection states and eleven
-artifact/proof negatives pass. The scalar decoder/context/action body, full
-stub-to-scalar image, and hardware delivery remain open. See
+artifact/proof negatives pass. The scalar action model and entry capsule are now
+accepted separately; their concrete per-CPU wrapper, full stub-to-core image,
+and hardware delivery remain open. See
 [M1 exception entry/dispatcher join](evidence/m1/exception-entry-dispatcher-join.md).
+
+The fifteenth M1 checkpoint verifies the scalar policy/action core and installs
+the exact eight-byte entry capsule at `0xffffffff80011200`. The strict
+Thermite/direct-Verus core checks lock/token/current-thread ownership, requires
+all six scalar arguments to match the safe frame, invokes the accepted policy,
+and executes a transactional formal machine-action model. Backend failure
+rolls policy counters back before latching fail-stop. Three receipts, artifacts,
+and consumers reproduce and replay; 11 scenarios run; the policy retains its
+64/64 mutation score. A separate 11-obligation Verus model registers
+`mov rdi,rbx; jmp 0xffffffff80011300`; three models, consumers, and relocation-
+free fixed-address links reproduce. Fifteen proof, receipt, dependency, byte,
+size, and executable-section negatives fail. The compiled rich-state core is
+not yet linked at the registered seam: a verified GS/per-CPU lookup wrapper is
+the next entry-path component. See
+[M1 scalar exception bridge](evidence/m1/exception-scalar-bridge.md).
 
 The standalone probe's toolchain-binding gate is locally closed by pinned
 Thermite `v0.0.2` commit `845d684f00e829491ee4c537818fba2689bcaefc`. Forge records both
