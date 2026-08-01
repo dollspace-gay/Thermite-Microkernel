@@ -12,10 +12,12 @@ pub const COMMON_CONTINUATION: u64 = 0xffff_ffff_8001_1038;
 pub const CONTROL_RETURN: u8 = 0;
 pub const CONTROL_SCHEDULE: u8 = 1;
 pub const CONTROL_FAIL_STOP: u8 = 2;
-pub const REGISTERED_QWORD: u64 = 0x0000_00f8_e9df_8948;
+pub const REGISTERED_QWORD: u64 = 0xf5e9_df89_48fa_8949;
+pub const REGISTERED_TAIL: u32 = 0;
 
 pub struct CapsuleImage {
     pub qword: u64,
+    pub tail: u32,
 }
 
 pub struct MachineState {
@@ -41,6 +43,7 @@ pub struct MachineState {
 }
 
 pub struct CoreArguments {
+    pub cr2: u64,
     pub frame: u64,
     pub error: u64,
     pub rip: u64,
@@ -52,7 +55,8 @@ pub struct CoreArguments {
 pub struct ScalarEntryStep {
     pub accepted: bool,
     pub arguments: CoreArguments,
-    pub discarded_redundant_cr2: u64,
+    pub core_r10_cr2: u64,
+    pub cr2_retained: bool,
     pub core_address: u64,
     pub core_entry_rsp: u64,
     pub stack_neutral_tail_jump: bool,
@@ -66,7 +70,7 @@ pub struct ScalarEntryStep {
 }
 
 pub open spec fn image_registered(image: &CapsuleImage) -> bool {
-    image.qword == REGISTERED_QWORD
+    image.qword == REGISTERED_QWORD && image.tail == REGISTERED_TAIL
 }
 
 pub open spec fn scalar_entry_precondition(state: &MachineState) -> bool {
@@ -90,19 +94,21 @@ pub open spec fn scalar_entry_precondition(state: &MachineState) -> bool {
 pub fn registered_image() -> (result: CapsuleImage)
     ensures image_registered(&result),
 {
-    CapsuleImage { qword: REGISTERED_QWORD }
+    CapsuleImage { qword: REGISTERED_QWORD, tail: REGISTERED_TAIL }
 }
 
 pub fn decode_execute(image: CapsuleImage, state: MachineState) -> (result: ScalarEntryStep)
     ensures
         result.accepted <==> image_registered(&image) && scalar_entry_precondition(&state),
+        result.accepted ==> result.arguments.cr2 == state.rdi_cr2,
         result.accepted ==> result.arguments.frame == state.rbx_frame,
         result.accepted ==> result.arguments.error == state.rsi_error,
         result.accepted ==> result.arguments.rip == state.rdx_rip,
         result.accepted ==> result.arguments.rflags == state.rcx_rflags,
         result.accepted ==> result.arguments.user_rsp == state.r8_user_rsp,
         result.accepted ==> result.arguments.metadata == state.r9_metadata,
-        result.accepted ==> result.discarded_redundant_cr2 == state.rdi_cr2,
+        result.accepted ==> result.core_r10_cr2 == state.rdi_cr2,
+        result.accepted ==> result.cr2_retained,
         result.accepted ==> result.core_address == SCALAR_CORE_VIRTUAL,
         result.accepted ==> result.core_entry_rsp == state.rsp,
         result.accepted ==> result.core_entry_rsp & 15 == 8,
@@ -117,12 +123,14 @@ pub fn decode_execute(image: CapsuleImage, state: MachineState) -> (result: Scal
         result.accepted && !result.returns_to_common ==> result.post_rsp == 0,
         result.accepted && !result.returns_to_common ==> result.post_rip == 0,
         !result.accepted ==> result.arguments.frame == 0,
+        !result.accepted ==> result.arguments.cr2 == 0,
         !result.accepted ==> result.arguments.error == 0,
         !result.accepted ==> result.arguments.rip == 0,
         !result.accepted ==> result.arguments.rflags == 0,
         !result.accepted ==> result.arguments.user_rsp == 0,
         !result.accepted ==> result.arguments.metadata == 0,
-        !result.accepted ==> result.discarded_redundant_cr2 == 0,
+        !result.accepted ==> result.core_r10_cr2 == 0,
+        !result.accepted ==> !result.cr2_retained,
         !result.accepted ==> result.core_address == 0,
         !result.accepted ==> result.core_entry_rsp == 0,
         !result.accepted ==> !result.stack_neutral_tail_jump,
@@ -135,6 +143,7 @@ pub fn decode_execute(image: CapsuleImage, state: MachineState) -> (result: Scal
         !result.accepted ==> result.post_rip == 0,
 {
     if image.qword == REGISTERED_QWORD
+        && image.tail == REGISTERED_TAIL
         && state.cpl == 0
         && !state.interrupts_enabled
         && !state.direction_flag
@@ -155,6 +164,7 @@ pub fn decode_execute(image: CapsuleImage, state: MachineState) -> (result: Scal
         ScalarEntryStep {
             accepted: true,
             arguments: CoreArguments {
+                cr2: state.rdi_cr2,
                 frame: state.rbx_frame,
                 error: state.rsi_error,
                 rip: state.rdx_rip,
@@ -162,7 +172,8 @@ pub fn decode_execute(image: CapsuleImage, state: MachineState) -> (result: Scal
                 user_rsp: state.r8_user_rsp,
                 metadata: state.r9_metadata,
             },
-            discarded_redundant_cr2: state.rdi_cr2,
+            core_r10_cr2: state.rdi_cr2,
+            cr2_retained: true,
             core_address: SCALAR_CORE_VIRTUAL,
             core_entry_rsp: state.rsp,
             stack_neutral_tail_jump: true,
@@ -178,9 +189,10 @@ pub fn decode_execute(image: CapsuleImage, state: MachineState) -> (result: Scal
         ScalarEntryStep {
             accepted: false,
             arguments: CoreArguments {
-                frame: 0, error: 0, rip: 0, rflags: 0, user_rsp: 0, metadata: 0,
+                cr2: 0, frame: 0, error: 0, rip: 0, rflags: 0, user_rsp: 0, metadata: 0,
             },
-            discarded_redundant_cr2: 0,
+            core_r10_cr2: 0,
+            cr2_retained: false,
             core_address: 0,
             core_entry_rsp: 0,
             stack_neutral_tail_jump: false,
@@ -224,8 +236,9 @@ pub fn scalar_entry_observation() -> (result: u64)
     let step = decode_execute(registered_image(), state);
     assert(step.accepted);
     assert(step.arguments.frame == 0xffff_e000_0000_2e80);
+    assert(step.arguments.cr2 == 0x1234_5000);
     assert(step.arguments.metadata == 0x001b_0023_0000_000e);
-    assert(step.discarded_redundant_cr2 == 0x1234_5000);
+    assert(step.core_r10_cr2 == 0x1234_5000 && step.cr2_retained);
     assert(step.core_address == SCALAR_CORE_VIRTUAL);
     assert(step.stack_neutral_tail_jump);
     assert(step.returns_to_common && !step.schedules && !step.fail_stops);

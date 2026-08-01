@@ -234,10 +234,9 @@ common-entry continuation at `0xffffffff80011038`. Three runtime consumers and
 three fixed-address links reproduce; thirteen artifact/proof negatives fail. See
 [M1 dispatcher-front capsule](../evidence/m1/exception-dispatcher-front-capsule.md).
 
-This is not yet the platform-to-core transition itself. The next verified
-scalar body must join these values to the safe decoder and the locked per-CPU/
-current-thread context, then execute the selected action or enter a proved
-non-returning fail-stop path.
+This component alone is not the platform-to-core transition. The scalar and
+per-CPU wrapper checkpoints below subsequently join these values to a verified
+adapter while retaining this front end's narrow raw-read contract.
 
 ### 8.4 Implemented entry/dispatcher caller proof
 
@@ -255,9 +254,48 @@ both accepted instruction images post-link-match independently, and eleven
 artifact/proof negatives fail. See
 [M1 exception entry/dispatcher join](../evidence/m1/exception-entry-dispatcher-join.md).
 
-The remaining platform-to-core boundary begins at the scalar body: bounded safe
-frame reconstruction, locked context acquisition, policy invocation, machine
-action execution, and the returning versus non-returning split.
+The standalone join ends at the scalar body. Its obligations are consumed by
+the later scalar entry and per-CPU wrapper without broadening the two accepted
+instruction images.
+
+### 8.5 Implemented per-CPU scalar adapter boundary
+
+The concrete scalar-core ABI is a fixed 640-byte, 80-`u64` block owned
+exclusively by the current CPU during dispatch. Slots 14 through 23 hold the
+independently read saved frame, slots 24 through 29 hold the six transported
+register arguments, slots 30 through 47 hold the context snapshot, and slots
+48 through 79 receive policy, machine, and control outcomes. The verified Rust
+adapter takes one thin pointer to this named-field block; its accepted compiled
+symbol is 1,885 bytes at `0xffffffff80012000`.
+
+The exact wrapper obtains the block and active-frame pointers from the
+registered GS header. It requires a 16-byte-aligned exclusive block with at
+least 640 writable bytes and the exact field layout. It copies the registered
+frame and transported registers through distinct paths, never reads an absent
+same-ring RSP/SS tail, then invokes only the receipt-bound adapter. The adapter
+validates the 21/23-word logical shape, rechecks frame versus transport, checks
+the unique-state token, lock/current-thread and backend snapshot, invokes the
+accepted Thermite policy, and applies its transactional action model. The
+return value is restricted to return, schedule, or fail-stop.
+
+Return resumes the common exception continuation with the frame/RBX contract
+preserved. Fail-stop reaches a registered `cli; hlt` loop. Until a verified
+scheduler entry is available, schedule reaches a registered nonreturning stub
+that branches to the same fail-stop loop; therefore this checkpoint does not
+claim that a scheduling action actually mutates run queues. Hosted execution
+of the real adapter covers user page-fault scheduling, frame/register mismatch,
+and invalid-snapshot failure, including the fixed block size and offsets.
+
+The acceptance gate reproduces three proofs, consumers, adapter executions,
+and fixed-address links; audits the adapter, compiler runtime, and verified M0
+`memcpy`; and rejects seven proof, byte, size, and address mutations. See
+[M1 per-CPU scalar-core wrapper](../evidence/m1/exception-scalar-core-wrapper.md).
+
+Current-thread identity and backend readiness are still snapshot facts supplied
+under the block's unique-token contract, not live scheduler/object lookups.
+Real fault-token allocation, ready-queue mutation, IRQ/LAPIC and TLB effects,
+crash recording, whole-entry linkage, and hardware delivery remain subsequent
+verified transitions.
 
 ## 9. Transition atomicity
 

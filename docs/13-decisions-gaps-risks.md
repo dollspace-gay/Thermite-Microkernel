@@ -29,6 +29,7 @@
 | D-023 | strict canonical JSON manifests use Ed25519 and a fail-closed release-policy validator | binds proof, tool, artifact, test, assumption, and image identities without allowing a development key to authorize release |
 | D-024 | M0 signs the composed higher-half ELF and independently booted UEFI probe as separate artifacts; M1 implements their verified handoff | preserves the M0/M1 loader boundary and avoids temporary unverified PE-to-kernel glue |
 | D-025 | exception actions preflight every backend and counter before one logical commit; preflight failure restores pre-policy accounting and fail-stops | prevents policy state from recording an IRQ, TLB epoch, or fault generation whose corresponding machine action never completed |
+| D-026 | scalar entry preserves transported CR2 in R10 and the per-CPU wrapper independently copies the registered frame and register transport into a fixed block | makes the frame/register agreement check non-tautological at the first compiled-core boundary |
 
 No architecture-significant user choice remains open for implementation kickoff.
 Numeric limits may be tuned only within the invariants and ABI rules documented
@@ -61,7 +62,8 @@ here.
 | G-021 | closed for safe saved-frame decoding | the exact common-entry stack order must become a normalized policy event without unchecked offsets, ambiguous same-ring tails, or invalid return state | direct-Verus exact 21/23-word slice decoder, proved CR2/vector/error/CS/RFLAGS/RSP/SS offsets and validity, same-crate policy call, 12-scenario runtime, seven negative gates, reproducible freestanding link; retain raw RDI pointer ownership/slice construction, context snapshot, action execution, and joined hardware delivery as separate gates |
 | G-022 | closed for the exact dispatcher-front capsule | the raw common-entry RDI value must be conditionally dereferenced without reading an absent same-ring tail and transported to a verified scalar seam without an unchecked Rust slice construction | direct Verus model plus exact 93-byte registration, conditional six-word kernel/eight-word user reads, six-scalar SysV packing, correctly aligned stack-neutral scalar tail transfer to the exact common continuation, frame/RBX preservation, three runtime/link reproductions, relocation-free single-section post-link audit, and thirteen negative gates; retain joined common-entry ownership, scalar decoder/context/action body, fail-stop split, and live delivery as separate gates |
 | G-023 | closed for common-entry/dispatcher composition | the abstract common-entry stack contract must establish every concrete dispatcher-front memory and ABI obligation without assuming its RDI, tail readability, aligned call word, or continuation | direct Verus joined-stack theorem for both eight-byte entry alignments, exact lower/upper stack coverage, DF and RDI refinement, conditional user tail, non-overlap and exact continuation, three runtime/proof reproductions, two-section post-link identity for both accepted images, and eleven artifact/proof negatives; retain scalar decoder/context/action implementation, full stub image, and live delivery as separate gates |
-| G-024 | closed for the scalar policy/action model and exact scalar-entry capsule | six transported scalars must agree with the safe frame, policy effects must not escape when a backend cannot commit, and return/schedule/fail-stop must cross an exact fixed-address ABI | strict Thermite/direct-Verus snapshot/scalar checks, transactional action model, 11-scenario runtime, three receipt reproductions, exact eight-byte `mov rdi,rbx; jmp` Verus capsule, three model/runtime/link reproductions, and fifteen proof/tamper/link negatives; retain the GS/per-CPU wrapper, real scheduler/LAPIC backends, fixed-address core link, and live delivery |
+| G-024 | closed for the scalar policy/action model and exact scalar-entry capsule | six transported scalars must agree with the safe frame, policy effects must not escape when a backend cannot commit, and return/schedule/fail-stop must cross an exact fixed-address ABI | strict Thermite/direct-Verus snapshot/scalar checks, transactional action model, 11-scenario runtime, three receipt reproductions, exact eleven-byte CR2-retaining `mov r10,rdi; mov rdi,rbx; jmp` Verus capsule, three model/runtime/link reproductions, and fifteen proof/tamper/link negatives; retain real backends, full-path link, and live delivery |
+| G-025 | closed for the GS/per-CPU scalar wrapper and fixed-address adapter join | the raw frame and register transport must enter the compiled rich-state core without an unproved slice, layout, lookup, or control-flow boundary | direct-Verus GS setup and exact wrapper/control images, exclusive fixed 640-byte named-field block, independent frame/register copies with guarded user-tail reads, executed receipt-bound adapter, reproducible eight-section fixed link, verified M0 panic/`memcpy` reuse, and seven proof/byte/link negatives; retain the real scheduler and IRQ/LAPIC/TLB/crash backends, whole-entry link, and live delivery |
 
 No toolchain-closure ledger item blocks the completed M0 evidence. G-014 no
 longer blocks the content-preserving raw-byte `BootInfo` composition: the fixes
@@ -78,9 +80,11 @@ and policy invocation, but deliberately does not manufacture that slice from a
 raw assembly pointer. G-022 closes the exact conditional raw-pointer loads and
 scalar ABI under explicit machine-memory obligations. G-023 discharges those
 caller obligations and post-link-composes both exact images. G-024 closes the
-scalar/frame cross-check, transactional policy/action model, exact scalar-entry
-bytes, and control split. The GS/per-CPU wrapper, real action backends,
-fixed-address core link, full stub image, and hardware delivery remain open.
+scalar/frame cross-check, transactional policy/action model, CR2-retaining
+scalar-entry bytes, and control split. G-025 closes the registered GS/per-CPU
+lookup, exclusive fixed-block ABI, receipt-bound adapter call, fail-stop split,
+and fixed-address core link. Real action backends, the full stub/common/front
+image, and hardware delivery remain open.
 Closed-upstream rows remain pinned TMK regression tests; an
 upstream capability is not treated as locally demonstrated until its local replay
 and negative-test matrix pass.

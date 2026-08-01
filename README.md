@@ -196,8 +196,8 @@ replay; the policy remains 64/64 mutation-complete; 12 runtime layouts execute;
 seven proof/receipt/dependency negatives fail; and both freestanding links pass
 with the verified M0 `memcpy`. The dispatcher front and scalar checkpoint now
 cover conditional raw reads, scalar cross-checking, and the formal action model.
-Per-CPU state lookup, real platform actions, the joined core image, and hardware
-entry remain explicit open boundaries.
+The later per-CPU wrapper closes the fixed-block lookup and joined core image;
+real platform actions and hardware entry remain explicit open boundaries.
 
 The thirteenth M1 checkpoint implements the first concrete dispatcher bytes at
 `0xffffffff80011100`. Its 93-byte direct-Verus capsule consumes the raw RDI
@@ -208,8 +208,9 @@ SysV scalar arguments for a tail jump to the seam at `0xffffffff80011200`.
 Twenty-two Verus obligations, three model/runtime/link reproductions, exact
 post-link bytes, no relocations, one executable section, eleven runtime
 rejection states, and thirteen artifact/proof negatives pass. The later scalar
-checkpoint supplies the action core and exact scalar-entry capsule; the per-CPU
-wrapper and hardware execution remain open. See
+checkpoint supplies the action core and exact scalar-entry capsule, and the
+following wrapper checkpoint closes its per-CPU seam. Hardware execution and
+the whole-entry link remain open. See
 [M1 dispatcher-front capsule](evidence/m1/exception-dispatcher-front-capsule.md).
 
 The fourteenth M1 checkpoint composes the exact common entry and dispatcher
@@ -221,24 +222,37 @@ executed consumers, and fixed-address links reproduce; the combined ELF has
 only the two accepted executable sections, no relocations, and byte-identical
 105-byte/93-byte component images. Thirteen runtime rejection states and eleven
 artifact/proof negatives pass. The scalar action model and entry capsule are now
-accepted separately; their concrete per-CPU wrapper, full stub-to-core image,
-and hardware delivery remain open. See
+accepted separately, and their concrete per-CPU wrapper is accepted by the next
+checkpoint. The full stub-to-core image and hardware delivery remain open. See
 [M1 exception entry/dispatcher join](evidence/m1/exception-entry-dispatcher-join.md).
 
 The fifteenth M1 checkpoint verifies the scalar policy/action core and installs
-the exact eight-byte entry capsule at `0xffffffff80011200`. The strict
+the exact eleven-byte entry capsule at `0xffffffff80011200`. The strict
 Thermite/direct-Verus core checks lock/token/current-thread ownership, requires
 all six scalar arguments to match the safe frame, invokes the accepted policy,
 and executes a transactional formal machine-action model. Backend failure
 rolls policy counters back before latching fail-stop. Three receipts, artifacts,
 and consumers reproduce and replay; 11 scenarios run; the policy retains its
-64/64 mutation score. A separate 11-obligation Verus model registers
-`mov rdi,rbx; jmp 0xffffffff80011300`; three models, consumers, and relocation-
-free fixed-address links reproduce. Fifteen proof, receipt, dependency, byte,
-size, and executable-section negatives fail. The compiled rich-state core is
-not yet linked at the registered seam: a verified GS/per-CPU lookup wrapper is
-the next entry-path component. See
+64/64 mutation score. A separate 12-obligation Verus model registers
+`mov r10,rdi; mov rdi,rbx; jmp 0xffffffff80011300`, retaining transported CR2
+before replacing RDI with the frame pointer; three models, consumers, and
+relocation-free fixed-address links reproduce. Fifteen proof, receipt,
+dependency, byte, size, and executable-section negatives fail. See
 [M1 scalar exception bridge](evidence/m1/exception-scalar-bridge.md).
+
+The sixteenth M1 checkpoint closes that registered seam with verified GS setup,
+an exact 314-byte per-CPU wrapper, an exclusive 640-byte scalar-core block, and
+the receipt-bound compiled adapter at `0xffffffff80012000`. Saved-frame reads
+and transported registers enter separate block slots, user RSP/SS are read only
+for CPL3 frames, and the adapter performs the non-tautological cross-check before
+policy. Three 30-obligation proofs, wrapper consumers, real adapter executions,
+and fixed-address links reproduce; all eight executable sections have exact
+addresses and bytes with no relocations or undefined symbols. Seven proof,
+byte, size, and address negatives fail. Return and fail-stop are connected;
+schedule deliberately reaches a registered fail-closed stub until the real
+scheduler backend exists. QEMU/hardware execution and the complete
+stub/common/front join remain open. See
+[M1 per-CPU scalar-core wrapper](evidence/m1/exception-scalar-core-wrapper.md).
 
 The standalone probe's toolchain-binding gate is locally closed by pinned
 Thermite `v0.0.2` commit `845d684f00e829491ee4c537818fba2689bcaefc`. Forge records both

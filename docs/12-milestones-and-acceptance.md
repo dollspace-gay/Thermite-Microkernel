@@ -225,11 +225,27 @@ accepted M1 subcomponent. The same-crate Thermite/direct-Verus core validates
 the per-CPU snapshot and exact six-scalar/frame correspondence, then executes a
 transactional formal action model with fixed return/schedule/fail-stop controls.
 Three strict bundles and consumers reproduce and replay, including 11 runtime
-scenarios and policy rollback on backend failure. A separate 11-obligation
-Verus model registers the exact eight-byte `mov rdi,rbx; jmp` capsule at
-`0xffffffff80011200`; three models, consumers, and relocation-free links
-reproduce. Fifteen negative gates fail. See
+scenarios and policy rollback on backend failure. A separate direct-Verus model,
+now strengthened to 12 obligations, registers the exact eleven-byte
+`mov r10,rdi; mov rdi,rbx; jmp` capsule at `0xffffffff80011200`; three models,
+consumers, and relocation-free links reproduce. RDI's CR2 transport is retained
+in R10 for the downstream independent frame cross-check. Fifteen negative gates
+fail. See
 [M1 scalar exception bridge](../evidence/m1/exception-scalar-bridge.md).
+
+The per-CPU scalar-core wrapper and fixed-address adapter join are a sixteenth
+accepted M1 subcomponent. A 30-obligation direct-Verus model owns the exact
+35-byte GS-base setup, 314-byte lookup/copy/call wrapper, four-byte fail-stop,
+and five-byte schedule-unavailable images. The wrapper validates the four-word
+GS header and exclusive 640-byte core block, conditionally reads the user tail,
+and preserves independent saved-frame and transported-register values until the
+receipt-bound adapter cross-checks them. Three proofs and wrapper consumers,
+three real adapter executions, and three fixed-address eight-section ELFs
+reproduce. The linked adapter is the strict L3 Thermite/direct-Verus artifact;
+the compiler runtime reuses the accepted M0 `memcpy`, and seven proof/byte/link
+negatives fail. Scheduling is explicitly fail-closed because the real backend
+is absent. See
+[M1 per-CPU scalar-core wrapper](../evidence/m1/exception-scalar-core-wrapper.md).
 
 This status does not close M1. The coordinated Thermite main-branch repin is
 complete and every candidate-bound receipt has been regenerated and replayed.
@@ -238,8 +254,8 @@ descriptor decoding and real `ExitBootServices` execution,
 general page-table construction/physical placement, the verified CR3 call site
 and hardware execution, descriptor-register loading and entry stubs, BSP entry
 state, live descriptor-install execution, interrupt/timer path, QEMU boots, the
-concrete GS/per-CPU scalar-core wrapper and real action backends,
-full stub/scalar-core joined entry path, final signed `M1_OK`
+real scheduler and IRQ/LAPIC/TLB/crash action backends,
+full stub/common/front/scalar-core joined entry path, final signed `M1_OK`
 gate, and
 remaining hardware execution remain to be implemented.
 

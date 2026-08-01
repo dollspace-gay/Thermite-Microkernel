@@ -22,7 +22,7 @@ SECTIONS
 
 ASSERT(ADDR(.text.tmk_exception_scalar_entry) == 0xffffffff80011200,
        "scalar-entry capsule virtual address drift")
-ASSERT(SIZEOF(.text.tmk_exception_scalar_entry) == 8,
+ASSERT(SIZEOF(.text.tmk_exception_scalar_entry) == 11,
        "scalar-entry capsule size drift")
 ASSERT(tmk_exception_scalar_core == 0xffffffff80011300,
        "scalar-core seam drift")

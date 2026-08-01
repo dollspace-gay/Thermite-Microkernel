@@ -34,19 +34,25 @@ fn state(control: u8) -> MachineState {
 fn main() {
     let output = env::args_os().nth(1).expect("capsule output path");
     let image = registered_image();
-    let bytes = image.qword.to_le_bytes();
-    assert_eq!(bytes, [0x48, 0x89, 0xdf, 0xe9, 0xf8, 0x00, 0x00, 0x00]);
-    fs::write(output, bytes).expect("write scalar-entry capsule");
+    let mut bytes = image.qword.to_le_bytes().to_vec();
+    bytes.extend_from_slice(&image.tail.to_le_bytes()[..3]);
+    assert_eq!(
+        bytes,
+        [0x49, 0x89, 0xfa, 0x48, 0x89, 0xdf, 0xe9, 0xf5, 0x00, 0x00, 0x00]
+    );
+    fs::write(output, &bytes).expect("write scalar-entry capsule");
 
     let returning = decode_execute(image, state(CONTROL_RETURN));
     assert!(returning.accepted && returning.stack_neutral_tail_jump);
+    assert_eq!(returning.arguments.cr2, 0x1234_5000);
     assert_eq!(returning.arguments.frame, 0xffff_e000_0000_2e80);
     assert_eq!(returning.arguments.error, 6);
     assert_eq!(returning.arguments.rip, 0x0040_1000);
     assert_eq!(returning.arguments.rflags, 0x202);
     assert_eq!(returning.arguments.user_rsp, 0x0000_7fff_ffff_e000);
     assert_eq!(returning.arguments.metadata, 0x001b_0023_0000_000e);
-    assert_eq!(returning.discarded_redundant_cr2, 0x1234_5000);
+    assert_eq!(returning.core_r10_cr2, 0x1234_5000);
+    assert!(returning.cr2_retained);
     assert_eq!(returning.core_address, SCALAR_CORE_VIRTUAL);
     assert!(returning.returns_to_common && !returning.schedules && !returning.fail_stops);
     assert_eq!(returning.post_rsp, 0xffff_e000_0000_2e80);
@@ -72,6 +78,6 @@ fn main() {
     }
 
     println!(
-        "M1_EXCEPTION_SCALAR_ENTRY_OK bytes=8 controls=return,schedule,fail-stop rejected=4 core={SCALAR_CORE_VIRTUAL:016x}"
+        "M1_EXCEPTION_SCALAR_ENTRY_OK bytes=11 controls=return,schedule,fail-stop rejected=4 core={SCALAR_CORE_VIRTUAL:016x}"
     );
 }

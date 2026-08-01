@@ -566,32 +566,77 @@ the pre-policy state, preserving every accounting field. Snapshot and scalar-
 frame failures use reasons 100 and 101 before policy invocation. The return,
 schedule, and fail-stop controls are fixed at 0, 1, and 2.
 
-The exact scalar entry at `0xffffffff80011200` is eight bytes:
+The exact scalar entry at `0xffffffff80011200` is eleven bytes:
 
 ```text
-48 89 df e9 f8 00 00 00    mov rdi,rbx; jmp 0xffffffff80011300
+49 89 fa                    mov r10,rdi
+48 89 df                    mov rdi,rbx
+e9 f5 00 00 00             jmp 0xffffffff80011300
 ```
 
-RBX is the registered frame pointer carried by the dispatcher front. Replacing
-RDI discards only its redundant CR2 copy; the core reads authoritative CR2 from
-the frame after cross-checking the scalar transport. The tail jump preserves
-the inherited stack word at the common continuation. Control 0 may return there;
-schedule and fail-stop controls are nonreturning.
+RBX is the registered frame pointer carried by the dispatcher front. RDI's
+transported CR2 is retained independently in R10 before RDI becomes the frame
+pointer, so the downstream adapter can compare the register transport against
+the value it separately reads from the registered frame. The tail jump
+preserves the inherited stack word at the common continuation. Control 0 may
+return there; schedule and fail-stop controls are nonreturning.
 
 `cargo run -p xtask -- m1-exception-scalar` performs three strict Forge builds,
 receipt validation/replay, the 64/64 policy battery, three 11-scenario core
-consumers, three 11-obligation entry-model builds, three entry consumers, and
-three fixed-address links. The final ELF has one eight-byte executable section,
-no relocations, and the exact core target. Fifteen proof, receipt, dependency,
-byte, size, and executable-section changes are rejected. See
+consumers, three 12-obligation entry-model builds, three entry consumers, and
+three fixed-address links. The final entry ELF has one eleven-byte executable
+section, no relocations, and the exact core target. Fifteen proof, receipt,
+dependency, byte, size, and executable-section changes are rejected. See
 [M1 scalar exception bridge](../evidence/m1/exception-scalar-bridge.md).
 
-This checkpoint deliberately leaves `0xffffffff80011300` as a registered core
-seam. The next lower-TPL wrapper must read initialized kernel GS, establish the
-per-CPU/lock token, construct the safe frame view from registered ownership,
-call the compiled rich-state core, and connect return/schedule/fail-stop to real
-platform paths. Only then can the full stub/common/front/entry/core image and
-live QEMU delivery be claimed.
+The standalone scalar checkpoint deliberately reports
+`per_cpu_lookup_wrapper_present=false` and leaves `0xffffffff80011300` as a
+registered seam. The next accepted checkpoint below closes that seam without
+retroactively broadening this component's report.
+
+### 7.8 Implemented per-CPU scalar-core wrapper and fixed-address join
+
+The scalar entry now lands on an exact 314-byte wrapper at
+`0xffffffff80011300`. A separate exact 35-byte setup capsule at
+`0xffffffff80001040` installs both `IA32_GS_BASE` and
+`IA32_KERNEL_GS_BASE` while CPL0, interrupts-masked, registered-header, and
+return-stack obligations hold. The wrapper accepts only a GS header whose self
+pointer is nonzero, 640-byte scalar-core block is 16-byte aligned, active-frame
+pointer equals RDI, and flags equal `0x1ff`. The header fields occupy offsets
+0, 8, 16, and 24 respectively.
+
+Frame and register transport remain independent until the verified adapter
+checks them. The wrapper reads CR2, vector, error, RIP, CS, and RFLAGS from the
+registered frame; it reads user RSP and SS only when CS is `0x23`. It separately
+writes R10, RSI, RDX, RCX, R8, and R9 into transport slots. The adapter receives
+one exclusive 640-byte block with 80 fixed `u64` fields, validates the kernel or
+user frame and snapshot, invokes the receipt-bound Thermite/direct-Verus action
+core, and writes policy, machine-state, and outcome fields back into fixed
+slots. A frame/register mismatch fail-stops with reason 101; an invalid snapshot
+uses reason 100.
+
+The fixed address image also registers `cli; hlt` fail-stop bytes at
+`0xffffffff80011500` and a schedule-unavailable branch at
+`0xffffffff80011600`. Return control resumes the inherited continuation;
+fail-stop never returns. Schedule control is deliberately fail-closed through
+the registered stub because no scheduler backend is linked yet. The verified
+adapter begins at `0xffffffff80012000`, and its compiler runtime reuses the
+post-link-matched verified M0 `memcpy` capsule.
+
+`cargo run -p xtask -- m1-exception-scalar-core-wrapper` replays the scalar
+prerequisite, proves 30 wrapper obligations three times, executes three wrapper
+consumers and three real receipt-bound adapter consumers, and produces three
+byte-identical fixed-address ELFs. The post-link audit requires all eight
+registered executable sections, exact addresses and sizes, no relocations or
+undefined symbols, and exact source-to-linked capsule identity. Four proof
+mutations, a wrapper-byte mutation, an extra-byte link, and an adapter-address
+mutation are rejected. See
+[M1 per-CPU scalar-core wrapper](../evidence/m1/exception-scalar-core-wrapper.md).
+
+This closes the GS lookup, raw-frame-to-block transport, verified adapter call,
+control split, and fixed-address scalar-core link. It does not claim a real
+scheduler, IRQ/LAPIC/TLB/crash backend, the complete stub/common/front image,
+live IDT delivery, or QEMU/hardware execution.
 
 SMAP is enabled. User memory is accessed only by proved copy primitives that
 bound the range, validate the VSpace mapping epoch, bracket access with

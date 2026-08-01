@@ -22,8 +22,10 @@ const ENTRY_CRATE: &str = "tmk_exception_scalar_entry";
 const ENTRY_RLIB: &str = "libtmk_exception_scalar_entry.rlib";
 const RECEIPT_SCHEMA: &str = "thermite.verified-composition-receipt.v1";
 const CORE_MARKER: &str = "M1_EXCEPTION_SCALAR_OK scenarios=11 observation=2047 controls=return,schedule,fail-stop actions=fault,terminate,timer,irq,tlb,quarantine,panic";
-const ENTRY_MARKER: &str = "M1_EXCEPTION_SCALAR_ENTRY_OK bytes=8 controls=return,schedule,fail-stop rejected=4 core=ffffffff80011300";
-const ENTRY_BYTES: &[u8] = &[0x48, 0x89, 0xdf, 0xe9, 0xf8, 0x00, 0x00, 0x00];
+const ENTRY_MARKER: &str = "M1_EXCEPTION_SCALAR_ENTRY_OK bytes=11 controls=return,schedule,fail-stop rejected=4 core=ffffffff80011300";
+const ENTRY_BYTES: &[u8] = &[
+    0x49, 0x89, 0xfa, 0x48, 0x89, 0xdf, 0xe9, 0xf5, 0x00, 0x00, 0x00,
+];
 
 struct Tools {
     verus: PathBuf,
@@ -283,7 +285,7 @@ pub fn run() -> Result<(), String> {
     run_link_negatives(&tools, &root.join(LINKER), &emitted[0], &work)?;
 
     let report = format!(
-        "M1_EXCEPTION_SCALAR_OK\ncomponent_verified=true\nrelease_eligible=false\ncandidate_pin_verified=true\nhardware_executed=false\npolicy_action_model_executed=true\nfixed_address_scalar_entry_present=true\nper_cpu_lookup_wrapper_present=false\nscalar_core_fixed_address_linked=false\nreceipt_validated=true\nreceipt_replayed=true\nsource_sha256={}\nshell_sha256={}\nconsumer_source_sha256={}\ncombined_source_sha256={combined_source_sha}\nreceipt_sha256={}\nbinding_sha256={binding_sha}\nartifact_sha256={artifact_sha}\ncore_consumer_sha256={core_consumer_sha}\nentry_source_sha256={}\nentry_consumer_source_sha256={}\nentry_linker_sha256={}\nentry_model_sha256={entry_model_sha}\nentry_consumer_sha256={entry_consumer_sha}\nemitted_entry_sha256={emitted_sha}\nlinked_entry_sha256={linked_bytes_sha}\nlinked_entry_elf_sha256={linked_elf_sha}\nforge_source_identity={THERMITE_COMMIT}\nforge_sha256={FORGE_SHA256}\ncore_reproducibility_builds=3\nentry_model_reproducibility_builds=3\nentry_consumer_reproducibility_builds=3\npost_link_reproducibility_builds=3\nmutation_battery=64/64\nverus_entry_verified=11\nscalar_entry_virtual=ffffffff80011200\nscalar_core_seam_virtual=ffffffff80011300\ncommon_continuation_virtual=ffffffff80011038\nscalar_entry_bytes=8\nscalar_entry_instruction=mov-rbx-rdi;tail-jump\ncontrol_values=return:0,schedule:1,fail-stop:2\ncore_runtime_marker={CORE_MARKER}\nentry_runtime_marker={ENTRY_MARKER}\ncore_runtime_scenarios=11\nentry_runtime_controls=3\nentry_runtime_rejections=4\nnegative_cases=argument-binding,policy-rollback,control-map,snapshot-reason,core-bad-assume,receipt-tamper,vstd-source-tamper,vstd-rlib-tamper,entry-frame-argument,entry-tail-transfer,entry-return-target,entry-bad-assume,byte-mutation,extra-byte,unregistered-executable\n",
+        "M1_EXCEPTION_SCALAR_OK\ncomponent_verified=true\nrelease_eligible=false\ncandidate_pin_verified=true\nhardware_executed=false\npolicy_action_model_executed=true\nfixed_address_scalar_entry_present=true\ncr2_retained_in_r10=true\nper_cpu_lookup_wrapper_present=false\nscalar_core_fixed_address_linked=false\nreceipt_validated=true\nreceipt_replayed=true\nsource_sha256={}\nshell_sha256={}\nconsumer_source_sha256={}\ncombined_source_sha256={combined_source_sha}\nreceipt_sha256={}\nbinding_sha256={binding_sha}\nartifact_sha256={artifact_sha}\ncore_consumer_sha256={core_consumer_sha}\nentry_source_sha256={}\nentry_consumer_source_sha256={}\nentry_linker_sha256={}\nentry_model_sha256={entry_model_sha}\nentry_consumer_sha256={entry_consumer_sha}\nemitted_entry_sha256={emitted_sha}\nlinked_entry_sha256={linked_bytes_sha}\nlinked_entry_elf_sha256={linked_elf_sha}\nforge_source_identity={THERMITE_COMMIT}\nforge_sha256={FORGE_SHA256}\ncore_reproducibility_builds=3\nentry_model_reproducibility_builds=3\nentry_consumer_reproducibility_builds=3\npost_link_reproducibility_builds=3\nmutation_battery=64/64\nverus_entry_verified=12\nscalar_entry_virtual=ffffffff80011200\nscalar_core_seam_virtual=ffffffff80011300\ncommon_continuation_virtual=ffffffff80011038\nscalar_entry_bytes=11\nscalar_entry_instruction=mov-rdi-r10;mov-rbx-rdi;tail-jump\ncontrol_values=return:0,schedule:1,fail-stop:2\ncore_runtime_marker={CORE_MARKER}\nentry_runtime_marker={ENTRY_MARKER}\ncore_runtime_scenarios=11\nentry_runtime_controls=3\nentry_runtime_rejections=4\nnegative_cases=argument-binding,policy-rollback,control-map,snapshot-reason,core-bad-assume,receipt-tamper,vstd-source-tamper,vstd-rlib-tamper,entry-frame-argument,entry-tail-transfer,entry-return-target,entry-bad-assume,byte-mutation,extra-byte,unregistered-executable\n",
         sha256sum(&root.join(SOURCE))?,
         sha256sum(&root.join(SHELL))?,
         sha256sum(&root.join(CONSUMER))?,
@@ -357,11 +359,13 @@ fn audit_sources(
     for required in [
         "pub const SCALAR_ENTRY_VIRTUAL: u64 = 0xffff_ffff_8001_1200;",
         "pub const SCALAR_CORE_VIRTUAL: u64 = 0xffff_ffff_8001_1300;",
-        "pub const REGISTERED_QWORD: u64 = 0x0000_00f8_e9df_8948;",
+        "pub const REGISTERED_QWORD: u64 = 0xf5e9_df89_48fa_8949;",
+        "pub const REGISTERED_TAIL: u32 = 0;",
         "pub open spec fn scalar_entry_precondition",
         "pub fn decode_execute",
         "result.arguments.frame == state.rbx_frame",
-        "result.discarded_redundant_cr2 == state.rdi_cr2",
+        "result.arguments.cr2 == state.rdi_cr2",
+        "result.core_r10_cr2 == state.rdi_cr2",
         "result.stack_neutral_tail_jump",
         "result.post_rip == COMMON_CONTINUATION",
         "ensures result == 511",
@@ -377,7 +381,7 @@ fn audit_sources(
         "state(CONTROL_FAIL_STOP)",
         "core_registered: false",
         "core_preserves_frame: false",
-        "M1_EXCEPTION_SCALAR_ENTRY_OK bytes=8",
+        "M1_EXCEPTION_SCALAR_ENTRY_OK bytes=11",
     ] {
         if !entry_consumer.contains(required) {
             return Err(format!("scalar-entry consumer is missing `{required}`"));
@@ -388,7 +392,7 @@ fn audit_sources(
         ". = 0xffffffff80011200;",
         ".text.tmk_exception_scalar_entry",
         "tmk_exception_scalar_core = 0xffffffff80011300;",
-        "SIZEOF(.text.tmk_exception_scalar_entry) == 8",
+        "SIZEOF(.text.tmk_exception_scalar_entry) == 11",
     ] {
         if !linker.contains(required) {
             return Err(format!("scalar-entry linker is missing `{required}`"));
@@ -612,7 +616,7 @@ fn build_entry_model(
         "Verus scalar-entry proof and codegen",
         &[
             "\"success\": true",
-            "\"verified\": 11",
+            "\"verified\": 12",
             "\"errors\": 0",
             "\"is-verifying-entire-crate\": true",
             "\"version\": \"0.2026.05.24.ecee80a\"",
@@ -768,7 +772,7 @@ fn audit_linked(tools: &Tools, linked: &LinkedCapsule, work: &Path) -> Result<()
     if executable.len() != 1
         || !executable[0].contains(".text.tmk_exception_scalar_entry")
         || !executable[0].contains("ffffffff80011200")
-        || !executable[0].contains("000008")
+        || !executable[0].contains("00000b")
     {
         return Err(format!(
             "scalar-entry executable-section audit failed: {executable:?}"
@@ -802,7 +806,11 @@ fn audit_linked(tools: &Tools, linked: &LinkedCapsule, work: &Path) -> Result<()
     require_output_fragments(
         &disassembly.stdout,
         "scalar-entry disassembly",
-        &["mov    %rbx,%rdi", "jmp    ffffffff80011300"],
+        &[
+            "mov    %rdi,%r10",
+            "mov    %rbx,%rdi",
+            "jmp    ffffffff80011300",
+        ],
     )?;
     for (name, output) in [
         ("linked-header.txt", &header),

@@ -9,6 +9,7 @@ pub const RETURN_RFLAGS_ALLOWED: u64 = 0x0025_0fd7;
 pub const CONTROL_RETURN: u32 = 0;
 pub const CONTROL_SCHEDULE: u32 = 1;
 pub const CONTROL_FAIL_STOP: u32 = 2;
+pub const SCALAR_CORE_BLOCK_WORDS: usize = 80;
 
 pub struct ScalarArguments {
     pub cr2: u64,
@@ -73,6 +74,91 @@ pub struct ScalarOutcome {
     pub bridge_valid: bool,
     pub policy_invoked: bool,
     pub action_committed: bool,
+}
+
+// Every field is a u64 so the pinned kernel codegen boundary can audit this
+// block as 80 consecutive eight-byte slots before linking the assembly wrapper.
+pub struct ScalarCoreBlock {
+    pub slot_00: u64,
+    pub slot_01: u64,
+    pub slot_02: u64,
+    pub slot_03: u64,
+    pub slot_04: u64,
+    pub slot_05: u64,
+    pub slot_06: u64,
+    pub slot_07: u64,
+    pub slot_08: u64,
+    pub slot_09: u64,
+    pub slot_10: u64,
+    pub slot_11: u64,
+    pub slot_12: u64,
+    pub slot_13: u64,
+    pub slot_14: u64,
+    pub slot_15: u64,
+    pub slot_16: u64,
+    pub slot_17: u64,
+    pub slot_18: u64,
+    pub slot_19: u64,
+    pub slot_20: u64,
+    pub slot_21: u64,
+    pub slot_22: u64,
+    pub slot_23: u64,
+    pub slot_24: u64,
+    pub slot_25: u64,
+    pub slot_26: u64,
+    pub slot_27: u64,
+    pub slot_28: u64,
+    pub slot_29: u64,
+    pub slot_30: u64,
+    pub slot_31: u64,
+    pub slot_32: u64,
+    pub slot_33: u64,
+    pub slot_34: u64,
+    pub slot_35: u64,
+    pub slot_36: u64,
+    pub slot_37: u64,
+    pub slot_38: u64,
+    pub slot_39: u64,
+    pub slot_40: u64,
+    pub slot_41: u64,
+    pub slot_42: u64,
+    pub slot_43: u64,
+    pub slot_44: u64,
+    pub slot_45: u64,
+    pub slot_46: u64,
+    pub slot_47: u64,
+    pub slot_48: u64,
+    pub slot_49: u64,
+    pub slot_50: u64,
+    pub slot_51: u64,
+    pub slot_52: u64,
+    pub slot_53: u64,
+    pub slot_54: u64,
+    pub slot_55: u64,
+    pub slot_56: u64,
+    pub slot_57: u64,
+    pub slot_58: u64,
+    pub slot_59: u64,
+    pub slot_60: u64,
+    pub slot_61: u64,
+    pub slot_62: u64,
+    pub slot_63: u64,
+    pub slot_64: u64,
+    pub slot_65: u64,
+    pub slot_66: u64,
+    pub slot_67: u64,
+    pub slot_68: u64,
+    pub slot_69: u64,
+    pub slot_70: u64,
+    pub slot_71: u64,
+    pub slot_72: u64,
+    pub slot_73: u64,
+    pub slot_74: u64,
+    pub slot_75: u64,
+    pub slot_76: u64,
+    pub slot_77: u64,
+    pub slot_78: u64,
+    pub slot_79: u64,
 }
 
 pub open spec fn spec_kernel_address(address: u64) -> bool {
@@ -284,6 +370,7 @@ pub fn execute_exception_action(
     ensures
         result.bridge_valid,
         result.policy_invoked,
+        result.action_code <= 10,
         result.control <= CONTROL_FAIL_STOP,
         result.control == CONTROL_FAIL_STOP ==> result.machine.crash_latched,
         result.control != CONTROL_FAIL_STOP ==> result.action_committed,
@@ -513,8 +600,10 @@ pub fn scalar_dispatch_checked(
     machine: MachineState,
 ) -> (result: ScalarOutcome)
     ensures
+        result.action_code <= 10,
         result.control <= CONTROL_FAIL_STOP,
         result.control == CONTROL_FAIL_STOP ==> result.machine.crash_latched,
+        !result.bridge_valid ==> !result.action_committed,
         !spec_snapshot_valid(cpu, context) ==> !result.bridge_valid
             && result.machine.crash_reason == 100,
         spec_snapshot_valid(cpu, context) && !spec_scalar_arguments_match(words, args)
@@ -548,4 +637,226 @@ pub fn scalar_dispatch_checked(
     let event = normalize_exception_event(words, context);
     let result = exception_policy_step(state, event);
     execute_exception_action(prior_state, result.0, result.1, machine, cpu)
+}
+
+fn scalar_block_frame_valid(block: &ScalarCoreBlock) -> (result: bool)
+{
+    if block.slot_23 == EXCEPTION_PREFIX_WORDS as u64 {
+        block.slot_16 <= 255
+            && block.slot_19 == KERNEL_CODE_SELECTOR
+            && block.slot_18 >= 0xffff_8000_0000_0000
+            && block.slot_20 & 2 == 2
+            && block.slot_20 & !RETURN_RFLAGS_ALLOWED == 0
+    } else if block.slot_23 == EXCEPTION_USER_WORDS as u64 {
+        block.slot_16 <= 255
+            && block.slot_19 == USER_CODE_SELECTOR
+            && block.slot_18 <= 0x0000_7fff_ffff_ffff
+            && block.slot_20 & 2 == 2
+            && block.slot_20 & !RETURN_RFLAGS_ALLOWED == 0
+            && block.slot_21 <= 0x0000_7fff_ffff_ffff
+            && block.slot_22 == USER_DATA_SELECTOR
+    } else {
+        false
+    }
+}
+
+fn scalar_block_arguments_match(block: &ScalarCoreBlock, args: &ScalarArguments) -> (result: bool)
+{
+    if !scalar_block_frame_valid(block) {
+        false
+    } else {
+        let prefix = args.cr2 == block.slot_14
+            && args.error == block.slot_17
+            && args.rip == block.slot_18
+            && args.rflags == block.slot_20
+            && (args.metadata & 0xffff_ffff) == block.slot_16
+            && ((args.metadata >> 32) & 0xffff) == block.slot_19;
+        if block.slot_23 == EXCEPTION_USER_WORDS as u64 {
+            prefix
+                && args.user_rsp == block.slot_21
+                && ((args.metadata >> 48) & 0xffff) == block.slot_22
+        } else {
+            prefix && args.user_rsp == 0 && ((args.metadata >> 48) & 0xffff) == 0
+        }
+    }
+}
+
+fn normalize_exception_block_event(
+    block: &ScalarCoreBlock,
+    context: &DispatchContext,
+) -> (result: ExceptionEvent)
+{
+    let valid = scalar_block_frame_valid(block);
+    ExceptionEvent {
+        vector: if block.slot_16 <= 255 { block.slot_16 as u32 } else { 256 },
+        error: block.slot_17,
+        from_user: block.slot_23 == EXCEPTION_USER_WORDS as u64
+            && block.slot_19 == USER_CODE_SELECTOR,
+        frame_valid: valid,
+        thread: context.thread,
+        thread_live: context.thread_live,
+        fault_endpoint_valid: context.fault_endpoint_valid,
+        cr2: block.slot_14,
+        vspace_epoch: context.vspace_epoch,
+        irq_bound: context.irq_bound,
+        acknowledge_required: context.acknowledge_required,
+        wakes_higher_priority: context.wakes_higher_priority,
+        shootdown_epoch: context.shootdown_epoch,
+    }
+}
+
+fn scalar_block_dispatch_checked(
+    state: ExceptionState,
+    block: &ScalarCoreBlock,
+    args: &ScalarArguments,
+    context: &DispatchContext,
+    cpu: &PerCpuSnapshot,
+    machine: MachineState,
+) -> (result: ScalarOutcome)
+    ensures
+        result.action_code <= 10,
+        result.control <= CONTROL_FAIL_STOP,
+        result.control == CONTROL_FAIL_STOP ==> result.machine.crash_latched,
+        !result.bridge_valid ==> !result.action_committed,
+{
+    if !(cpu.cpu_id < 256
+        && cpu.lock_held
+        && cpu.unique_state_token
+        && cpu.interrupts_masked
+        && cpu.current_thread == context.thread
+        && cpu.scheduler_ready
+        && cpu.crash_record_ready)
+    {
+        return latch_bridge_failure(state, machine, 100, false, false);
+    }
+    if !scalar_block_arguments_match(block, args) {
+        return latch_bridge_failure(state, machine, 101, false, false);
+    }
+    let prior_state = ExceptionState {
+        fault_generation: state.fault_generation,
+        timer_expiries: state.timer_expiries,
+        irq_deliveries: state.irq_deliveries,
+        quarantined_vectors: state.quarantined_vectors,
+        spurious_vectors: state.spurious_vectors,
+        last_tlb_epoch: state.last_tlb_epoch,
+        reschedule_pending: state.reschedule_pending,
+        panic_latched: state.panic_latched,
+    };
+    let event = normalize_exception_block_event(block, context);
+    let result = exception_policy_step(state, event);
+    execute_exception_action(prior_state, result.0, result.1, machine, cpu)
+}
+
+pub fn tmk_exception_scalar_adapter(
+    block: &mut ScalarCoreBlock,
+) -> (control: u32)
+    ensures
+        control <= CONTROL_FAIL_STOP,
+        final(block).slot_75 == control as u64,
+        final(block).slot_76 <= 10,
+        control == CONTROL_FAIL_STOP ==> final(block).slot_73 == 1,
+        final(block).slot_77 == 0 ==> final(block).slot_79 == 0,
+{
+    let arguments = ScalarArguments {
+        cr2: block.slot_24,
+        error: block.slot_25,
+        rip: block.slot_26,
+        rflags: block.slot_27,
+        user_rsp: block.slot_28,
+        metadata: block.slot_29,
+    };
+    let context = DispatchContext {
+        thread: block.slot_30,
+        thread_live: block.slot_31 != 0,
+        fault_endpoint_valid: block.slot_32 != 0,
+        vspace_epoch: block.slot_33,
+        irq_bound: block.slot_34 != 0,
+        acknowledge_required: block.slot_35 != 0,
+        wakes_higher_priority: block.slot_36 != 0,
+        shootdown_epoch: block.slot_37,
+    };
+    let cpu = PerCpuSnapshot {
+        cpu_id: block.slot_38 as u32,
+        lock_held: block.slot_39 != 0,
+        unique_state_token: block.slot_40 != 0,
+        interrupts_masked: block.slot_41 != 0,
+        current_thread: block.slot_42,
+        fault_slot_ready: block.slot_43 != 0,
+        irq_backend_ready: block.slot_44 != 0,
+        tlb_backend_ready: block.slot_45 != 0,
+        scheduler_ready: block.slot_46 != 0,
+        crash_record_ready: block.slot_47 != 0,
+    };
+    let state = ExceptionState {
+        fault_generation: block.slot_48,
+        timer_expiries: block.slot_49,
+        irq_deliveries: block.slot_50,
+        quarantined_vectors: block.slot_51,
+        spurious_vectors: block.slot_52,
+        last_tlb_epoch: block.slot_53,
+        reschedule_pending: block.slot_54 != 0,
+        panic_latched: block.slot_55 != 0,
+    };
+    let machine = MachineState {
+        current_thread_state: block.slot_56 as u32,
+        fault_generation: block.slot_57,
+        fault_thread: block.slot_58,
+        fault_vector: block.slot_59 as u32,
+        fault_error: block.slot_60,
+        fault_address: block.slot_61,
+        fault_access: block.slot_62 as u32,
+        fault_vspace_epoch: block.slot_63,
+        timer_expiries: block.slot_64,
+        reschedule_pending: block.slot_65 != 0,
+        irq_masked_vector: block.slot_66 as u32,
+        notification_vector: block.slot_67 as u32,
+        irq_acknowledgements: block.slot_68,
+        tlb_epoch: block.slot_69,
+        tlb_acknowledgements: block.slot_70,
+        quarantined_vector: block.slot_71 as u32,
+        spurious_count: block.slot_72,
+        crash_latched: block.slot_73 != 0,
+        crash_reason: block.slot_74 as u32,
+    };
+    let outcome = scalar_block_dispatch_checked(
+        state, block, &arguments, &context, &cpu, machine,
+    );
+    let result_control = outcome.control;
+    let result_action = outcome.action_code;
+    let result_bridge = outcome.bridge_valid;
+    let result_policy = outcome.policy_invoked;
+    let result_committed = outcome.action_committed;
+    block.slot_48 = outcome.policy_state.fault_generation;
+    block.slot_49 = outcome.policy_state.timer_expiries;
+    block.slot_50 = outcome.policy_state.irq_deliveries;
+    block.slot_51 = outcome.policy_state.quarantined_vectors;
+    block.slot_52 = outcome.policy_state.spurious_vectors;
+    block.slot_53 = outcome.policy_state.last_tlb_epoch;
+    block.slot_54 = if outcome.policy_state.reschedule_pending { 1 } else { 0 };
+    block.slot_55 = if outcome.policy_state.panic_latched { 1 } else { 0 };
+    block.slot_56 = outcome.machine.current_thread_state as u64;
+    block.slot_57 = outcome.machine.fault_generation;
+    block.slot_58 = outcome.machine.fault_thread;
+    block.slot_59 = outcome.machine.fault_vector as u64;
+    block.slot_60 = outcome.machine.fault_error;
+    block.slot_61 = outcome.machine.fault_address;
+    block.slot_62 = outcome.machine.fault_access as u64;
+    block.slot_63 = outcome.machine.fault_vspace_epoch;
+    block.slot_64 = outcome.machine.timer_expiries;
+    block.slot_65 = if outcome.machine.reschedule_pending { 1 } else { 0 };
+    block.slot_66 = outcome.machine.irq_masked_vector as u64;
+    block.slot_67 = outcome.machine.notification_vector as u64;
+    block.slot_68 = outcome.machine.irq_acknowledgements;
+    block.slot_69 = outcome.machine.tlb_epoch;
+    block.slot_70 = outcome.machine.tlb_acknowledgements;
+    block.slot_71 = outcome.machine.quarantined_vector as u64;
+    block.slot_72 = outcome.machine.spurious_count;
+    block.slot_73 = if outcome.machine.crash_latched { 1 } else { 0 };
+    block.slot_74 = outcome.machine.crash_reason as u64;
+    block.slot_75 = result_control as u64;
+    block.slot_76 = result_action as u64;
+    block.slot_77 = if result_bridge { 1 } else { 0 };
+    block.slot_78 = if result_policy { 1 } else { 0 };
+    block.slot_79 = if result_committed { 1 } else { 0 };
+    result_control
 }
