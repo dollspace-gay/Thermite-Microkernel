@@ -6,8 +6,9 @@ M0 toolchain and proof-artifact closure is complete. A freestanding verified
 composition final-links at the higher-half address, and a reproducible M0 UEFI
 probe image boots under OVMF with both TCG and KVM. M1 kernel/BSP implementation
 is in progress; accepted components now include the verified static-kernel ELF
-load policy, normalized memory-map/`ExitBootServices` retry policy, and
-alias-aware kernel address-plan policy, plus a concrete verified reference
+load policy, normalized memory-map/`ExitBootServices` retry policy, and a live
+initial `GetMemoryMap` gateway under OVMF/TCG/KVM, plus the alias-aware kernel
+address-plan policy and a concrete verified reference
 page-table image, executable four-level walker, and exact-byte CR3 installation
 capsule. The per-CPU GDT, TSS, descriptor pointers, and all 256 IDT gates now
 also have concrete verified memory images and an exhaustive executable consumer.
@@ -77,8 +78,9 @@ manifest have all passed their acceptance gates. M1 verified UEFI/BSP bring-up i
 in progress. The ELF/load-plan, firmware-response, raw-BootInfo, address-plan,
 concrete reference-page-table, CR3, descriptor, exception-stub, returning
 common-entry, exception-dispatch policy, safe saved-frame bridge, exact
-dispatcher-front, entry/dispatcher join, and scalar policy/action/entry
-checkpoints are accepted M1 subcomponents; these do not yet
+dispatcher-front, entry/dispatcher join, scalar policy/action/entry, and per-CPU
+scalar-core checkpoints, plus the live initial UEFI boot-services gateway, are
+accepted M1 subcomponents; these do not yet
 constitute an M1 loader or kernel.
 
 The M1 ELF policy is a same-crate Thermite/direct-Verus kernel composition. It
@@ -96,8 +98,20 @@ buffer growth, and permits at most eight map acquisitions and four stale-key exi
 retries. The executable trace grows the map buffer, observes a stale key,
 reacquires a fresh map, and exits successfully. Three builds, validation/replay,
 the separate runtime consumer, fourteen rejection/proof/receipt cases, and both
-64/64 mutation batteries pass. This is the firmware-response policy, not yet the
-verified indirect UEFI call capsule or raw descriptor decoder.
+64/64 mutation batteries pass. This is the firmware-response policy; the initial
+indirect call is now accepted separately, but raw descriptor decoding and the
+real exit sequence remain open.
+
+The initial M1 UEFI boot-services gateway is accepted as an exact 308-byte
+direct-Verus image. It validates registered system/boot table prefixes, obeys
+the x86_64 EFIAPI five-argument and 32-byte shadow-space convention, calls the
+real OVMF `GetMemoryMap` null-buffer size probe, checks raw
+`EFI_BUFFER_TOO_SMALL` and the bounded required size, restores the stack, and
+returns EFI success. Three model, consumer, PE, and FAT builds reproduce; 16
+proof obligations and 15 model scenarios pass; the exact image emits
+`TMK_M1_UEFI_GATE_OK` under both TCG and KVM; and 22 negative classes reject.
+This does not claim the allocated-buffer call, descriptor decoder, map-key
+binding, `ExitBootServices`, or kernel handoff.
 
 The raw `BootInfoV1` decoder is accepted against merged Thermite `main` commit
 `b8dc3947f504454775aa70977d8bda5da677d2af`; the kernel-slice and subsequent
@@ -344,6 +358,7 @@ cargo run -p xtask -- m0-platform-primitives
 cargo run -p xtask -- m0-host-link
 cargo run -p xtask -- m1-elf
 cargo run -p xtask -- m1-firmware
+cargo run -p xtask -- m1-uefi-gateway
 cargo run -p xtask -- m1-address
 ```
 

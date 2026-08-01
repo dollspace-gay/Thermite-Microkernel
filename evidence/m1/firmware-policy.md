@@ -76,11 +76,12 @@ Generated bundles and logs remain under ignored `build/m1-firmware/`.
 
 ## Remaining boundary
 
-The shell currently supplies scalar normalized firmware observations. The
-registered UEFI calling-convention capsule must still issue the indirect calls,
-validate raw pointers/status values, and connect raw descriptor bytes to these
-events. The content-preserving read mechanism is now demonstrated by the
-separate [BootInfo decoder](bootinfo-decoder.md), but the raw UEFI descriptor
-decoder itself remains to be written. Actual OVMF map
+The accepted [initial UEFI boot-services gateway](uefi-boot-services-gateway.md)
+now validates registered table prefixes and raw pointers, executes the real
+null-buffer `GetMemoryMap` size probe under OVMF, and checks its raw status and
+required size. It does not yet allocate a map buffer or connect raw descriptor
+bytes to these normalized policy events. The content-preserving read mechanism
+is demonstrated by the separate [BootInfo decoder](bootinfo-decoder.md), but the
+raw UEFI descriptor decoder itself remains to be written. Actual OVMF map
 growth/key invalidation, `ExitBootServices`, page installation, and final `M1_OK`
-are not claimed by this checkpoint.
+are not claimed by either checkpoint.

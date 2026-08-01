@@ -247,10 +247,22 @@ negatives fail. Scheduling is explicitly fail-closed because the real backend
 is absent. See
 [M1 per-CPU scalar-core wrapper](../evidence/m1/exception-scalar-core-wrapper.md).
 
+The initial UEFI boot-services gateway is a seventeenth accepted M1
+subcomponent. A 16-obligation direct-Verus model registers the exact 308-byte
+x86_64 EFIAPI image that validates the system and boot-services table prefixes,
+loads their exact `BootServices` and `GetMemoryMap` offsets, constructs the
+104-byte five-argument call frame, and accepts only the null-buffer probe's
+`EFI_BUFFER_TOO_SMALL` plus a nonzero required size no larger than 1 MiB. Three
+models, consumers, exact image emissions, one-section PE images, and FAT images
+reproduce byte-for-byte. The real image boots under pinned OVMF with both TCG
+and KVM and emits the exact success marker only after the firmware service
+returns; 22 proof/model/byte/link/FAT/firmware negative classes fail. See
+[M1 UEFI boot-services gateway](../evidence/m1/uefi-boot-services-gateway.md).
+
 This status does not close M1. The coordinated Thermite main-branch repin is
 complete and every candidate-bound receipt has been regenerated and replayed.
-The UEFI call gateway, raw UEFI
-descriptor decoding and real `ExitBootServices` execution,
+The allocated-buffer `GetMemoryMap` gateway, raw UEFI descriptor decoding,
+map-key/policy binding, and real `ExitBootServices` execution,
 general page-table construction/physical placement, the verified CR3 call site
 and hardware execution, descriptor-register loading and entry stubs, BSP entry
 state, live descriptor-install execution, interrupt/timer path, QEMU boots, the

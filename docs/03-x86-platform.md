@@ -118,9 +118,34 @@ malformed-state/proof/receipt rejection cases. The positive runtime trace
 observes a stale key, reacquires key 78, exits boot services, and reaches the
 terminal state. See [M1 firmware policy](../evidence/m1/firmware-policy.md).
 
-This checkpoint proves policy over normalized call observations. The indirect
-UEFI gateway capsule, raw `EFI_STATUS` conversion, raw descriptor reads, physical
-copying, and real OVMF `ExitBootServices` execution remain separate gates.
+This checkpoint proves policy over normalized call observations. The accepted
+initial gateway below now covers one raw `EFI_STATUS` comparison and real
+`GetMemoryMap` size probe; raw descriptor reads, physical copying, and real OVMF
+`ExitBootServices` execution remain separate gates.
+
+### 3.3 Implemented initial boot-services gateway checkpoint
+
+The first concrete x86_64 EFIAPI gateway is implemented as a 308-byte direct-
+Verus registered image and a deterministic one-section PE32+ UEFI application.
+It validates registered system-table and boot-services prefixes and their exact
+signatures/header extents, loads `BootServices` at offset 96 and `GetMemoryMap`
+at offset 56, constructs the 104-byte EFIAPI frame with 32-byte shadow space and
+the fifth stack argument, and performs the indirect call. It accepts only
+`EFI_BUFFER_TOO_SMALL` with a required size in `1..=1 MiB`, restores `RSP`, and
+returns EFI success; every checked failure returns `EFI_LOAD_ERROR` without a
+success marker.
+
+`cargo run -p xtask -- m1-uefi-gateway` proves 16 obligations in three
+reproducible model builds, executes three consumers and fifteen model scenarios,
+reproduces and independently audits three PE and FAT images, and boots the exact
+image under pinned OVMF on both TCG and KVM. Both positive executions emit only
+`TMK_M1_UEFI_GATE_OK`, while proof, model, byte, link, FAT, and malformed-
+firmware-image gates reject. See
+[M1 UEFI boot-services gateway](../evidence/m1/uefi-boot-services-gateway.md).
+
+This closes only the null-buffer size probe and its raw status/size validation.
+The allocated-buffer call, raw descriptor decoder, map-key binding, bounded
+reacquisition, real `ExitBootServices`, and kernel handoff remain open.
 
 ## 4. Boot information
 

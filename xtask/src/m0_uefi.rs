@@ -8,19 +8,19 @@ use std::process::{Command, Output};
 
 const MARKER: &[u8; 16] = b"TMK_M0_UEFI_OK!\n";
 
-struct Tools {
-    verus: PathBuf,
-    rustc: PathBuf,
-    ld: PathBuf,
-    objcopy: PathBuf,
-    objdump: PathBuf,
-    qemu: PathBuf,
-    mkfs_fat: PathBuf,
-    mcopy: PathBuf,
-    touch: PathBuf,
-    timeout: PathBuf,
-    ovmf_code: PathBuf,
-    ovmf_vars: PathBuf,
+pub(super) struct Tools {
+    pub(super) verus: PathBuf,
+    pub(super) rustc: PathBuf,
+    pub(super) ld: PathBuf,
+    pub(super) objcopy: PathBuf,
+    pub(super) objdump: PathBuf,
+    pub(super) qemu: PathBuf,
+    pub(super) mkfs_fat: PathBuf,
+    pub(super) mcopy: PathBuf,
+    pub(super) touch: PathBuf,
+    pub(super) timeout: PathBuf,
+    pub(super) ovmf_code: PathBuf,
+    pub(super) ovmf_vars: PathBuf,
 }
 
 pub fn run() -> Result<(), String> {
@@ -219,8 +219,8 @@ pub fn run() -> Result<(), String> {
             .map_err(|error| format!("remove FAT reproducibility path: {error}"))?;
     }
 
-    run_qemu(&tools, &work, &disk, "tcg", "tcg", true)?;
-    run_qemu(&tools, &work, &disk, "kvm", "kvm", true)?;
+    run_qemu(&tools, &work, &disk, "tcg", "tcg", MARKER, true)?;
+    run_qemu(&tools, &work, &disk, "kvm", "kvm", MARKER, true)?;
     run_structural_negative_cases(&entry, &pe_bytes, pe_audit, &disk_bytes, &boot, &work)?;
 
     let malformed = work.join("malformed-pe.img");
@@ -228,7 +228,15 @@ pub fn run() -> Result<(), String> {
     malformed_bytes[boot.first_data_offset] ^= 0xff;
     fs::write(&malformed, malformed_bytes)
         .map_err(|error| format!("write malformed firmware-test image: {error}"))?;
-    run_qemu(&tools, &work, &malformed, "malformed-pe", "tcg", false)?;
+    run_qemu(
+        &tools,
+        &work,
+        &malformed,
+        "malformed-pe",
+        "tcg",
+        MARKER,
+        false,
+    )?;
 
     let verification_sha = sha256sum(&work.join("verus-result.json"))?;
     let entry_sha = sha256sum(&entry_bin)?;
@@ -246,7 +254,7 @@ pub fn run() -> Result<(), String> {
 }
 
 impl Tools {
-    fn pinned() -> Result<Self, String> {
+    pub(super) fn pinned() -> Result<Self, String> {
         let tools = Self {
             verus: "/opt/verus/0.2026.05.24.ecee80a/verus".into(),
             rustc: "/home/doll/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/rustc".into(),
@@ -391,7 +399,7 @@ fn run_verus_negative_cases(tools: &Tools, work: &Path, canonical: &str) -> Resu
     Ok(())
 }
 
-fn build_pe(
+pub(super) fn build_pe(
     tools: &Tools,
     linker_script: &Path,
     entry_bin: &Path,
@@ -455,7 +463,7 @@ fn build_pe(
     Ok(output.join("BOOTX64.EFI"))
 }
 
-fn build_fat_image(tools: &Tools, pe: &Path, output: &Path) -> Result<PathBuf, String> {
+pub(super) fn build_fat_image(tools: &Tools, pe: &Path, output: &Path) -> Result<PathBuf, String> {
     fs::create_dir(output).map_err(|error| {
         format!(
             "create FAT image build directory {}: {error}",
@@ -510,12 +518,13 @@ fn build_fat_image(tools: &Tools, pe: &Path, output: &Path) -> Result<PathBuf, S
     Ok(disk)
 }
 
-fn run_qemu(
+pub(super) fn run_qemu(
     tools: &Tools,
     work: &Path,
     disk: &Path,
     name: &str,
     accelerator: &str,
+    marker: &[u8],
     expect_marker: bool,
 ) -> Result<(), String> {
     let vars = work.join(format!("ovmf-vars-{name}.fd"));
@@ -563,15 +572,15 @@ fn run_qemu(
     }
     let observed = fs::read(&log).map_err(|error| format!("read QEMU {name} log: {error}"))?;
     if expect_marker {
-        if observed != MARKER {
+        if observed != marker {
             return Err(format!(
                 "QEMU {name} debug marker is {:?}, expected {:?}",
-                observed, MARKER
+                observed, marker
             ));
         }
     } else if observed
-        .windows(MARKER.len())
-        .any(|window| window == MARKER)
+        .windows(marker.len())
+        .any(|window| window == marker)
     {
         return Err(format!("QEMU {name} executed the malformed PE image"));
     }
@@ -584,7 +593,7 @@ fn run_qemu(
     Ok(())
 }
 
-fn run_structural_negative_cases(
+pub(super) fn run_structural_negative_cases(
     entry: &[u8],
     pe: &[u8],
     pe_audit: uefi::PeAudit,

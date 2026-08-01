@@ -30,6 +30,7 @@
 | D-024 | M0 signs the composed higher-half ELF and independently booted UEFI probe as separate artifacts; M1 implements their verified handoff | preserves the M0/M1 loader boundary and avoids temporary unverified PE-to-kernel glue |
 | D-025 | exception actions preflight every backend and counter before one logical commit; preflight failure restores pre-policy accounting and fail-stops | prevents policy state from recording an IRQ, TLB epoch, or fault generation whose corresponding machine action never completed |
 | D-026 | scalar entry preserves transported CR2 in R10 and the per-CPU wrapper independently copies the registered frame and register transport into a fixed block | makes the frame/register agreement check non-tautological at the first compiled-core boundary |
+| D-027 | the UEFI gateway begins with a null-buffer `GetMemoryMap` probe and accepts only bounded `EFI_BUFFER_TOO_SMALL` | separates table/EFIAPI/raw-status closure from descriptor ownership and makes the first real firmware interaction independently executable |
 
 No architecture-significant user choice remains open for implementation kickoff.
 Numeric limits may be tuned only within the invariants and ABI rules documented
@@ -64,6 +65,7 @@ here.
 | G-023 | closed for common-entry/dispatcher composition | the abstract common-entry stack contract must establish every concrete dispatcher-front memory and ABI obligation without assuming its RDI, tail readability, aligned call word, or continuation | direct Verus joined-stack theorem for both eight-byte entry alignments, exact lower/upper stack coverage, DF and RDI refinement, conditional user tail, non-overlap and exact continuation, three runtime/proof reproductions, two-section post-link identity for both accepted images, and eleven artifact/proof negatives; retain scalar decoder/context/action implementation, full stub image, and live delivery as separate gates |
 | G-024 | closed for the scalar policy/action model and exact scalar-entry capsule | six transported scalars must agree with the safe frame, policy effects must not escape when a backend cannot commit, and return/schedule/fail-stop must cross an exact fixed-address ABI | strict Thermite/direct-Verus snapshot/scalar checks, transactional action model, 11-scenario runtime, three receipt reproductions, exact eleven-byte CR2-retaining `mov r10,rdi; mov rdi,rbx; jmp` Verus capsule, three model/runtime/link reproductions, and fifteen proof/tamper/link negatives; retain real backends, full-path link, and live delivery |
 | G-025 | closed for the GS/per-CPU scalar wrapper and fixed-address adapter join | the raw frame and register transport must enter the compiled rich-state core without an unproved slice, layout, lookup, or control-flow boundary | direct-Verus GS setup and exact wrapper/control images, exclusive fixed 640-byte named-field block, independent frame/register copies with guarded user-tail reads, executed receipt-bound adapter, reproducible eight-section fixed link, verified M0 panic/`memcpy` reuse, and seven proof/byte/link negatives; retain the real scheduler and IRQ/LAPIC/TLB/crash backends, whole-entry link, and live delivery |
+| G-026 | closed for the initial UEFI boot-services call | the loader must obtain and validate raw firmware table/function pointers, obey the x86_64 EFIAPI stack/register convention, and demonstrate a real indirect firmware call without treating OVMF as verified | direct-Verus exact 308-byte gateway, explicit registered-memory/firmware ABI assumptions, three model/PE/FAT reproductions, independent one-section disassembly/audit, real OVMF TCG+KVM `GetMemoryMap` size probes, and 22 negative classes; retain the allocated-buffer call, descriptor decoder, policy/map-key binding, `ExitBootServices`, and handoff as separate gates |
 
 No toolchain-closure ledger item blocks the completed M0 evidence. G-014 no
 longer blocks the content-preserving raw-byte `BootInfo` composition: the fixes
@@ -84,7 +86,9 @@ scalar/frame cross-check, transactional policy/action model, CR2-retaining
 scalar-entry bytes, and control split. G-025 closes the registered GS/per-CPU
 lookup, exclusive fixed-block ABI, receipt-bound adapter call, fail-stop split,
 and fixed-address core link. Real action backends, the full stub/common/front
-image, and hardware delivery remain open.
+image, and hardware delivery remain open. G-026 closes the first live x86_64
+EFIAPI call and raw size/status validation, but not descriptor-buffer ownership,
+descriptor decoding, map-key integration, or `ExitBootServices`.
 Closed-upstream rows remain pinned TMK regression tests; an
 upstream capability is not treated as locally demonstrated until its local replay
 and negative-test matrix pass.
