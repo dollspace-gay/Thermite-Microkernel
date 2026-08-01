@@ -140,6 +140,14 @@ the TSS busy-bit write. Three model, runtime, and linked artifacts reproduce,
 and eight byte, section, semantic, and proof-escape cases fail. The capsule has
 not yet executed in the boot VM; its real caller and exception stubs remain open.
 
+The M1 exception-stub checkpoint fills the entire 4-KiB IDT target page with 256
+verified 16-byte instruction slots. Ten CPU-error-code vectors preserve the
+hardware word; the other 246 push a synthetic zero; every slot pushes its full
+vector and branches to the same registered common-entry address. Three model,
+runtime, and linked artifacts reproduce, with 20 Verus obligations and ten
+negative gates. The common-entry address is intentionally bound without a body
+until the next checkpoint, so no exception-delivery claim is made yet.
+
 The standalone probe's toolchain-binding gate is locally closed by pinned
 Thermite `v0.0.2` commit `845d684f00e829491ee4c537818fba2689bcaefc`. Forge records both
 ambient Rust 1.96 and the authoritative Verus-selected Rust 1.95 codegen closure;

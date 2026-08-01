@@ -159,13 +159,21 @@ executions, and high-half links reproduce byte-for-byte; eight semantic and
 post-link mutations fail. See
 [M1 descriptor-install capsule](../evidence/m1/descriptor-install-capsule.md).
 
+The concrete 256-vector exception-stub table is an eighth accepted M1
+subcomponent. Its direct Verus implementation proves 20 obligations over the
+ten CPU-error-code and 246 synthetic-error paths, exact 16-byte slots, full
+vector pushes, padding, and 256 relative branches to one common-entry address.
+Three model, runtime, and linked artifacts reproduce byte-for-byte; ten negative
+gates fail. See [M1 exception-stub table](../evidence/m1/exception-stub-table.md).
+
 This status does not close M1. The raw `BootInfo` decoder remains fail-closed
 pending Thermite [#108](https://github.com/dollspace-gay/Thermite/issues/108), and
 the UEFI call gateway, raw map decoding and real `ExitBootServices` execution,
 general page-table construction/physical placement, the verified CR3 call site
 and hardware execution, descriptor-register loading and entry stubs, BSP entry
 state, live descriptor-install execution, interrupt/timer path, QEMU boots, and
-the final signed `M1_OK` gate remain to be implemented.
+the common exception-entry/return body, final signed `M1_OK` gate, and remaining
+hardware execution remain to be implemented.
 
 Deliver:
 

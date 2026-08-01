@@ -335,6 +335,30 @@ installed register state before the hardware-execution claim closes.
 Exception stubs normalize error-code and no-error-code exceptions into the same
 frame. Page faults capture CR2 before code that could fault again.
 
+### 7.1 Implemented exception-stub table checkpoint
+
+The IDT target page at `0xffffffff80010000` now has a concrete verified 4096-byte
+instruction image. Every vector owns exactly one 16-byte slot. Vectors 8, 10,
+11, 12, 13, 14, 17, 21, 29, and 30 retain the CPU-pushed error code; every other
+slot first pushes a synthetic zero. All slots then use `PUSH imm32` for the full
+unsigned vector value and a slot-specific `JMP rel32` to the registered common
+entry at `0xffffffff80011000`. NOP padding makes the slot stride exact.
+
+`cargo run -p xtask -- m1-exception-stubs` proves and compiles the constructor
+three times, separately executes three exhaustive 256-slot consumers, emits and
+post-links three byte-identical tables, audits one relocation-free executable
+section, and requires exactly 256 disassembled branches to the common address.
+Ten byte, section, classification, displacement, opcode, completeness,
+proof-escape, and proof-dependency negatives fail. See
+[M1 exception-stub table](../evidence/m1/exception-stub-table.md).
+
+The common-entry symbol is deliberately fixed at the byte immediately after the
+table, but this checkpoint provides no body there. Therefore it closes IDT-to-
+stub address correspondence and error/vector normalization only. It does not
+yet save registers, capture CR2, create the common trap frame, dispatch, return
+with `IRETQ`, or execute through the IDT on hardware. Those are the next entry-
+capsule and BSP integration gates.
+
 SMAP is enabled. User memory is accessed only by proved copy primitives that
 bound the range, validate the VSpace mapping epoch, bracket access with
 `STAC`/`CLAC`, and return a partial-copy result on fault.
