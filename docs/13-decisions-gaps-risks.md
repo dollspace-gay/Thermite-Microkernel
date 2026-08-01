@@ -59,6 +59,7 @@ here.
 | G-020 | closed for pure exception-dispatch policy | the common entry needs a total, non-vacuous classification of user/kernel faults, IPIs, device/reserved/spurious vectors, overflow, and fail-stop state before machine effects are connected | exact Thermite state/action contracts, same-crate direct-Verus composition, 64/64 mutation battery, 18-scenario runtime, seven negative gates, and a freestanding no-undefined-symbol link to the post-link-matched verified M0 `memcpy`; retain concrete frame/state bridge, lock/current-thread ownership, action execution, joined link, and live hardware delivery as separate gates |
 | G-021 | closed for safe saved-frame decoding | the exact common-entry stack order must become a normalized policy event without unchecked offsets, ambiguous same-ring tails, or invalid return state | direct-Verus exact 21/23-word slice decoder, proved CR2/vector/error/CS/RFLAGS/RSP/SS offsets and validity, same-crate policy call, 12-scenario runtime, seven negative gates, reproducible freestanding link; retain raw RDI pointer ownership/slice construction, context snapshot, action execution, and joined hardware delivery as separate gates |
 | G-022 | closed for the exact dispatcher-front capsule | the raw common-entry RDI value must be conditionally dereferenced without reading an absent same-ring tail and transported to a verified scalar seam without an unchecked Rust slice construction | direct Verus model plus exact 93-byte registration, conditional six-word kernel/eight-word user reads, six-scalar SysV packing, correctly aligned stack-neutral scalar tail transfer to the exact common continuation, frame/RBX preservation, three runtime/link reproductions, relocation-free single-section post-link audit, and thirteen negative gates; retain joined common-entry ownership, scalar decoder/context/action body, fail-stop split, and live delivery as separate gates |
+| G-023 | closed for common-entry/dispatcher composition | the abstract common-entry stack contract must establish every concrete dispatcher-front memory and ABI obligation without assuming its RDI, tail readability, aligned call word, or continuation | direct Verus joined-stack theorem for both eight-byte entry alignments, exact lower/upper stack coverage, DF and RDI refinement, conditional user tail, non-overlap and exact continuation, three runtime/proof reproductions, two-section post-link identity for both accepted images, and eleven artifact/proof negatives; retain scalar decoder/context/action implementation, full stub image, and live delivery as separate gates |
 
 No toolchain-closure ledger item blocks the completed M0 evidence. G-014 no
 longer blocks the content-preserving raw-byte `BootInfo` composition: it is
@@ -74,9 +75,9 @@ machine-action execution, joined image, or hardware delivery; additional
 privileged operations remain M1 proof work. G-021 closes the safe slice decoder
 and policy invocation, but deliberately does not manufacture that slice from a
 raw assembly pointer. G-022 closes the exact conditional raw-pointer loads and
-scalar ABI under explicit machine-memory obligations, but the common-entry
-model has not yet discharged those obligations in a joined proof and the scalar
-body remains absent.
+scalar ABI under explicit machine-memory obligations. G-023 discharges those
+caller obligations and post-link-composes both exact images; the scalar body,
+context/action execution, full stub image, and hardware delivery remain open.
 Closed-upstream rows remain pinned TMK regression tests; an
 upstream capability is not treated as locally demonstrated until its local replay
 and negative-test matrix pass.

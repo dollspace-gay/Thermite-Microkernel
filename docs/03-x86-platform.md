@@ -513,10 +513,39 @@ artifact and proof mutations fail. See
 [M1 dispatcher-front capsule](../evidence/m1/exception-dispatcher-front-capsule.md).
 
 This closes exact raw-pointer dereference and scalar ABI refinement only when
-the modeled caller obligations hold. The common-entry and dispatcher models are
-not yet joined to prove that concrete stack ownership; the scalar function,
-safe-decoder/context join, returning/fail-stop split, machine-action executor,
-combined image, and live hardware delivery remain open.
+the modeled caller obligations hold. The scalar function, safe-decoder/context
+join, returning/fail-stop split, machine-action executor, full entry image, and
+live hardware delivery remain open.
+
+### 7.6 Implemented common-entry/dispatcher composition
+
+The accepted common entry and dispatcher front are now joined by a direct Verus
+theorem and one fixed-address ELF. The common entry's 128 bytes of register
+saves produce RDI/RBX equal to `entry_rsp - 128`; its stack alignment and call
+produce a readable return word below that frame at exactly
+`0xffffffff80011038`. For an eight-byte-aligned entry stack, the theorem covers
+both low-bit cases: an entry RSP ending in zero yields `entry_rsp - 136`, while
+one ending in eight yields `entry_rsp - 144`. Both dispatcher RSP values are
+congruent to eight modulo 16.
+
+The registered stack interval begins no later than `entry_rsp - 144` and ends
+no earlier than `entry_rsp + 40` for kernel origin or `entry_rsp + 56` for user
+origin. It therefore covers the call word, all saved registers, CR2, the
+normalized vector/error/return prefix, and only the privilege-transition
+RSP/SS tail when present. The theorem also carries the common entry's `CLD`,
+frame/RBX preservation, exact scalar arguments, returning scalar contract, and
+final restore/`IRETQ` state.
+
+`cargo run -p xtask -- m1-exception-entry-dispatcher-join` reruns both component
+gates, proves 27 join obligations three times, executes three user/kernel
+consumers over both alignment paths and thirteen rejected states, and links
+three byte-identical ELFs with exactly two executable sections and no
+relocations. Eleven artifact/proof mutations fail. See
+[M1 exception entry/dispatcher join](../evidence/m1/exception-entry-dispatcher-join.md).
+
+The scalar seam remains registered rather than implemented. Safe frame
+reconstruction, per-CPU/current-thread context, policy action execution,
+non-returning failure, full stub linkage, and live IDT delivery remain open.
 
 SMAP is enabled. User memory is accessed only by proved copy primitives that
 bound the range, validate the VSpace mapping epoch, bracket access with

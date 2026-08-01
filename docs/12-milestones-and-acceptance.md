@@ -210,15 +210,24 @@ byte-for-byte; eleven malformed machine states and thirteen artifact/proof
 mutations are rejected. See
 [M1 dispatcher-front capsule](../evidence/m1/exception-dispatcher-front-capsule.md).
 
+The common-entry/dispatcher composition is a fourteenth accepted M1
+subcomponent. Its direct Verus theorem discharges the dispatcher front's exact
+frame-base, conditional tail-readability, DF-clear, call-alignment, return-word,
+non-overlap, and restoration obligations from the common-entry stack contract.
+Three 27-obligation models and executed consumers reproduce, as do three
+fixed-address ELFs containing only the byte-identical accepted 105-byte and
+93-byte executable sections. Thirteen malformed runtime states and eleven
+artifact/proof mutations are rejected. See
+[M1 exception entry/dispatcher join](../evidence/m1/exception-entry-dispatcher-join.md).
+
 This status does not close M1. Thermite PR #109 still requires upstream merge and
 a coordinated project-wide main-branch repin. The UEFI call gateway, raw UEFI
 descriptor decoding and real `ExitBootServices` execution,
 general page-table construction/physical placement, the verified CR3 call site
 and hardware execution, descriptor-register loading and entry stubs, BSP entry
 state, live descriptor-install execution, interrupt/timer path, QEMU boots, the
-joined common-entry proof of dispatcher frame-pointer ownership, concrete
-dispatcher scalar/context/action bridge and
-joined entry path, final signed `M1_OK`
+concrete dispatcher scalar/context/action bridge and
+full stub/scalar joined entry path, final signed `M1_OK`
 gate, and
 remaining hardware execution remain to be implemented.
 

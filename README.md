@@ -77,7 +77,8 @@ manifest have all passed their acceptance gates. M1 verified UEFI/BSP bring-up i
 in progress. The ELF/load-plan, firmware-response, raw-BootInfo, address-plan,
 concrete reference-page-table, CR3, descriptor, exception-stub, returning
 common-entry, exception-dispatch policy, safe saved-frame bridge, and exact
-dispatcher-front checkpoints are accepted M1 subcomponents; these do not yet
+dispatcher-front and entry/dispatcher-join checkpoints are accepted M1
+subcomponents; these do not yet
 constitute an M1 loader or kernel.
 
 The M1 ELF policy is a same-crate Thermite/direct-Verus kernel composition. It
@@ -206,10 +207,21 @@ SysV scalar arguments for a tail jump to the seam at `0xffffffff80011200`.
 Twenty-two Verus obligations, three model/runtime/link reproductions, exact
 post-link bytes, no relocations, one executable section, eleven runtime
 rejection states, and thirteen artifact/proof negatives pass. The scalar body,
-joined proof that common-entry
-RDI establishes the memory obligations, safe-decoder/context connection,
-machine actions, and hardware execution remain open. See
+safe-decoder/context connection, machine actions, and hardware execution remain
+open. See
 [M1 dispatcher-front capsule](evidence/m1/exception-dispatcher-front-capsule.md).
+
+The fourteenth M1 checkpoint composes the exact common entry and dispatcher
+front without adding instructions. Its direct-Verus theorem discharges the
+front's concrete RDI/frame ownership, conditional user-tail readability, DF,
+stack-alignment, non-overlap, and exact `0xffffffff80011038` return-address
+obligations for both possible eight-byte-aligned entry stacks. Three proofs,
+executed consumers, and fixed-address links reproduce; the combined ELF has
+only the two accepted executable sections, no relocations, and byte-identical
+105-byte/93-byte component images. Thirteen runtime rejection states and eleven
+artifact/proof negatives pass. The scalar decoder/context/action body, full
+stub-to-scalar image, and hardware delivery remain open. See
+[M1 exception entry/dispatcher join](evidence/m1/exception-entry-dispatcher-join.md).
 
 The standalone probe's toolchain-binding gate is locally closed by pinned
 Thermite `v0.0.2` commit `845d684f00e829491ee4c537818fba2689bcaefc`. Forge records both

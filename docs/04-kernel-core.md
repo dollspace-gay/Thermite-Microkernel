@@ -237,8 +237,27 @@ three fixed-address links reproduce; thirteen artifact/proof negatives fail. See
 This is not yet the platform-to-core transition itself. The next verified
 scalar body must join these values to the safe decoder and the locked per-CPU/
 current-thread context, then execute the selected action or enter a proved
-non-returning fail-stop path. The common-entry caller must also discharge the
-front end's concrete frame-memory obligations in one composed proof.
+non-returning fail-stop path.
+
+### 8.4 Implemented entry/dispatcher caller proof
+
+The common-entry caller now discharges the dispatcher front's concrete
+frame-memory obligations in one direct-Verus composition. A registered stack
+interval covers the worst-case aligned call word at `entry_rsp - 144`, the
+128-byte saved-register block, the 40-byte normalized kernel suffix, and the
+additional 16-byte user RSP/SS tail only for a privilege transition. The proof
+establishes RDI/frame identity, DF clear, an RSP congruent to eight modulo 16,
+the exact common continuation, call/frame non-overlap, and returning
+frame/RBX-preserving scalar behavior through final `IRETQ` state.
+
+Three model, consumer, and two-section link products reproduce byte-for-byte;
+both accepted instruction images post-link-match independently, and eleven
+artifact/proof negatives fail. See
+[M1 exception entry/dispatcher join](../evidence/m1/exception-entry-dispatcher-join.md).
+
+The remaining platform-to-core boundary begins at the scalar body: bounded safe
+frame reconstruction, locked context acquisition, policy invocation, machine
+action execution, and the returning versus non-returning split.
 
 ## 9. Transition atomicity
 
