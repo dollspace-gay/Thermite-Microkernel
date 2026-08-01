@@ -56,6 +56,7 @@ here.
 | G-017 | closed for the descriptor-install capsule | direct Rust cannot express descriptor-register loads, segment reload, or `LTR` | direct Verus machine model plus exact 38-byte registration, relocation-free single-section post-link audit, TSS busy-bit transition, and explicit quiescent-caller obligations; retain boot-time execution and exception delivery as separate gates |
 | G-018 | closed for the exception-stub table | 256 IDT targets must normalize CPU-error and no-error frames without generated-assembly drift | direct Verus construction/decoding of a complete 4096-byte table, exhaustive runtime execution, exact post-link identity, and 256 decoded common-entry branches; retain the body at that bound address and live exception delivery as separate gates |
 | G-019 | closed for the returning common-exception capsule | exact assembly must preserve every interrupted register, capture CR2 before dispatcher work, establish kernel GS/DF/stack calling state, and safely refine back to `IRETQ` | direct Verus model plus exact 105-byte registration, two user-path/zero kernel-path `SWAPGS` transitions, validated selectors/RFLAGS/canonical resume state, relocation-free post-link audit, and explicit caller/dispatcher obligations; retain dispatcher implementation, joined link, concrete stack ownership, and live delivery as separate gates |
+| G-020 | closed for pure exception-dispatch policy | the common entry needs a total, non-vacuous classification of user/kernel faults, IPIs, device/reserved/spurious vectors, overflow, and fail-stop state before machine effects are connected | exact Thermite state/action contracts, same-crate direct-Verus composition, 64/64 mutation battery, 18-scenario runtime, seven negative gates, and a freestanding no-undefined-symbol link to the post-link-matched verified M0 `memcpy`; retain concrete frame/state bridge, lock/current-thread ownership, action execution, joined link, and live hardware delivery as separate gates |
 
 No toolchain-closure ledger item blocks the completed M0 evidence. G-014 no
 longer blocks the content-preserving raw-byte `BootInfo` composition: it is
@@ -65,9 +66,10 @@ G-005 is a verified input to the accepted and manifest-bound G-011 final-link
 receipt. G-006's M0 acceptance instance is closed, including the exact-byte UEFI
 entry/return probe and real OVMF TCG/KVM boot. G-015 closes the initial CR3
 capsule model and post-link identity but not its boot-time call site or hardware
-execution. G-019 closes the exact returning common-entry sequence, but not its
-dispatcher body or hardware delivery; additional privileged operations remain
-M1 proof work.
+execution. G-019 closes the exact returning common-entry sequence. G-020 closes
+the pure dispatcher decision policy, but not the concrete body/ABI bridge,
+machine-action execution, joined image, or hardware delivery; additional
+privileged operations remain M1 proof work.
 Closed-upstream rows remain pinned TMK regression tests; an
 upstream capability is not treated as locally demonstrated until its local replay
 and negative-test matrix pass.

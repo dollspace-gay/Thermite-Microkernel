@@ -76,7 +76,8 @@ receipted higher-half link, reproducible UEFI probe, and signed development
 manifest have all passed their acceptance gates. M1 verified UEFI/BSP bring-up is
 in progress. The ELF/load-plan, firmware-response, raw-BootInfo, address-plan,
 concrete reference-page-table, CR3, descriptor, exception-stub, and returning
-common-entry checkpoints are accepted M1 subcomponents; these do not yet
+common-entry and exception-dispatch policy checkpoints are accepted M1
+subcomponents; these do not yet
 constitute an M1 loader or kernel.
 
 The M1 ELF policy is a same-crate Thermite/direct-Verus kernel composition. It
@@ -169,6 +170,20 @@ eight semantic/link/proof mutations fail. The dispatcher at
 `0xffffffff80011100` remains a registered returning seam rather than an
 implemented body, and neither exception delivery nor this capsule has executed
 in the boot VM yet.
+
+The following M1 exception-dispatch policy checkpoint verifies the pure state
+transition behind that seam. It classifies user faults, fatal and malformed
+kernel entry, timer/reschedule/TLB/stop IPIs, bound and unbound device IRQs,
+reserved vectors, spurious interrupts, and counter exhaustion. The exact
+success contracts require generation-tagged user-fault delivery, fail-stop
+kernel/fatal handling, monotonic TLB epochs, mask-before-notify IRQ actions,
+quarantine, and latched panic state. Three Forge builds reproduce and replay;
+64/64 mutants die; a real consumer executes 18 scenarios; four source-proof and
+three receipt/dependency tamper negatives fail; and the freestanding higher-half
+ELF links without unresolved symbols using the exact accepted nine-byte M0
+`memcpy`. This proves policy action selection only: the concrete dispatcher ABI,
+state lookup/locking, action execution, joined entry image, LAPIC effects, and
+live IDT delivery remain open.
 
 The standalone probe's toolchain-binding gate is locally closed by pinned
 Thermite `v0.0.2` commit `845d684f00e829491ee4c537818fba2689bcaefc`. Forge records both

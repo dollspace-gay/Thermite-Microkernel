@@ -1,0 +1,669 @@
+struct ExceptionState {
+  fault_generation: u64,
+  timer_expiries: u64,
+  irq_deliveries: u64,
+  quarantined_vectors: u64,
+  spurious_vectors: u64,
+  last_tlb_epoch: u64,
+  reschedule_pending: bool,
+  panic_latched: bool,
+}
+
+struct ExceptionEvent {
+  vector: u32,
+  error: u64,
+  from_user: bool,
+  frame_valid: bool,
+  thread: u64,
+  thread_live: bool,
+  fault_endpoint_valid: bool,
+  cr2: u64,
+  vspace_epoch: u64,
+  irq_bound: bool,
+  acknowledge_required: bool,
+  wakes_higher_priority: bool,
+  shootdown_epoch: u64,
+}
+
+enum ExceptionAction {
+  DeliverFault {
+    generation: u64,
+    thread: u64,
+    kind: u32,
+    vector: u32,
+    error: u64,
+    address: u64,
+    access: u32,
+    vspace_epoch: u64,
+  },
+  TerminateThread { thread: u64, vector: u32 },
+  TimerRecorded { expiries: u64 },
+  Reschedule,
+  NotifyIrq {
+    vector: u32,
+    masked: bool,
+    acknowledge: bool,
+    reschedule: bool,
+  },
+  TlbShootdown { epoch: u64, acknowledge: bool },
+  StaleTlbShootdown { epoch: u64, acknowledge: bool },
+  Quarantine { vector: u32, acknowledge: bool },
+  Spurious { count: u64 },
+  Panic { reason: u32 },
+}
+
+fn exception_policy_step(state: ExceptionState, event: ExceptionEvent)
+  -> (ExceptionState, ExceptionAction)
+  req true
+  ens match result.1 {
+    ExceptionAction::DeliverFault {
+      generation,
+      thread,
+      kind,
+      vector,
+      error,
+      address,
+      access,
+      vspace_epoch
+    } =>
+      !state.panic_latched && event.frame_valid && event.vector < 32 &&
+      event.vector != 2 && event.vector != 8 && event.vector != 18 &&
+      event.from_user && event.thread_live && event.thread != 0 &&
+      event.fault_endpoint_valid && state.fault_generation < 0xffff_ffff_ffff_fffe &&
+      (event.vector != 14 ||
+        ((event.error & 0xffff_ffff_ffff_ffe8) == 0 && (event.error & 4) == 4)) &&
+      generation == state.fault_generation + 1 && thread == event.thread &&
+      kind == if event.vector == 14 { 1 as u32 } else { 2 as u32 } &&
+      vector == event.vector && error == event.error &&
+      address == if event.vector == 14 { event.cr2 } else { 0 as u64 } &&
+      access == if event.vector == 14 {
+        if (event.error & 16) == 16 { 2 as u32 }
+        else { if (event.error & 2) == 2 { 1 as u32 } else { 0 as u32 } }
+      } else { 0 as u32 } &&
+      vspace_epoch == event.vspace_epoch &&
+      result.0.fault_generation == generation &&
+      result.0.timer_expiries == state.timer_expiries &&
+      result.0.irq_deliveries == state.irq_deliveries &&
+      result.0.quarantined_vectors == state.quarantined_vectors &&
+      result.0.spurious_vectors == state.spurious_vectors &&
+      result.0.last_tlb_epoch == state.last_tlb_epoch &&
+      result.0.reschedule_pending == state.reschedule_pending &&
+      !result.0.panic_latched,
+    ExceptionAction::TerminateThread { thread, vector } =>
+      !state.panic_latched && event.frame_valid && event.vector < 32 &&
+      event.vector != 2 && event.vector != 8 && event.vector != 18 &&
+      event.from_user && event.thread_live && event.thread != 0 &&
+      !event.fault_endpoint_valid &&
+      (event.vector != 14 ||
+        ((event.error & 0xffff_ffff_ffff_ffe8) == 0 && (event.error & 4) == 4)) &&
+      thread == event.thread && vector == event.vector && result.0 == state,
+    ExceptionAction::TimerRecorded { expiries } =>
+      !state.panic_latched && event.frame_valid && event.vector == 0xe0 &&
+      state.timer_expiries < 0xffff_ffff_ffff_fffe &&
+      expiries == state.timer_expiries + 1 &&
+      result.0.fault_generation == state.fault_generation &&
+      result.0.timer_expiries == expiries &&
+      result.0.irq_deliveries == state.irq_deliveries &&
+      result.0.quarantined_vectors == state.quarantined_vectors &&
+      result.0.spurious_vectors == state.spurious_vectors &&
+      result.0.last_tlb_epoch == state.last_tlb_epoch &&
+      result.0.reschedule_pending && !result.0.panic_latched,
+    ExceptionAction::Reschedule =>
+      !state.panic_latched && event.frame_valid && event.vector == 0xe1 &&
+      result.0.fault_generation == state.fault_generation &&
+      result.0.timer_expiries == state.timer_expiries &&
+      result.0.irq_deliveries == state.irq_deliveries &&
+      result.0.quarantined_vectors == state.quarantined_vectors &&
+      result.0.spurious_vectors == state.spurious_vectors &&
+      result.0.last_tlb_epoch == state.last_tlb_epoch &&
+      result.0.reschedule_pending && !result.0.panic_latched,
+    ExceptionAction::NotifyIrq { vector, masked, acknowledge, reschedule } =>
+      !state.panic_latched && event.frame_valid &&
+      event.vector >= 0x30 && event.vector <= 0xdf && event.irq_bound &&
+      state.irq_deliveries < 0xffff_ffff_ffff_fffe &&
+      vector == event.vector && masked &&
+      acknowledge == event.acknowledge_required &&
+      reschedule == (state.reschedule_pending || event.wakes_higher_priority) &&
+      result.0.fault_generation == state.fault_generation &&
+      result.0.timer_expiries == state.timer_expiries &&
+      result.0.irq_deliveries == state.irq_deliveries + 1 &&
+      result.0.quarantined_vectors == state.quarantined_vectors &&
+      result.0.spurious_vectors == state.spurious_vectors &&
+      result.0.last_tlb_epoch == state.last_tlb_epoch &&
+      result.0.reschedule_pending == reschedule && !result.0.panic_latched,
+    ExceptionAction::TlbShootdown { epoch, acknowledge } =>
+      !state.panic_latched && event.frame_valid && event.vector == 0xe2 &&
+      event.shootdown_epoch > state.last_tlb_epoch &&
+      epoch == event.shootdown_epoch && acknowledge == event.acknowledge_required &&
+      result.0.fault_generation == state.fault_generation &&
+      result.0.timer_expiries == state.timer_expiries &&
+      result.0.irq_deliveries == state.irq_deliveries &&
+      result.0.quarantined_vectors == state.quarantined_vectors &&
+      result.0.spurious_vectors == state.spurious_vectors &&
+      result.0.last_tlb_epoch == epoch &&
+      result.0.reschedule_pending == state.reschedule_pending &&
+      !result.0.panic_latched,
+    ExceptionAction::StaleTlbShootdown { epoch, acknowledge } =>
+      !state.panic_latched && event.frame_valid && event.vector == 0xe2 &&
+      event.shootdown_epoch != 0 && event.shootdown_epoch <= state.last_tlb_epoch &&
+      epoch == event.shootdown_epoch && acknowledge == event.acknowledge_required &&
+      result.0 == state,
+    ExceptionAction::Quarantine { vector, acknowledge } =>
+      !state.panic_latched && event.frame_valid && event.vector <= 255 &&
+      event.vector != 2 && event.vector != 8 && event.vector != 18 &&
+      event.vector >= 32 && event.vector != 0xe0 && event.vector != 0xe1 &&
+      event.vector != 0xe2 && event.vector != 0xe3 && event.vector != 0xff &&
+      !(event.vector >= 0x30 && event.vector <= 0xdf && event.irq_bound) &&
+      state.quarantined_vectors < 0xffff_ffff_ffff_fffe &&
+      vector == event.vector && acknowledge == event.acknowledge_required &&
+      result.0.fault_generation == state.fault_generation &&
+      result.0.timer_expiries == state.timer_expiries &&
+      result.0.irq_deliveries == state.irq_deliveries &&
+      result.0.quarantined_vectors == state.quarantined_vectors + 1 &&
+      result.0.spurious_vectors == state.spurious_vectors &&
+      result.0.last_tlb_epoch == state.last_tlb_epoch &&
+      result.0.reschedule_pending == state.reschedule_pending &&
+      !result.0.panic_latched,
+    ExceptionAction::Spurious { count } =>
+      !state.panic_latched && event.frame_valid && event.vector == 0xff &&
+      state.spurious_vectors < 0xffff_ffff_ffff_fffe &&
+      count == state.spurious_vectors + 1 &&
+      result.0.fault_generation == state.fault_generation &&
+      result.0.timer_expiries == state.timer_expiries &&
+      result.0.irq_deliveries == state.irq_deliveries &&
+      result.0.quarantined_vectors == state.quarantined_vectors &&
+      result.0.spurious_vectors == count &&
+      result.0.last_tlb_epoch == state.last_tlb_epoch &&
+      result.0.reschedule_pending == state.reschedule_pending &&
+      !result.0.panic_latched,
+    ExceptionAction::Panic { reason } =>
+      reason != 0 &&
+      result.0.fault_generation == state.fault_generation &&
+      result.0.timer_expiries == state.timer_expiries &&
+      result.0.irq_deliveries == state.irq_deliveries &&
+      result.0.quarantined_vectors == state.quarantined_vectors &&
+      result.0.spurious_vectors == state.spurious_vectors &&
+      result.0.last_tlb_epoch == state.last_tlb_epoch &&
+      !result.0.reschedule_pending && result.0.panic_latched,
+  }
+  ens match result.1 {
+    ExceptionAction::Panic { reason } =>
+      reason == if state.panic_latched {
+        1 as u32
+      } else {
+        if !event.frame_valid {
+          2 as u32
+        } else {
+          if event.vector > 255 {
+            3 as u32
+          } else {
+            if event.vector == 2 || event.vector == 8 || event.vector == 18 {
+              4 as u32
+            } else {
+              if event.vector < 32 {
+                if !event.from_user {
+                  5 as u32
+                } else {
+                  if event.vector == 14 &&
+                     ((event.error & 0xffff_ffff_ffff_ffe8) != 0 ||
+                      (event.error & 4) != 4) {
+                    6 as u32
+                  } else {
+                    if !event.thread_live || event.thread == 0 {
+                      7 as u32
+                    } else {
+                      if event.fault_endpoint_valid &&
+                         state.fault_generation >= 0xffff_ffff_ffff_fffe {
+                        8 as u32
+                      } else {
+                        0 as u32
+                      }
+                    }
+                  }
+                }
+              } else {
+                if event.vector == 0xe0 &&
+                   state.timer_expiries >= 0xffff_ffff_ffff_fffe {
+                  8 as u32
+                } else {
+                  if event.vector == 0xe2 && event.shootdown_epoch == 0 {
+                    10 as u32
+                  } else {
+                    if event.vector == 0xe3 {
+                      9 as u32
+                    } else {
+                      if event.vector == 0xff &&
+                         state.spurious_vectors >= 0xffff_ffff_ffff_fffe {
+                        8 as u32
+                      } else {
+                        if event.vector >= 0x30 && event.vector <= 0xdf &&
+                           event.irq_bound &&
+                           state.irq_deliveries >= 0xffff_ffff_ffff_fffe {
+                          8 as u32
+                        } else {
+                          if event.vector != 0xe0 && event.vector != 0xe1 &&
+                             event.vector != 0xe2 && event.vector != 0xe3 &&
+                             event.vector != 0xff &&
+                             !(event.vector >= 0x30 && event.vector <= 0xdf &&
+                               event.irq_bound) &&
+                             state.quarantined_vectors >= 0xffff_ffff_ffff_fffe {
+                            8 as u32
+                          } else {
+                            0 as u32
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+    ExceptionAction::DeliverFault {
+      generation,
+      thread,
+      kind,
+      vector,
+      error,
+      address,
+      access,
+      vspace_epoch
+    } => true,
+    ExceptionAction::TerminateThread { thread, vector } => true,
+    ExceptionAction::TimerRecorded { expiries } => true,
+    ExceptionAction::Reschedule => true,
+    ExceptionAction::NotifyIrq { vector, masked, acknowledge, reschedule } => true,
+    ExceptionAction::TlbShootdown { epoch, acknowledge } => true,
+    ExceptionAction::StaleTlbShootdown { epoch, acknowledge } => true,
+    ExceptionAction::Quarantine { vector, acknowledge } => true,
+    ExceptionAction::Spurious { count } => true,
+  }
+  fx pure
+{
+  if state.panic_latched {
+    (
+      ExceptionState {
+        fault_generation: state.fault_generation,
+        timer_expiries: state.timer_expiries,
+        irq_deliveries: state.irq_deliveries,
+        quarantined_vectors: state.quarantined_vectors,
+        spurious_vectors: state.spurious_vectors,
+        last_tlb_epoch: state.last_tlb_epoch,
+        reschedule_pending: false,
+        panic_latched: true,
+      },
+      ExceptionAction::Panic { reason: 1 },
+    )
+  } else {
+    if !event.frame_valid {
+      (
+        ExceptionState {
+          fault_generation: state.fault_generation,
+          timer_expiries: state.timer_expiries,
+          irq_deliveries: state.irq_deliveries,
+          quarantined_vectors: state.quarantined_vectors,
+          spurious_vectors: state.spurious_vectors,
+          last_tlb_epoch: state.last_tlb_epoch,
+          reschedule_pending: false,
+          panic_latched: true,
+        },
+        ExceptionAction::Panic { reason: 2 },
+      )
+    } else {
+      if event.vector > 255 {
+        (
+          ExceptionState {
+            fault_generation: state.fault_generation,
+            timer_expiries: state.timer_expiries,
+            irq_deliveries: state.irq_deliveries,
+            quarantined_vectors: state.quarantined_vectors,
+            spurious_vectors: state.spurious_vectors,
+            last_tlb_epoch: state.last_tlb_epoch,
+            reschedule_pending: false,
+            panic_latched: true,
+          },
+          ExceptionAction::Panic { reason: 3 },
+        )
+      } else {
+        if event.vector == 2 || event.vector == 8 || event.vector == 18 {
+          (
+            ExceptionState {
+              fault_generation: state.fault_generation,
+              timer_expiries: state.timer_expiries,
+              irq_deliveries: state.irq_deliveries,
+              quarantined_vectors: state.quarantined_vectors,
+              spurious_vectors: state.spurious_vectors,
+              last_tlb_epoch: state.last_tlb_epoch,
+              reschedule_pending: false,
+              panic_latched: true,
+            },
+            ExceptionAction::Panic { reason: 4 },
+          )
+        } else {
+          if event.vector < 32 {
+            if !event.from_user {
+              (
+                ExceptionState {
+                  fault_generation: state.fault_generation,
+                  timer_expiries: state.timer_expiries,
+                  irq_deliveries: state.irq_deliveries,
+                  quarantined_vectors: state.quarantined_vectors,
+                  spurious_vectors: state.spurious_vectors,
+                  last_tlb_epoch: state.last_tlb_epoch,
+                  reschedule_pending: false,
+                  panic_latched: true,
+                },
+                ExceptionAction::Panic { reason: 5 },
+              )
+            } else {
+              if event.vector == 14 &&
+                 ((event.error & 0xffff_ffff_ffff_ffe8) != 0 ||
+                  (event.error & 4) != 4) {
+                (
+                  ExceptionState {
+                    fault_generation: state.fault_generation,
+                    timer_expiries: state.timer_expiries,
+                    irq_deliveries: state.irq_deliveries,
+                    quarantined_vectors: state.quarantined_vectors,
+                    spurious_vectors: state.spurious_vectors,
+                    last_tlb_epoch: state.last_tlb_epoch,
+                    reschedule_pending: false,
+                    panic_latched: true,
+                  },
+                  ExceptionAction::Panic { reason: 6 },
+                )
+              } else {
+                if !event.thread_live || event.thread == 0 {
+                  (
+                    ExceptionState {
+                      fault_generation: state.fault_generation,
+                      timer_expiries: state.timer_expiries,
+                      irq_deliveries: state.irq_deliveries,
+                      quarantined_vectors: state.quarantined_vectors,
+                      spurious_vectors: state.spurious_vectors,
+                      last_tlb_epoch: state.last_tlb_epoch,
+                      reschedule_pending: false,
+                      panic_latched: true,
+                    },
+                    ExceptionAction::Panic { reason: 7 },
+                  )
+                } else {
+                  if event.fault_endpoint_valid {
+                    if state.fault_generation >= 0xffff_ffff_ffff_fffe {
+                      (
+                        ExceptionState {
+                          fault_generation: state.fault_generation,
+                          timer_expiries: state.timer_expiries,
+                          irq_deliveries: state.irq_deliveries,
+                          quarantined_vectors: state.quarantined_vectors,
+                          spurious_vectors: state.spurious_vectors,
+                          last_tlb_epoch: state.last_tlb_epoch,
+                          reschedule_pending: false,
+                          panic_latched: true,
+                        },
+                        ExceptionAction::Panic { reason: 8 },
+                      )
+                    } else {
+                      (
+                        ExceptionState {
+                          fault_generation: state.fault_generation + 1,
+                          timer_expiries: state.timer_expiries,
+                          irq_deliveries: state.irq_deliveries,
+                          quarantined_vectors: state.quarantined_vectors,
+                          spurious_vectors: state.spurious_vectors,
+                          last_tlb_epoch: state.last_tlb_epoch,
+                          reschedule_pending: state.reschedule_pending,
+                          panic_latched: false,
+                        },
+                        ExceptionAction::DeliverFault {
+                          generation: state.fault_generation + 1,
+                          thread: event.thread,
+                          kind: if event.vector == 14 { 1 } else { 2 },
+                          vector: event.vector,
+                          error: event.error,
+                          address: if event.vector == 14 { event.cr2 } else { 0 },
+                          access: if event.vector == 14 {
+                            if (event.error & 16) == 16 { 2 }
+                            else { if (event.error & 2) == 2 { 1 } else { 0 } }
+                          } else { 0 },
+                          vspace_epoch: event.vspace_epoch,
+                        },
+                      )
+                    }
+                  } else {
+                    (
+                      state,
+                      ExceptionAction::TerminateThread {
+                        thread: event.thread,
+                        vector: event.vector,
+                      },
+                    )
+                  }
+                }
+              }
+            }
+          } else {
+            if event.vector == 0xe0 {
+              if state.timer_expiries >= 0xffff_ffff_ffff_fffe {
+                (
+                  ExceptionState {
+                    fault_generation: state.fault_generation,
+                    timer_expiries: state.timer_expiries,
+                    irq_deliveries: state.irq_deliveries,
+                    quarantined_vectors: state.quarantined_vectors,
+                    spurious_vectors: state.spurious_vectors,
+                    last_tlb_epoch: state.last_tlb_epoch,
+                    reschedule_pending: false,
+                    panic_latched: true,
+                  },
+                  ExceptionAction::Panic { reason: 8 },
+                )
+              } else {
+                (
+                  ExceptionState {
+                    fault_generation: state.fault_generation,
+                    timer_expiries: state.timer_expiries + 1,
+                    irq_deliveries: state.irq_deliveries,
+                    quarantined_vectors: state.quarantined_vectors,
+                    spurious_vectors: state.spurious_vectors,
+                    last_tlb_epoch: state.last_tlb_epoch,
+                    reschedule_pending: true,
+                    panic_latched: false,
+                  },
+                  ExceptionAction::TimerRecorded {
+                    expiries: state.timer_expiries + 1,
+                  },
+                )
+              }
+            } else {
+              if event.vector == 0xe1 {
+                (
+                  ExceptionState {
+                    fault_generation: state.fault_generation,
+                    timer_expiries: state.timer_expiries,
+                    irq_deliveries: state.irq_deliveries,
+                    quarantined_vectors: state.quarantined_vectors,
+                    spurious_vectors: state.spurious_vectors,
+                    last_tlb_epoch: state.last_tlb_epoch,
+                    reschedule_pending: true,
+                    panic_latched: false,
+                  },
+                  ExceptionAction::Reschedule,
+                )
+              } else {
+                if event.vector == 0xe2 {
+                  if event.shootdown_epoch == 0 {
+                    (
+                      ExceptionState {
+                        fault_generation: state.fault_generation,
+                        timer_expiries: state.timer_expiries,
+                        irq_deliveries: state.irq_deliveries,
+                        quarantined_vectors: state.quarantined_vectors,
+                        spurious_vectors: state.spurious_vectors,
+                        last_tlb_epoch: state.last_tlb_epoch,
+                        reschedule_pending: false,
+                        panic_latched: true,
+                      },
+                      ExceptionAction::Panic { reason: 10 },
+                    )
+                  } else {
+                    if event.shootdown_epoch <= state.last_tlb_epoch {
+                      (
+                        state,
+                        ExceptionAction::StaleTlbShootdown {
+                          epoch: event.shootdown_epoch,
+                          acknowledge: event.acknowledge_required,
+                        },
+                      )
+                    } else {
+                      (
+                        ExceptionState {
+                          fault_generation: state.fault_generation,
+                          timer_expiries: state.timer_expiries,
+                          irq_deliveries: state.irq_deliveries,
+                          quarantined_vectors: state.quarantined_vectors,
+                          spurious_vectors: state.spurious_vectors,
+                          last_tlb_epoch: event.shootdown_epoch,
+                          reschedule_pending: state.reschedule_pending,
+                          panic_latched: false,
+                        },
+                        ExceptionAction::TlbShootdown {
+                          epoch: event.shootdown_epoch,
+                          acknowledge: event.acknowledge_required,
+                        },
+                      )
+                    }
+                  }
+                } else {
+                  if event.vector == 0xe3 {
+                    (
+                      ExceptionState {
+                        fault_generation: state.fault_generation,
+                        timer_expiries: state.timer_expiries,
+                        irq_deliveries: state.irq_deliveries,
+                        quarantined_vectors: state.quarantined_vectors,
+                        spurious_vectors: state.spurious_vectors,
+                        last_tlb_epoch: state.last_tlb_epoch,
+                        reschedule_pending: false,
+                        panic_latched: true,
+                      },
+                      ExceptionAction::Panic { reason: 9 },
+                    )
+                  } else {
+                    if event.vector == 0xff {
+                      if state.spurious_vectors >= 0xffff_ffff_ffff_fffe {
+                        (
+                          ExceptionState {
+                            fault_generation: state.fault_generation,
+                            timer_expiries: state.timer_expiries,
+                            irq_deliveries: state.irq_deliveries,
+                            quarantined_vectors: state.quarantined_vectors,
+                            spurious_vectors: state.spurious_vectors,
+                            last_tlb_epoch: state.last_tlb_epoch,
+                            reschedule_pending: false,
+                            panic_latched: true,
+                          },
+                          ExceptionAction::Panic { reason: 8 },
+                        )
+                      } else {
+                        (
+                          ExceptionState {
+                            fault_generation: state.fault_generation,
+                            timer_expiries: state.timer_expiries,
+                            irq_deliveries: state.irq_deliveries,
+                            quarantined_vectors: state.quarantined_vectors,
+                            spurious_vectors: state.spurious_vectors + 1,
+                            last_tlb_epoch: state.last_tlb_epoch,
+                            reschedule_pending: state.reschedule_pending,
+                            panic_latched: false,
+                          },
+                          ExceptionAction::Spurious {
+                            count: state.spurious_vectors + 1,
+                          },
+                        )
+                      }
+                    } else {
+                      if event.vector >= 0x30 && event.vector <= 0xdf && event.irq_bound {
+                        if state.irq_deliveries >= 0xffff_ffff_ffff_fffe {
+                          (
+                            ExceptionState {
+                              fault_generation: state.fault_generation,
+                              timer_expiries: state.timer_expiries,
+                              irq_deliveries: state.irq_deliveries,
+                              quarantined_vectors: state.quarantined_vectors,
+                              spurious_vectors: state.spurious_vectors,
+                              last_tlb_epoch: state.last_tlb_epoch,
+                              reschedule_pending: false,
+                              panic_latched: true,
+                            },
+                            ExceptionAction::Panic { reason: 8 },
+                          )
+                        } else {
+                          (
+                            ExceptionState {
+                              fault_generation: state.fault_generation,
+                              timer_expiries: state.timer_expiries,
+                              irq_deliveries: state.irq_deliveries + 1,
+                              quarantined_vectors: state.quarantined_vectors,
+                              spurious_vectors: state.spurious_vectors,
+                              last_tlb_epoch: state.last_tlb_epoch,
+                              reschedule_pending: state.reschedule_pending ||
+                                                  event.wakes_higher_priority,
+                              panic_latched: false,
+                            },
+                            ExceptionAction::NotifyIrq {
+                              vector: event.vector,
+                              masked: true,
+                              acknowledge: event.acknowledge_required,
+                              reschedule: state.reschedule_pending ||
+                                          event.wakes_higher_priority,
+                            },
+                          )
+                        }
+                      } else {
+                        if state.quarantined_vectors >= 0xffff_ffff_ffff_fffe {
+                          (
+                            ExceptionState {
+                              fault_generation: state.fault_generation,
+                              timer_expiries: state.timer_expiries,
+                              irq_deliveries: state.irq_deliveries,
+                              quarantined_vectors: state.quarantined_vectors,
+                              spurious_vectors: state.spurious_vectors,
+                              last_tlb_epoch: state.last_tlb_epoch,
+                              reschedule_pending: false,
+                              panic_latched: true,
+                            },
+                            ExceptionAction::Panic { reason: 8 },
+                          )
+                        } else {
+                          (
+                            ExceptionState {
+                              fault_generation: state.fault_generation,
+                              timer_expiries: state.timer_expiries,
+                              irq_deliveries: state.irq_deliveries,
+                              quarantined_vectors: state.quarantined_vectors + 1,
+                              spurious_vectors: state.spurious_vectors,
+                              last_tlb_epoch: state.last_tlb_epoch,
+                              reschedule_pending: state.reschedule_pending,
+                              panic_latched: false,
+                            },
+                            ExceptionAction::Quarantine {
+                              vector: event.vector,
+                              acknowledge: event.acknowledge_required,
+                            },
+                          )
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -417,6 +417,44 @@ the joined stub/common/dispatcher link, concrete guarded-stack ownership, GS
 base initialization, and live IDT delivery remain open. No privileged execution
 claim is made by host-side model and post-link evidence.
 
+### 7.3 Implemented exception-dispatch policy checkpoint
+
+The pure dispatcher decision transition is implemented in
+`thermite/platform/exception_policy.th` and accepted through the same-crate
+Thermite/direct-Verus kernel composition. Its state tracks fault generations,
+timer expiries, delivered and quarantined IRQ counts, spurious counts, the most
+recent TLB epoch, pending reschedule state, and a latched fail-stop state. Its
+input is a normalized entry event rather than raw stack memory.
+
+User exceptions either emit a generation-tagged fault message action or a
+thread-termination action. Page-fault delivery additionally requires the user
+bit, rejects unsupported/corrupt error bits, captures CR2 and the VSpace epoch,
+and decodes read/write/execute access. Kernel exceptions, NMI, double fault,
+machine check, invalid frames/vectors, missing current threads, counter
+exhaustion, a zero TLB epoch, and the stop IPI enter a reason-tagged latched
+panic state. Timer and reschedule IPIs set pending reschedule; newer TLB epochs
+emit shootdown actions while stale nonzero epochs are acknowledged without
+regression. Bound device IRQs always emit `masked=true` before notification;
+unbound, legacy, and reserved vectors are quarantined; vector `0xff` is counted
+as spurious.
+
+`cargo run -p xtask -- m1-exception-policy` requires the 64/64 Forge mutation
+battery, three reproducible proof/codegen bundles, receipt validation and
+replay, two freestanding links, 18 separately executed policy scenarios, four
+source-proof negatives, and three receipt/kernel-vstd tamper negatives. The
+higher-half ELF has no undefined symbols and links the compiler-emitted copies
+to the accepted M0 primitive object; post-link extraction requires exact
+identity with the verified nine-byte `memcpy` capsule. See
+[M1 exception-dispatch policy](../evidence/m1/exception-dispatch-policy.md).
+
+This checkpoint does not implement the function body at
+`0xffffffff80011100`, decode the concrete saved frame, select the current
+thread under the kernel lock, construct a fault-reply token, or execute any
+returned machine action. TLB classification is not a proof of page-table
+invalidation, and timer/IRQ classification does not program or acknowledge the
+LAPIC. A joined verified bridge and QEMU fault/interrupt execution remain the
+next entry-path gates.
+
 SMAP is enabled. User memory is accessed only by proved copy primitives that
 bound the range, validate the VSpace mapping epoch, bracket access with
 `STAC`/`CLAC`, and return a partial-copy result on fault.

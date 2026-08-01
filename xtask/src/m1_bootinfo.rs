@@ -16,8 +16,9 @@ const FREESTANDING: &str = "tests/m1/bootinfo_freestanding.rs";
 const CRATE_NAME: &str = "tmk_bootinfo";
 const ARTIFACT: &str = "artifact/libtmk_bootinfo.rlib";
 const RECEIPT_SCHEMA: &str = "thermite.verified-composition-receipt.v1";
-const THERMITE_COMMIT: &str = "1fb0a799071d35493815ba99b9ca26af9a22eb1c";
-const FORGE_SHA256: &str = "12240457546220ebefba7c7a5e3ab2d127acaf9b592543a8d0394bf0c8253b74";
+pub(super) const THERMITE_COMMIT: &str = "1fb0a799071d35493815ba99b9ca26af9a22eb1c";
+pub(super) const FORGE_SHA256: &str =
+    "12240457546220ebefba7c7a5e3ab2d127acaf9b592543a8d0394bf0c8253b74";
 const RUNTIME_MARKER: &str = "M1_BOOTINFO_OK ranges=2 last=0000000000a00000 bsp=7 negatives=12";
 
 pub fn run() -> Result<(), String> {
@@ -175,7 +176,7 @@ fn build_command(forge: &Path, root: &Path, shell: &Path, out: &Path) -> Command
     command
 }
 
-fn validate_candidate_pin(forge: &Path) -> Result<(), String> {
+pub(super) fn validate_candidate_pin(forge: &Path) -> Result<(), String> {
     let actual_forge_sha = sha256sum(forge)?;
     if actual_forge_sha != FORGE_SHA256 {
         return Err(format!(

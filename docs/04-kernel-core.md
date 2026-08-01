@@ -185,6 +185,25 @@ fault.
 Kernel-mode page faults, invalid internal object references, and failed invariant
 checks are fail-stop kernel faults.
 
+### 8.1 Implemented exception-policy checkpoint
+
+The first executable fault-policy transition is accepted in Thermite. It proves
+that a valid live user thread with a fault endpoint receives an exact
+generation-tagged fault action carrying vector/error, decoded page access, CR2,
+and VSpace epoch; absence of the endpoint terminates the thread without creating
+a reply generation. Fatal architectural vectors, kernel exceptions, corrupt
+page-fault metadata, missing thread state, invalid frames/vectors, overflow, and
+stop requests produce an exact reason and latch fail-stop state with rescheduling
+cleared. The same transition classifies timer, reschedule, TLB, device,
+quarantine, and spurious events without conflating those actions with fault
+delivery.
+
+The accepted claim ends at the returned state/action pair. Current-thread and
+endpoint lookup, fault-token object allocation, scheduler queue mutation,
+platform masking/acknowledgement, TLB invalidation, and the concrete frame-to-
+event/action-to-machine bridge are still later verified transitions. See
+[M1 exception-dispatch policy](../evidence/m1/exception-dispatch-policy.md).
+
 ## 9. Transition atomicity
 
 Every syscall follows:

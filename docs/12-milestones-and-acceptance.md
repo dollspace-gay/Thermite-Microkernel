@@ -182,13 +182,24 @@ normalized-frame disposal, and `IRETQ` sequence. Three model, runtime, and linke
 artifacts reproduce byte-for-byte; eight negative gates fail. See
 [M1 common exception-entry capsule](../evidence/m1/exception-common-capsule.md).
 
+The pure exception-dispatch transition is an eleventh accepted M1 subcomponent.
+Its Thermite/direct-Verus composition proves exact action/state results for user
+fault delivery or termination, fatal and malformed entry, timer/reschedule/TLB/
+stop IPIs, bound/unbound IRQs, quarantine, spurious interrupts, and counter
+exhaustion. Three builds reproduce and replay, 64/64 mutants are killed, a
+separate consumer executes 18 scenarios, seven source/receipt/dependency
+negatives fail, and the no-undefined-symbol higher-half ELF reuses and
+post-link-matches the verified M0 `memcpy` capsule. See
+[M1 exception-dispatch policy](../evidence/m1/exception-dispatch-policy.md).
+
 This status does not close M1. Thermite PR #109 still requires upstream merge and
 a coordinated project-wide main-branch repin. The UEFI call gateway, raw UEFI
 descriptor decoding and real `ExitBootServices` execution,
 general page-table construction/physical placement, the verified CR3 call site
 and hardware execution, descriptor-register loading and entry stubs, BSP entry
 state, live descriptor-install execution, interrupt/timer path, QEMU boots, the
-exception dispatcher and joined entry path, final signed `M1_OK` gate, and
+concrete exception dispatcher bridge and joined entry path, final signed `M1_OK`
+gate, and
 remaining hardware execution remain to be implemented.
 
 Deliver:
